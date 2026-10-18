@@ -21,6 +21,16 @@ interface Props {
   selectedCargo?: string;
 }
 
+// Casillas para marcar a mano en la hoja impresa del día
+const CHECK_COLUMNS = ['Llegó', 'Salió a col.', 'Se fue'];
+const CHECKBOX_STYLE: React.CSSProperties = {
+  display: 'inline-block',
+  width: '14px',
+  height: '14px',
+  border: '1.5px solid #374151',
+  borderRadius: '3px',
+};
+
 interface HourRow {
   hour: string;
   entering: number;
@@ -31,6 +41,7 @@ interface HourRow {
 
 interface WorkerShiftDetail {
   name: string;
+  sucursal: string;
   shiftLabel: string;
   start: string;
   end: string;
@@ -354,6 +365,7 @@ export default function MallaSummary({
       if (!shift) return;
       details.push({
         name: w.name,
+        sucursal: w.sucursal,
         shiftLabel: shift.label,
         start: shift.start,
         end: shift.end,
@@ -390,6 +402,7 @@ export default function MallaSummary({
         if (!shift) return;
         dayWorkers.push({
           name: w.name,
+          sucursal: w.sucursal,
           shiftLabel: shift.label,
           start: shift.start,
           end: shift.end,
@@ -421,6 +434,11 @@ export default function MallaSummary({
       wk.endDay
     );
   }, [workers, scheduleData, specialDaysData, shifts, weekOptions, selectedWeekIdx]);
+
+  // Columna de sucursal solo si la hoja mezcla varias sucursales
+  const multiSucursal = new Set(workerDetails.map((w) => w.sucursal)).size > 1;
+  // #, Nombre, (Sucursal), Entrada, Salida, Colación, 3 casillas, HE
+  const dayColumnCount = 5 + (multiSucursal ? 1 : 0) + CHECK_COLUMNS.length + 1;
 
   const handlePrint = () => {
     window.print();
@@ -557,6 +575,20 @@ export default function MallaSummary({
                         >
                           Nombre
                         </th>
+                        {multiSucursal && (
+                          <th
+                            style={{
+                              textAlign: 'left',
+                              padding: '4px 8px',
+                              borderBottom: '2px solid #d1d5db',
+                              fontWeight: '700',
+                              fontSize: '10px',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            Sucursal
+                          </th>
+                        )}
                         <th
                           style={{
                             textAlign: 'center',
@@ -596,6 +628,35 @@ export default function MallaSummary({
                         >
                           Colación
                         </th>
+                        {CHECK_COLUMNS.map((label) => (
+                          <th
+                            key={`chk-h-${label}`}
+                            style={{
+                              textAlign: 'center',
+                              padding: '4px 6px',
+                              borderBottom: '2px solid #d1d5db',
+                              fontWeight: '700',
+                              fontSize: '10px',
+                              textTransform: 'uppercase',
+                              width: '52px',
+                            }}
+                          >
+                            {label}
+                          </th>
+                        ))}
+                        <th
+                          style={{
+                            textAlign: 'center',
+                            padding: '4px 6px',
+                            borderBottom: '2px solid #d1d5db',
+                            fontWeight: '700',
+                            fontSize: '10px',
+                            textTransform: 'uppercase',
+                            width: '64px',
+                          }}
+                        >
+                          HE
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -621,7 +682,7 @@ export default function MallaSummary({
                             {isFirstTarde && (
                               <tr>
                                 <td
-                                  colSpan={5}
+                                  colSpan={dayColumnCount}
                                   style={{
                                     padding: '6px 10px',
                                     background: '#fff7ed',
@@ -661,6 +722,18 @@ export default function MallaSummary({
                               >
                                 {wd.name}
                               </td>
+                              {multiSucursal && (
+                                <td
+                                  style={{
+                                    padding: '4px 8px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    fontSize: '10px',
+                                    color: '#4b5563',
+                                  }}
+                                >
+                                  {wd.sucursal}
+                                </td>
+                              )}
                               <td
                                 style={{
                                   padding: '4px 10px',
@@ -697,6 +770,25 @@ export default function MallaSummary({
                               >
                                 {wd.colacion === 0 ? '0' : `${wd.colacion} min`}
                               </td>
+                              {CHECK_COLUMNS.map((label) => (
+                                <td
+                                  key={`chk-${i}-${label}`}
+                                  style={{
+                                    padding: '4px 6px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    textAlign: 'center',
+                                  }}
+                                >
+                                  <span style={CHECKBOX_STYLE} />
+                                </td>
+                              ))}
+                              <td
+                                style={{
+                                  padding: '4px 6px',
+                                  borderBottom: '1px solid #e5e7eb',
+                                  borderLeft: '1px solid #e5e7eb',
+                                }}
+                              />
                             </tr>
                           </React.Fragment>
                         );
@@ -713,6 +805,10 @@ export default function MallaSummary({
                     }}
                   >
                     Total trabajadoras con turno: <strong>{workerDetails.length}</strong>
+                    <span style={{ marginLeft: '16px' }}>
+                      Marcar ✓ al llegar, al salir a colación y al irse. HE: anotar horas extra del
+                      día.
+                    </span>
                   </div>
                 </>
               )}

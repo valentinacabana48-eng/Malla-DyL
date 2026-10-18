@@ -65,9 +65,12 @@ export default function MallaContent() {
   const isReadonly = useReadonly();
 
   const [selectedArea, setSelectedArea] = useState('Todas');
-  const [selectedSucursal, setSelectedSucursal] = useState(globalSucursal);
+  // Sucursales y cargos elegidos ([] = todas / todos)
+  const [selectedSucursales, setSelectedSucursales] = useState<string[]>(
+    globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []
+  );
   const [selectedTurno, setSelectedTurno] = useState('Todos');
-  const [selectedCargo, setSelectedCargo] = useState('Todos');
+  const [selectedCargos, setSelectedCargos] = useState<string[]>([]);
   const [selectedHoras, setSelectedHoras] = useState<string[]>([]);
   const [nameSearch, setNameSearch] = useState('');
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -79,7 +82,8 @@ export default function MallaContent() {
   );
 
   // ─── Lock state (compartido entre dispositivos, solo admin lo cambia) ──────
-  const lockSucursal = selectedSucursal && selectedSucursal !== 'Todas' ? selectedSucursal : null;
+  // El bloqueo aplica cuando hay UNA sucursal elegida
+  const lockSucursal = selectedSucursales.length === 1 ? selectedSucursales[0] : null;
   const { isLocked, setLocked } = useSharedLock(
     lockSucursal ? `malla_locked:${lockSucursal}` : null
   );
@@ -92,7 +96,7 @@ export default function MallaContent() {
   // ─────────────────────────────────────────────────────────────────────────
 
   React.useEffect(() => {
-    setSelectedSucursal(globalSucursal);
+    setSelectedSucursales(globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []);
   }, [globalSucursal]);
 
   React.useEffect(() => {
@@ -209,8 +213,8 @@ export default function MallaContent() {
     return workers.filter((w) => {
       if (w.estado !== 'Activo') return false;
       if (selectedArea !== 'Todas' && w.area !== selectedArea) return false;
-      if (selectedSucursal !== 'Todas' && w.sucursal !== selectedSucursal) return false;
-      if (selectedCargo !== 'Todos' && w.cargo !== selectedCargo) return false;
+      if (selectedSucursales.length > 0 && !selectedSucursales.includes(w.sucursal)) return false;
+      if (selectedCargos.length > 0 && !selectedCargos.includes(w.cargo)) return false;
       // Contracted hours multi-select filter
       if (selectedHoras.length > 0) {
         const workerHrs = contractedHoursOverride[w.id] ?? w.horasContratadas ?? 42;
@@ -239,8 +243,8 @@ export default function MallaContent() {
   }, [
     workers,
     selectedArea,
-    selectedSucursal,
-    selectedCargo,
+    selectedSucursales,
+    selectedCargos,
     selectedTurno,
     selectedHoras,
     nameSearch,
@@ -401,7 +405,9 @@ export default function MallaContent() {
             isLocked={isLocked}
             subject={lockSucursal ? `la malla de ${lockSucursal}` : 'la malla'}
             onToggle={handleToggleLock}
-            disabledReason={lockSucursal ? undefined : 'Elige una sucursal para bloquear su malla'}
+            disabledReason={
+              lockSucursal ? undefined : 'Elige una sola sucursal para bloquear su malla'
+            }
           />
           <button
             onClick={() => setShowDownloadModal(true)}
@@ -471,13 +477,13 @@ export default function MallaContent() {
         setSelectedMes={setSelectedMes}
         selectedArea={selectedArea}
         setSelectedArea={setSelectedArea}
-        selectedSucursal={selectedSucursal}
-        setSelectedSucursal={setSelectedSucursal}
+        selectedSucursales={selectedSucursales}
+        setSelectedSucursales={setSelectedSucursales}
         selectedTurno={selectedTurno}
         setSelectedTurno={setSelectedTurno}
         turnoOptions={turnoOptions}
-        selectedCargo={selectedCargo}
-        setSelectedCargo={setSelectedCargo}
+        selectedCargos={selectedCargos}
+        setSelectedCargos={setSelectedCargos}
         selectedHoras={selectedHoras}
         setSelectedHoras={setSelectedHoras}
         nameSearch={nameSearch}
@@ -513,10 +519,14 @@ export default function MallaContent() {
           scheduleData={currentMonthSchedule}
           specialDaysData={currentMonthSpecialDays}
           shifts={shifts}
-          totalCajas={selectedSucursal !== 'Todas' ? getSucursalCajas(selectedSucursal) : 20}
+          totalCajas={
+            selectedSucursales.length > 0
+              ? selectedSucursales.reduce((sum, s) => sum + getSucursalCajas(s), 0)
+              : 20
+          }
           daysInMonth={daysInMonth}
           monthLabel={selectedMes}
-          selectedCargo={selectedCargo}
+          selectedCargo={selectedCargos.length === 1 ? selectedCargos[0] : 'Todos'}
         />
       </div>
 
