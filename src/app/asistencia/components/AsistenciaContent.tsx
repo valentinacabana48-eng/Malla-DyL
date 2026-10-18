@@ -621,8 +621,11 @@ export default function AsistenciaContent() {
     return true;
   }
 
-  // Marca como presentes a quienes aún no tienen registro ese día (los descansos se marcan solos).
-  // No pisa lo que ya se registró a mano (ausencias, vacaciones, notas…): eso se cambia uno por uno.
+  // "Todas asistieron": aplica la Malla de ese día a todos los trabajadores filtrados.
+  // - Con turno → Presente.  - Descanso/Feriado → Descanso.
+  // - Licencia, vacaciones, permiso, cumpleaños → ese mismo estado.
+  // - Sin nada en la Malla → No trabajaba, salvo que ya tenga un registro hecho a mano
+  //   (p. ej. vino a cubrir), que se respeta.
   async function markAllPresent(dateStr: string) {
     if (isPanelLocked) return;
     if (lockedDates.has(dateStr)) return;
@@ -630,12 +633,15 @@ export default function AsistenciaContent() {
     setSavingDate(dateStr);
     const now = new Date().toISOString();
 
+    const fromMalla = (w: { id: string }) => {
+      const autoStatus = getAutoStatus(w.id, dateStr);
+      return autoStatus === null ? 'PRESENTE' : autoStatus;
+    };
     const allUpserts = filteredWorkers
-      .filter((w) => !attendance[w.id]?.[dateStr])
+      .filter((w) => !(fromMalla(w) === 'NT_SOFT' && attendance[w.id]?.[dateStr]))
       .map((w) => {
-        const autoStatus = getAutoStatus(w.id, dateStr);
-        const status =
-          autoStatus !== null ? (autoStatus === 'NT_SOFT' ? 'NT' : autoStatus) : 'PRESENTE';
+        const malla = fromMalla(w);
+        const status = malla === 'NT_SOFT' ? 'NT' : malla;
         return {
           worker_id: w.id,
           record_date: dateStr,
@@ -669,16 +675,20 @@ export default function AsistenciaContent() {
 
     try {
       if (allUpserts.length > 0) {
-        // ignoreDuplicates: si otra persona registró a alguien mientras tanto, se respeta su registro
         const { error } = await supabase
           .from('attendance_records')
-          .upsert(allUpserts, { onConflict: 'worker_id,record_date', ignoreDuplicates: true });
+          .upsert(allUpserts, { onConflict: 'worker_id,record_date' });
         if (error) {
           console.error('Error marking all present:', error);
           setSaveError(`Error al guardar: ${error.message}`);
           setTimeout(() => setSaveError(null), 5000);
+          await reloadFromDb(allUpserts);
+        } else {
+          setSaveNotice(
+            `Asistencia del día marcada según la Malla (${allUpserts.length} trabajador(es)).`
+          );
+          setTimeout(() => setSaveNotice(null), 4000);
         }
-        await reloadFromDb(allUpserts);
       }
     } catch (err) {
       console.error('Error marking all present:', err);
