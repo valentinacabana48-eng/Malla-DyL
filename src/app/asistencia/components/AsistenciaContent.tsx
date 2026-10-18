@@ -40,6 +40,7 @@ import {
   Eye,
   EyeOff,
   LogOut,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 // ─── Stable Supabase client (module-level singleton) ─────────────────────────
@@ -206,7 +207,7 @@ function MultiSelect({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 pl-3 pr-2 py-2 text-xs border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer min-w-[140px] max-w-[200px]"
+        className="flex items-center gap-2 pl-3 pr-2 py-3 lg:py-2 text-sm lg:text-xs border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer w-full lg:w-auto min-w-[140px] lg:max-w-[200px]"
       >
         <span className="flex-1 text-left truncate">{label}</span>
         {selected.length > 0 && (
@@ -223,7 +224,7 @@ function MultiSelect({
         <ChevronDown size={12} className="text-gray-400 shrink-0" />
       </button>
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[180px] max-h-56 overflow-y-auto">
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 lg:right-auto bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[180px] max-h-56 overflow-y-auto">
           {options.length === 0 && <p className="px-3 py-2 text-xs text-gray-400">{emptyLabel}</p>}
           {options.map((opt) => {
             const checked = selected.includes(opt);
@@ -232,7 +233,7 @@ function MultiSelect({
                 key={opt}
                 type="button"
                 onClick={() => toggle(opt)}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-gray-50 transition-colors ${checked ? 'text-blue-700 font-medium' : 'text-gray-700'}`}
+                className={`w-full flex items-center gap-2 px-3 py-3 lg:py-2 text-sm lg:text-xs text-left hover:bg-gray-50 transition-colors ${checked ? 'text-blue-700 font-medium' : 'text-gray-700'}`}
               >
                 <span
                   className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}
@@ -284,6 +285,25 @@ export default function AsistenciaContent() {
   const [filterTurnoEspecifico, setFilterTurnoEspecifico] = useState<string>('Todos');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [searchName, setSearchName] = useState<string>('');
+  // Celular: los filtros van en un panel que se abre con el botón "Filtros"
+  const [showFilters, setShowFilters] = useState(false);
+  const dateStripRef = useRef<HTMLDivElement>(null);
+
+  // En el celular se abre directo el día de hoy: la tabla del período no cabe en la pantalla
+  useEffect(() => {
+    if (!window.matchMedia('(max-width: 1023px)').matches) return;
+    const today = getTodayStr();
+    if (today >= startDate && today <= endDate) setSelectedDate(today);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // La barra de fechas se desplaza sola hasta el día elegido
+  useEffect(() => {
+    if (!selectedDate) return;
+    dateStripRef.current
+      ?.querySelector(`[data-date="${selectedDate}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [selectedDate, filterSucursal]);
 
   const [attendance, setAttendance] = useState<Record<string, Record<string, AttendanceRecord>>>(
     {}
@@ -1558,13 +1578,20 @@ export default function AsistenciaContent() {
   const cargosList = Array.from(
     new Set(workers.filter((w) => w.estado === 'Activo' && w.cargo).map((w) => w.cargo))
   ).sort();
+  const activeFilterCount =
+    (filterSucursal.length > 0 ? 1 : 0) +
+    (filterArea !== 'Todas' ? 1 : 0) +
+    (filterCargo.length > 0 ? 1 : 0) +
+    (filterTurno !== 'Todos' ? 1 : 0) +
+    (filterTurnoEspecifico !== 'Todos' ? 1 : 0) +
+    (searchName.trim() ? 1 : 0);
   const periodLabel =
     startDate && endDate ? formatPeriodLabel(startDate, endDate) : 'Selecciona fechas';
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-gray-50">
+    <div className="flex flex-col min-h-full lg:h-full lg:min-h-0 bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
+      <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 lg:py-4 shrink-0">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
@@ -1575,7 +1602,20 @@ export default function AsistenciaContent() {
               <p className="text-xs text-gray-500">{periodLabel}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setShowFilters(true)}
+              className="lg:hidden flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700"
+            >
+              <SlidersHorizontal size={16} />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span className="min-w-[20px] h-5 px-1 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
             {/* Global panel lock */}
             <LockToggle
               isLocked={isPanelLocked}
@@ -1591,7 +1631,7 @@ export default function AsistenciaContent() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-              Actualizar
+              <span className="hidden sm:inline">Actualizar</span>
             </button>
             <button
               onClick={saveReport}
@@ -1611,9 +1651,32 @@ export default function AsistenciaContent() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3 mt-4 items-center">
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5">
+        {/* Filters: en el computador van en una fila; en el celular, en un panel que sube desde abajo */}
+        {showFilters && (
+          <div
+            className="lg:hidden fixed inset-0 bg-black/50 z-40"
+            onClick={() => setShowFilters(false)}
+          />
+        )}
+        <div
+          className={`${
+            showFilters
+              ? 'fixed inset-x-0 bottom-0 z-50 flex flex-col max-h-[85dvh] overflow-y-auto bg-white rounded-t-3xl px-4 pt-3 pb-6 shadow-2xl'
+              : 'hidden'
+          } lg:static lg:z-auto lg:flex lg:flex-row lg:flex-wrap lg:max-h-none lg:overflow-visible lg:bg-transparent lg:rounded-none lg:p-0 lg:shadow-none lg:mt-4 gap-3 items-stretch lg:items-center`}
+        >
+          <div className="lg:hidden flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-900">Filtros</h2>
+            <button
+              type="button"
+              onClick={() => setShowFilters(false)}
+              aria-label="Cerrar filtros"
+              className="w-11 h-11 flex items-center justify-center rounded-xl text-gray-500"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 lg:py-1.5 w-full lg:w-auto">
             <Calendar size={13} className="text-gray-400 shrink-0" />
             <span className="text-xs text-gray-500 shrink-0">Desde</span>
             <input
@@ -1623,10 +1686,10 @@ export default function AsistenciaContent() {
                 setStartDate(e.target.value);
                 setSelectedDate('');
               }}
-              className="text-xs text-gray-700 bg-transparent border-none outline-none cursor-pointer"
+              className="flex-1 lg:flex-none text-base lg:text-xs text-gray-700 bg-transparent border-none outline-none cursor-pointer"
             />
           </div>
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5">
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 lg:py-1.5 w-full lg:w-auto">
             <Calendar size={13} className="text-gray-400 shrink-0" />
             <span className="text-xs text-gray-500 shrink-0">Hasta</span>
             <input
@@ -1637,11 +1700,11 @@ export default function AsistenciaContent() {
                 setEndDate(e.target.value);
                 setSelectedDate('');
               }}
-              className="text-xs text-gray-700 bg-transparent border-none outline-none cursor-pointer"
+              className="flex-1 lg:flex-none text-base lg:text-xs text-gray-700 bg-transparent border-none outline-none cursor-pointer"
             />
           </div>
 
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5">
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 lg:py-1.5 w-full lg:w-auto">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="13"
@@ -1662,7 +1725,7 @@ export default function AsistenciaContent() {
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
               placeholder="Buscar nombre..."
-              className="text-xs text-gray-700 bg-transparent border-none outline-none w-32"
+              className="flex-1 min-w-0 lg:flex-none lg:w-32 text-base lg:text-xs text-gray-700 bg-transparent border-none outline-none"
             />
             {searchName && (
               <button
@@ -1687,7 +1750,7 @@ export default function AsistenciaContent() {
             )}
           </div>
 
-          <div className="relative">
+          <div className="relative w-full lg:w-auto">
             <MultiSelect
               options={sucursalesList}
               selected={filterSucursal}
@@ -1698,11 +1761,11 @@ export default function AsistenciaContent() {
             />
           </div>
 
-          <div className="relative">
+          <div className="relative w-full lg:w-auto">
             <select
               value={filterArea}
               onChange={(e) => setFilterArea(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 text-xs border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
+              className="w-full lg:w-auto appearance-none pl-3 pr-8 py-3 lg:py-2 text-base lg:text-xs border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
             >
               {areasList.map((a) => (
                 <option key={a} value={a}>
@@ -1716,7 +1779,7 @@ export default function AsistenciaContent() {
             />
           </div>
 
-          <div className="relative">
+          <div className="relative w-full lg:w-auto">
             <MultiSelect
               options={cargosList}
               selected={filterCargo}
@@ -1727,23 +1790,23 @@ export default function AsistenciaContent() {
             />
           </div>
 
-          <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl p-1">
+          <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl p-1 w-full lg:w-auto">
             <button
               onClick={() => setFilterTurno('Todos')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterTurno === 'Todos' ? 'bg-white text-gray-800 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex flex-1 lg:flex-none justify-center items-center gap-1 px-2.5 py-2.5 lg:py-1 rounded-lg text-sm lg:text-xs font-medium transition-colors ${filterTurno === 'Todos' ? 'bg-white text-gray-800 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
             >
               Todos
             </button>
             <button
               onClick={() => setFilterTurno('AM')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterTurno === 'AM' ? 'bg-amber-100 text-amber-800 shadow-sm border border-amber-200' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex flex-1 lg:flex-none justify-center items-center gap-1 px-2.5 py-2.5 lg:py-1 rounded-lg text-sm lg:text-xs font-medium transition-colors ${filterTurno === 'AM' ? 'bg-amber-100 text-amber-800 shadow-sm border border-amber-200' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <Sun size={11} />
               Mañana
             </button>
             <button
               onClick={() => setFilterTurno('Tarde')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterTurno === 'Tarde' ? 'bg-indigo-100 text-indigo-800 shadow-sm border border-indigo-200' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex flex-1 lg:flex-none justify-center items-center gap-1 px-2.5 py-2.5 lg:py-1 rounded-lg text-sm lg:text-xs font-medium transition-colors ${filterTurno === 'Tarde' ? 'bg-indigo-100 text-indigo-800 shadow-sm border border-indigo-200' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <Sunset size={11} />
               Tarde
@@ -1752,11 +1815,11 @@ export default function AsistenciaContent() {
 
           {/* Specific shift filter */}
           {Object.keys(shifts).length > 0 && (
-            <div className="relative">
+            <div className="relative w-full lg:w-auto">
               <select
                 value={filterTurnoEspecifico}
                 onChange={(e) => setFilterTurnoEspecifico(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 text-xs border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
+                className="w-full lg:w-auto appearance-none pl-3 pr-8 py-3 lg:py-2 text-base lg:text-xs border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
               >
                 <option value="Todos">Todos los turnos</option>
                 {Object.values(shifts)
@@ -1774,17 +1837,24 @@ export default function AsistenciaContent() {
             </div>
           )}
 
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
+          <div className="hidden lg:flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
             <Users size={13} />
             <span>
               {filteredWorkers.length} trabajadora{filteredWorkers.length !== 1 ? 's' : ''}
             </span>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowFilters(false)}
+            className="lg:hidden mt-2 py-3.5 rounded-xl bg-[#0f2744] text-white text-base font-bold"
+          >
+            Ver {filteredWorkers.length} trabajadora{filteredWorkers.length !== 1 ? 's' : ''}
+          </button>
         </div>
       </div>
 
       {/* Date selector strip */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3 shrink-0">
+      <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 shrink-0">
         {filterSucursal.length === 0 ? (
           <div className="flex items-center gap-2 py-1 px-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 font-medium">
             <AlertCircle size={14} className="text-amber-500 shrink-0" />
@@ -1795,7 +1865,7 @@ export default function AsistenciaContent() {
             Selecciona un rango de fechas válido para ver los días.
           </p>
         ) : (
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
+          <div ref={dateStripRef} className="flex gap-1.5 overflow-x-auto pb-1">
             {dates.map((dt) => {
               const { day, dow, monthShort } = formatDateLabel(dt);
               const isSelected = selectedDate === dt;
@@ -1808,8 +1878,9 @@ export default function AsistenciaContent() {
               return (
                 <button
                   key={dt}
+                  data-date={dt}
                   onClick={() => setSelectedDate(isSelected ? '' : dt)}
-                  className={`flex flex-col items-center px-2.5 py-2 rounded-xl min-w-[48px] transition-all border text-center shrink-0 ${
+                  className={`flex flex-col items-center px-2.5 py-2 rounded-xl min-w-[52px] lg:min-w-[48px] transition-all border text-center shrink-0 ${
                     isSelected
                       ? 'bg-blue-600 border-blue-600 text-white'
                       : isLocked
@@ -1844,7 +1915,7 @@ export default function AsistenciaContent() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 lg:overflow-auto p-4 lg:p-6">
         {filterSucursal.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-60 gap-4">
             <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center">
@@ -2081,34 +2152,34 @@ function DayView({
 
       {/* Stats + actions */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex gap-3">
+        <div className="grid grid-cols-3 gap-2 w-full lg:w-auto lg:flex lg:gap-3">
           <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center min-w-[80px]">
             <div className="text-lg font-bold text-green-600">{presentCount}</div>
-            <div className="text-[10px] text-gray-500">Presentes</div>
+            <div className="text-xs lg:text-[10px] text-gray-500">Presentes</div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center min-w-[80px]">
             <div className="text-lg font-bold text-red-500">{absentCount}</div>
-            <div className="text-[10px] text-gray-500">Faltas injust.</div>
+            <div className="text-xs lg:text-[10px] text-gray-500">Faltas injust.</div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center min-w-[80px]">
             <div className="text-lg font-bold text-amber-500">{totalHE}</div>
-            <div className="text-[10px] text-gray-500">HE Total</div>
+            <div className="text-xs lg:text-[10px] text-gray-500">HE Total</div>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-2 gap-2 w-full lg:w-auto lg:flex lg:items-center lg:flex-wrap">
           {!isLocked && (
             <>
               <button
                 onClick={onMarkAllPresent}
                 disabled={markingAll}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-xs font-semibold transition-colors"
+                className="col-span-2 flex items-center justify-center gap-2 px-4 py-3.5 lg:py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-base lg:text-xs font-semibold transition-colors"
               >
                 <CheckCheck size={14} />
                 {markingAll ? 'Guardando...' : 'Todas asistieron'}
               </button>
               <button
                 onClick={onOpenDailyAlert}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-3 lg:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm lg:text-xs font-semibold transition-colors"
               >
                 <AlertCircle size={14} />
                 Control del día
@@ -2118,7 +2189,9 @@ function DayView({
           {/* Lock / Unlock button */}
           <button
             onClick={onToggleLock}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+            className={`flex items-center justify-center gap-2 px-4 py-3 lg:py-2.5 rounded-xl text-sm lg:text-xs font-semibold transition-colors ${
+              isLocked ? 'col-span-2' : ''
+            } ${
               isLocked
                 ? 'bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200'
                 : 'bg-red-500 hover:bg-red-600 text-white'
@@ -2145,26 +2218,56 @@ function DayView({
             const he = overtime[w.id]?.[date]?.hours ?? 0;
 
             return (
-              <div key={w.id} className="flex items-center gap-3 px-5 py-3">
+              <div
+                key={w.id}
+                className="flex flex-wrap lg:flex-nowrap items-center gap-3 px-4 lg:px-5 py-4 lg:py-3"
+              >
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${w.avatarColor || 'bg-blue-100 text-blue-700'}`}
                 >
                   {w.initials}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">{w.name}</p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-base lg:text-sm font-semibold lg:font-medium text-gray-800 truncate">
+                    {w.name}
+                  </p>
+                  <p className="text-sm lg:text-xs text-gray-500 lg:text-gray-400">
                     {w.cargo || w.role} · {w.area}
                   </p>
                 </div>
+                {/* Celular: botones grandes para los dos estados más usados */}
+                {!isLocked && !isNT && !savingCells.has(`${w.id}_${date}`) && (
+                  <div className="lg:hidden w-full grid grid-cols-2 gap-2">
+                    {(['PRESENTE', 'AUSENTE'] as const).map((code) => {
+                      const active = status === code;
+                      const activeClass =
+                        code === 'PRESENTE'
+                          ? 'bg-green-600 border-green-600 text-white'
+                          : 'bg-red-600 border-red-600 text-white';
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => onChangeStatus(w.id, date, code)}
+                          aria-pressed={active}
+                          className={`min-h-[44px] rounded-xl border text-sm font-semibold ${
+                            active ? activeClass : 'bg-white border-gray-300 text-gray-700'
+                          }`}
+                        >
+                          {code === 'PRESENTE' ? 'Presente' : 'Falta'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 {/* Status selector — disabled when locked or NT from Malla */}
                 <div
-                  className="relative shrink-0"
+                  className="relative w-full lg:w-auto lg:shrink-0"
                   title={isNT ? 'No trabajaba según la Malla' : undefined}
                 >
                   {savingCells.has(`${w.id}_${date}`) ? (
                     <div
-                      className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border ${getStatusStyle(status)}`}
+                      className={`flex items-center gap-1.5 text-sm lg:text-xs font-medium px-2.5 py-3 lg:py-1.5 rounded-lg border ${getStatusStyle(status)}`}
                     >
                       <RefreshCw size={10} className="animate-spin opacity-60" />
                       <span className="opacity-70">Guardando…</span>
@@ -2175,7 +2278,8 @@ function DayView({
                         value={status}
                         onChange={(e) => onChangeStatus(w.id, date, e.target.value)}
                         disabled={isLocked || isNT}
-                        className={`appearance-none text-xs font-medium px-2.5 py-1.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-300 pr-6 ${getStatusStyle(status)} ${isLocked || isNT ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+                        aria-label={`Estado de ${w.name}`}
+                        className={`w-full lg:w-auto appearance-none text-base lg:text-xs font-medium px-3 lg:px-2.5 py-2.5 lg:py-1.5 rounded-xl lg:rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-300 pr-6 ${getStatusStyle(status)} ${isLocked || isNT ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
                       >
                         {SELECTABLE_STATUSES.map((s) => (
                           <option key={s.code} value={s.code}>
@@ -2190,19 +2294,23 @@ function DayView({
                       {!(isLocked || isNT) && (
                         <ChevronDown
                           size={10}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60"
+                          className="absolute right-3 lg:right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60"
                         />
                       )}
                     </>
                   )}
                 </div>
-                {isNT && <span className="text-[9px] text-gray-400 shrink-0">malla</span>}
-                {!isNT && isAuto && <span className="text-[9px] text-gray-400 shrink-0">auto</span>}
+                {isNT && (
+                  <span className="text-xs lg:text-[9px] text-gray-400 shrink-0">malla</span>
+                )}
+                {!isNT && isAuto && (
+                  <span className="text-xs lg:text-[9px] text-gray-400 shrink-0">auto</span>
+                )}
                 {/* HE button */}
                 <button
                   onClick={() => onOpenOvertime(w)}
                   disabled={isLocked}
-                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+                  className={`flex flex-1 lg:flex-none justify-center items-center gap-1 px-2 py-3 lg:py-1.5 rounded-xl lg:rounded-lg text-sm lg:text-xs font-medium transition-colors shrink-0 ${
                     he > 0
                       ? 'bg-amber-100 text-amber-700 border border-amber-300'
                       : isLocked
@@ -2225,7 +2333,7 @@ function DayView({
                           ? `Se retiró antes: -${retiro}h${attendance[w.id]?.[date]?.retiroMotivo ? ` (${attendance[w.id]?.[date]?.retiroMotivo})` : ''}`
                           : 'Anotar si se retiró antes'
                       }
-                      className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+                      className={`flex flex-1 lg:flex-none justify-center items-center gap-1 px-2 py-3 lg:py-1.5 rounded-xl lg:rounded-lg text-sm lg:text-xs font-medium transition-colors shrink-0 ${
                         retiro > 0
                           ? 'bg-rose-100 text-rose-700 border border-rose-300'
                           : isLocked

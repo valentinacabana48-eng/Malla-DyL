@@ -1,7 +1,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import MobileNav from './MobileNav';
 import BranchSelectorModal from './BranchSelectorModal';
 import { useAppContext } from '@/context/AppContext';
 
@@ -24,6 +26,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   // Show selector modal if no branch/area selected yet (after data loads)
   const [showSelector, setShowSelector] = useState(false);
+
+  // En el celular, el menú lateral se cierra al cambiar de página
+  const pathname = usePathname();
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!loading && (globalSucursal === 'Todas' || globalArea === 'Todas')) {
@@ -82,8 +90,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
             children
           )}
         </main>
+        <MobileNav onOpenMenu={() => setMobileOpen(true)} />
         <footer
-          className="text-center py-3 text-xs text-muted-foreground/60 border-t border-border bg-card"
+          className="hidden lg:block text-center py-3 text-xs text-muted-foreground/60 border-t border-border bg-card"
           style={{ letterSpacing: '0.03em' }}
         >
           © 2026 VCG – Todos los derechos reservados.
