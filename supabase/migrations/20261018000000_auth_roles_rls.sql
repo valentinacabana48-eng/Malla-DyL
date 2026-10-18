@@ -232,6 +232,24 @@ REVOKE EXECUTE ON FUNCTION public.remove_special_day_type(TEXT) FROM anon;
 ALTER TABLE public.schedule_data REPLICA IDENTITY FULL;
 ALTER TABLE public.special_days_v2 REPLICA IDENTITY FULL;
 
+-- Realtime: publicar los cambios para que se vean al instante en todos los dispositivos
+-- (Supabase respeta RLS: cada usuario solo recibe lo que puede leer).
+DO $$
+DECLARE t TEXT;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    RETURN;
+  END IF;
+  FOREACH t IN ARRAY ARRAY['schedule_data', 'special_days_v2', 'workers', 'shifts', 'app_settings'] LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t
+    ) THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+    END IF;
+  END LOOP;
+END $$;
+
 -- ─── Primer administrador ────────────────────────────────────────────────────
 -- Después de crear tu cuenta en la app, ejecuta en el SQL Editor de Supabase:
 --   UPDATE public.user_roles SET role = 'admin' WHERE email = 'tu-correo@ejemplo.com';
