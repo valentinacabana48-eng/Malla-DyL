@@ -1661,7 +1661,7 @@ export default function AsistenciaContent() {
         <div
           className={`${
             showFilters
-              ? 'fixed inset-x-0 bottom-0 z-50 flex flex-col max-h-[85dvh] overflow-y-auto bg-white rounded-t-3xl px-4 pt-3 pb-6 shadow-2xl'
+              ? 'fixed inset-x-0 bottom-0 z-50 flex flex-col max-h-[calc(var(--app-height,100dvh)*0.85)] overflow-y-auto bg-white rounded-t-3xl px-4 pt-3 pb-6 shadow-2xl'
               : 'hidden'
           } lg:static lg:z-auto lg:flex lg:flex-row lg:flex-wrap lg:max-h-none lg:overflow-visible lg:bg-transparent lg:rounded-none lg:p-0 lg:shadow-none lg:mt-4 gap-3 items-stretch lg:items-center`}
         >
@@ -2399,7 +2399,7 @@ export function PeriodOverview({
           </p>
         </div>
         {/* Desplazamiento propio: al bajar quedan fijas las fechas y al moverse al lado, los nombres */}
-        <div className="overflow-auto max-h-[calc(100dvh-240px)] min-h-[240px]">
+        <div className="overflow-auto max-h-[calc(var(--app-height,100dvh)-240px)] min-h-[240px]">
           <table className="w-full text-xs border-separate border-spacing-0">
             <thead>
               <tr className="bg-gray-50">

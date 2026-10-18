@@ -353,7 +353,7 @@ export default function MallaMobile({
       {editing && editingWorker && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setEditing(null)} />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto bg-card rounded-t-3xl px-4 pt-3 pb-6 shadow-2xl">
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[calc(var(--app-height,100dvh)*0.85)] overflow-y-auto bg-card rounded-t-3xl px-4 pt-3 pb-6 shadow-2xl">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h2 className="text-lg font-bold text-foreground">{editingWorker.name}</h2>

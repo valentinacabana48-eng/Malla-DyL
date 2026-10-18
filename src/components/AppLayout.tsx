@@ -46,7 +46,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-background">
+    <div
+      className="flex overflow-hidden bg-background"
+      style={{ height: 'var(--app-height, 100dvh)' }}
+    >
       {/* Branch selector modal — shown until user picks sucursal + área */}
       {showSelector && !loading && <BranchSelectorModal onConfirm={handleConfirm} />}
 

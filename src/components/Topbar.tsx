@@ -48,9 +48,9 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
           </div>
 
           {/* Área badge */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 bg-purple-50 border border-purple-200 rounded-lg min-w-0">
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 bg-purple-50 border border-purple-200 rounded-lg min-w-0">
             <Layers className="w-[18px] h-[18px] lg:w-[13px] lg:h-[13px] text-purple-600 shrink-0" />
-            <span className="text-xs font-semibold text-purple-700 truncate hidden sm:block">
+            <span className="text-xs font-semibold text-purple-700 truncate hidden lg:block">
               {globalArea === 'Todas' ? 'Sin área' : globalArea}
             </span>
           </div>
@@ -62,14 +62,14 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
             title="Cambiar sucursal y área"
           >
             <RefreshCw className="w-[18px] h-[18px] lg:w-3 lg:h-3" />
-            <span className="hidden sm:block">Cambiar</span>
+            <span className="hidden lg:block">Cambiar</span>
           </button>
 
           {/* Access level badge */}
           {role === 'lector' && (
             <div className="flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
               <Eye className="w-[18px] h-[18px] lg:w-[13px] lg:h-[13px] text-amber-600 shrink-0" />
-              <span className="text-xs font-semibold text-amber-700 hidden sm:block">
+              <span className="text-xs font-semibold text-amber-700 hidden lg:block">
                 Solo lectura
               </span>
             </div>
@@ -77,7 +77,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
           {role === 'admin' && (
             <div className="flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 bg-green-50 border border-green-200 rounded-lg">
               <Lock className="w-[18px] h-[18px] lg:w-[13px] lg:h-[13px] text-green-600 shrink-0" />
-              <span className="text-xs font-semibold text-green-700 hidden sm:block">Admin</span>
+              <span className="text-xs font-semibold text-green-700 hidden lg:block">Admin</span>
             </div>
           )}
 
@@ -89,7 +89,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
               title="Instalar DyL Gestor como app"
             >
               <Download className="w-[18px] h-[18px] lg:w-3 lg:h-3" />
-              <span className="hidden sm:block">Instalar app</span>
+              <span className="hidden lg:block">Instalar app</span>
             </button>
           )}
 
@@ -100,7 +100,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
             title={user?.email ? `Cerrar sesión (${user.email})` : 'Cerrar sesión'}
           >
             <LogOut className="w-[18px] h-[18px] lg:w-3 lg:h-3" />
-            <span className="hidden sm:block">Salir</span>
+            <span className="hidden lg:block">Salir</span>
           </button>
         </div>
       )}
