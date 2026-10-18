@@ -2,9 +2,7 @@ import React from 'react';
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import { Toaster } from 'sonner';
-import { AppProvider } from '@/context/AppContext';
-import { AuthProvider } from '@/context/AuthContext';
-import AuthGate from '@/components/AuthGate';
+import AppShell from '@/components/AppShell';
 import PwaSetup from '@/components/PwaSetup';
 import DesktopModeNotice from '@/components/DesktopModeNotice';
 import { VISTA_INIT_SCRIPT } from '@/lib/vista';
@@ -30,6 +28,8 @@ export const metadata: Metadata = {
   description:
     'Sistema de gestión de turnos y personal para Mayorista DyL. Administra cajeras, jefas de caja y tesoreras en todas las sucursales.',
   applicationName: 'DyL Gestor',
+  // Archivo en public/ (y no app/manifest.ts) para que Mis turnos pueda tener el suyo
+  manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, title: 'DyL Gestor', statusBarStyle: 'default' },
   formatDetection: { telephone: false },
   icons: {
@@ -51,11 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={plusJakarta.className}>
         <PwaSetup />
         <DesktopModeNotice />
-        <AuthProvider>
-          <AuthGate>
-            <AppProvider>{children}</AppProvider>
-          </AuthGate>
-        </AuthProvider>
+        <AppShell>{children}</AppShell>
         <Toaster position="bottom-right" richColors />
       </body>
     </html>

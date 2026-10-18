@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { CalendarDays, PenLine, FileSpreadsheet, SlidersHorizontal } from 'lucide-react';
+import { CalendarDays, PenLine, FileSpreadsheet, SlidersHorizontal, Send } from 'lucide-react';
 import {
   useAppContext,
   getDaysOfWeekForMonth,
@@ -12,6 +12,7 @@ import {
   type ShiftCode,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
+import { useAuth } from '@/context/AuthContext';
 import { evaluateMonth, type MonthCompliance } from '@/lib/compliance';
 import MallaFilters from './MallaFilters';
 import MallaGrid from './MallaGrid';
@@ -23,6 +24,7 @@ import BulkShiftModal from './BulkShiftModal';
 import MallaExcelPanel from './MallaExcelPanel';
 import MallaDownloadModal from './MallaDownloadModal';
 import MallaMobile from './MallaMobile';
+import { usePublishState, PublishModal } from './PublishMalla';
 
 const DELETED_BIRTHDAYS_KEY = 'malla_deleted_birthdays';
 
@@ -65,6 +67,7 @@ export default function MallaContent() {
     globalArea,
   } = useAppContext();
   const isReadonly = useReadonly();
+  const { isAdmin, allowedSucursales } = useAuth();
 
   const [selectedArea, setSelectedArea] = useState('Todas');
   // Sucursales y cargos elegidos ([] = todas / todos)
@@ -98,6 +101,21 @@ export default function MallaContent() {
     if (ok) toast.success(locked ? '🔒 Malla bloqueada' : '🔓 Malla desbloqueada');
     return ok;
   };
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ─── Publicar para Mis turnos (por sucursal y mes) ─────────────────────────
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const publishSucursal =
+    selectedSucursales.length === 1
+      ? selectedSucursales[0]
+      : allowedSucursales?.length === 1
+        ? allowedSucursales[0]
+        : null;
+  const canPublish =
+    isAdmin &&
+    !!publishSucursal &&
+    (!allowedSucursales || allowedSucursales.includes(publishSucursal));
+  const publishState = usePublishState(selectedMes, canPublish ? publishSucursal : null);
   // ─────────────────────────────────────────────────────────────────────────
 
   React.useEffect(() => {
@@ -429,6 +447,24 @@ export default function MallaContent() {
               lockSucursal ? undefined : 'Elige una sola sucursal para bloquear su malla'
             }
           />
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setShowPublishModal(true)}
+              disabled={!canPublish}
+              title={canPublish ? undefined : 'Elige una sola sucursal para publicar su malla'}
+              className="relative flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ boxShadow: '0 2px 8px rgba(79,70,229,0.3)' }}
+            >
+              <Send size={15} />
+              {publishState.pending.length > 0 ? 'Publicar cambios' : 'Publicar'}
+              {publishState.pending.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-amber-400 text-amber-950 text-[11px] font-bold flex items-center justify-center">
+                  {publishState.pending.length}
+                </span>
+              )}
+            </button>
+          )}
           <button
             onClick={() => setShowDownloadModal(true)}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 active:scale-95 transition-all duration-150"
@@ -490,6 +526,21 @@ export default function MallaContent() {
             <strong>Bloqueada</strong> para ingresar tu PIN y editar.
           </span>
         </div>
+      )}
+
+      {canPublish && publishState.pending.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowPublishModal(true)}
+          className="mb-4 w-full text-left flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm font-medium hover:bg-amber-100"
+        >
+          <span>⚠️</span>
+          <span>
+            Hay cambios sin publicar en la malla de {publishSucursal} ({publishState.pending.length}{' '}
+            trabajadora(s)). Las trabajadoras siguen viendo la versión anterior.{' '}
+            <strong className="underline">Ver y publicar</strong>
+          </span>
+        </button>
       )}
 
       <div className={showMobileFilters ? '' : 'hidden lg:block'}>
@@ -598,6 +649,13 @@ export default function MallaContent() {
           monthLabel={selectedMes}
           onImport={handleImportCell}
           onClose={() => setShowExcelPanel(false)}
+        />
+      )}
+      {showPublishModal && canPublish && (
+        <PublishModal
+          state={publishState}
+          monthLabel={selectedMes}
+          onClose={() => setShowPublishModal(false)}
         />
       )}
       {showBulkShiftModal && (
