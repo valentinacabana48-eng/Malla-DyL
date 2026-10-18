@@ -47,7 +47,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div
-      className="flex overflow-hidden bg-background"
+      className="flex overflow-hidden bg-background print:block print:!h-auto print:overflow-visible"
       style={{ height: 'var(--app-height, 100dvh)' }}
     >
       {/* Branch selector modal — shown until user picks sucursal + área */}
@@ -76,12 +76,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </div>
 
       {/* Main content */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden print:block print:overflow-visible">
         <Topbar
           onMenuToggle={() => setMobileOpen(!mobileOpen)}
           onChangeBranch={() => setShowSelector(true)}
         />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden print:overflow-visible">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="flex flex-col items-center gap-3">
