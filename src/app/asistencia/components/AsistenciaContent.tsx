@@ -1589,7 +1589,7 @@ export default function AsistenciaContent() {
     startDate && endDate ? formatPeriodLabel(startDate, endDate) : 'Selecciona fechas';
 
   return (
-    <div className="flex flex-col min-h-full lg:h-full lg:min-h-0 bg-gray-50">
+    <div className="flex flex-col min-h-full bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 lg:py-4 shrink-0">
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -1915,7 +1915,7 @@ export default function AsistenciaContent() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 lg:overflow-auto p-4 lg:p-6">
+      <div className="flex-1 p-4 lg:p-6">
         {filterSucursal.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-60 gap-4">
             <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center">
@@ -2399,7 +2399,7 @@ export function PeriodOverview({
           </p>
         </div>
         {/* Desplazamiento propio: al bajar quedan fijas las fechas y al moverse al lado, los nombres */}
-        <div className="overflow-auto max-h-[calc(var(--app-height,100dvh)-240px)] min-h-[240px]">
+        <div className="overflow-auto max-h-[calc(var(--app-height,100dvh)-130px)] min-h-[240px]">
           <table className="w-full text-xs border-separate border-spacing-0">
             <thead>
               <tr className="bg-gray-50">
