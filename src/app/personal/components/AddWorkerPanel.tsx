@@ -100,7 +100,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
   };
 
   return (
-    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden sticky top-4">
+    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden lg:sticky lg:top-4">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
@@ -108,9 +108,11 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
         </h3>
         <button
           onClick={onCancel}
-          className="p-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+          type="button"
+          aria-label="Cerrar"
+          className="w-11 h-11 lg:w-auto lg:h-auto lg:p-1 flex items-center justify-center rounded-lg hover:bg-muted transition-colors text-muted-foreground"
         >
-          <X size={15} />
+          <X className="w-5 h-5 lg:w-[15px] lg:h-[15px]" />
         </button>
       </div>
 
@@ -126,7 +128,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
               minLength: { value: 3, message: 'Mínimo 3 caracteres' },
             })}
             placeholder="Ej: Juan Pérez"
-            className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
+            className="w-full px-3 py-3 lg:py-2 bg-input border border-border rounded-lg text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
           />
           {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}
         </div>
@@ -143,7 +145,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
               },
             })}
             placeholder="Ej: 12.345.678-9"
-            className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
+            className="w-full px-3 py-3 lg:py-2 bg-input border border-border rounded-lg text-base lg:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
           />
           {errors.rut && <p className="text-xs text-red-500 mt-1">{errors.rut.message}</p>}
         </div>
@@ -156,7 +158,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
           <input
             type="date"
             {...register('birthday')}
-            className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full px-3 py-3 lg:py-2 bg-input border border-border rounded-lg text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
 
@@ -165,7 +167,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
           <label className="block text-xs font-semibold text-foreground mb-1">Sucursal</label>
           <select
             {...register('sucursal', { required: true })}
-            className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+            className="w-full px-3 py-3 lg:py-2 bg-input border border-border rounded-lg text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
           >
             {sucursales.map((s) => (
               <option key={`suc-${s.name}`} value={s.name}>
@@ -180,7 +182,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
           <label className="block text-xs font-semibold text-foreground mb-1">Área</label>
           <select
             {...register('area', { required: true })}
-            className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+            className="w-full px-3 py-3 lg:py-2 bg-input border border-border rounded-lg text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
           >
             {areas.map((a) => (
               <option key={`area-${a}`} value={a}>
@@ -203,7 +205,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
           {cargosForArea ? (
             <select
               {...register('cargo', { required: true })}
-              className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+              className="w-full px-3 py-3 lg:py-2 bg-input border border-border rounded-lg text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
             >
               {cargosForArea.map((c) => (
                 <option key={`cargo-${c}`} value={c}>
@@ -215,7 +217,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
             <input
               {...register('cargo', { required: 'El cargo es obligatorio' })}
               placeholder="Ej: Cajera, Jefa de Caja..."
-              className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
+              className="w-full px-3 py-3 lg:py-2 bg-input border border-border rounded-lg text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
             />
           )}
           {errors.cargo && (
@@ -230,7 +232,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
           </label>
           <select
             {...register('horasContratadas', { required: true })}
-            className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+            className="w-full px-3 py-3 lg:py-2 bg-input border border-border rounded-lg text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
           >
             {HORAS_OPTIONS.map((h) => (
               <option key={`horas-${h}`} value={h}>
@@ -275,7 +277,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full flex items-center justify-center gap-2 bg-secondary text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 active:scale-95 transition-all duration-150"
+          className="w-full flex items-center justify-center gap-2 bg-secondary text-white py-3.5 lg:py-2.5 rounded-lg text-base lg:text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 active:scale-95 transition-all duration-150"
         >
           {isSubmitting ? (
             <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

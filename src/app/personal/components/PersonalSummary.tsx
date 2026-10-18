@@ -63,16 +63,16 @@ export default function PersonalSummary({ summary }: { summary: Summary }) {
   return (
     <div className="space-y-3">
       {/* Top KPI cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 lg:gap-3">
         {topCards.map((c) => {
           const Icon = c.icon;
           return (
             <div
               key={c.id}
-              className="bg-card rounded-xl border border-border px-4 py-3 shadow-sm flex items-center gap-3"
+              className="bg-card rounded-xl border border-border px-3 lg:px-4 py-3 shadow-sm flex items-center justify-center sm:justify-start text-center sm:text-left gap-3"
             >
               <div
-                className={`w-10 h-10 rounded-full ${c.iconBg} flex items-center justify-center shrink-0`}
+                className={`hidden sm:flex w-10 h-10 rounded-full ${c.iconBg} items-center justify-center shrink-0`}
               >
                 <Icon size={18} className={c.iconColor} />
               </div>

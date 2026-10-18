@@ -406,7 +406,7 @@ export default function CumplimientoContent() {
         style={{ boxShadow: 'var(--shadow-card)' }}
       >
         {/* Table header */}
-        <div className="grid grid-cols-[1fr_100px_100px_100px_90px] gap-0 border-b border-border bg-muted/30 px-4 py-2.5">
+        <div className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_100px_100px_100px_90px] gap-x-3 md:gap-x-0 border-b border-border bg-muted/30 px-4 py-2.5">
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
             Trabajadora
           </span>
@@ -434,7 +434,7 @@ export default function CumplimientoContent() {
               <div key={wc.workerId} className="border-b border-border/50 last:border-0">
                 <button
                   onClick={() => setExpandedWorker(isExpanded ? null : wc.workerId)}
-                  className={`w-full grid grid-cols-[1fr_100px_100px_100px_90px] gap-0 px-4 py-3 text-left transition-colors hover:bg-muted/20 ${
+                  className={`w-full grid grid-cols-[1fr_auto] md:grid-cols-[1fr_100px_100px_100px_90px] gap-x-3 md:gap-x-0 px-4 py-3 text-left transition-colors hover:bg-muted/20 ${
                     wc.overallPass ? '' : 'bg-red-50/40'
                   }`}
                 >
@@ -450,7 +450,7 @@ export default function CumplimientoContent() {
                       <p className="text-sm font-semibold text-foreground truncate">
                         {wc.workerName}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-xs md:text-[10px] text-muted-foreground">
                         {wc.cargo} · {wc.area} ·{' '}
                         <span className="font-medium">{wc.horasContratadas}h/sem</span> (~
                         {wc.expectedMonthlyHours}h/mes)
@@ -479,7 +479,7 @@ export default function CumplimientoContent() {
                   {/* Overall status */}
                   <div className="flex items-center justify-center">
                     <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs md:text-[10px] font-bold ${
                         wc.overallPass ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                       }`}
                     >
@@ -518,7 +518,7 @@ export default function CumplimientoContent() {
                                 <XCircle size={12} className="text-red-500 shrink-0" />
                               )}
                               <span
-                                className={`text-[10px] font-bold uppercase tracking-wide ${rule.pass ? 'text-green-700' : 'text-red-600'}`}
+                                className={`text-xs md:text-[10px] font-bold uppercase tracking-wide ${rule.pass ? 'text-green-700' : 'text-red-600'}`}
                               >
                                 {r.label}
                               </span>
@@ -532,7 +532,7 @@ export default function CumplimientoContent() {
                         );
                       })}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-4 text-[11px] text-muted-foreground bg-muted/20 rounded-xl px-3 py-2">
+                    <div className="mt-3 flex flex-wrap gap-4 text-xs md:text-[11px] text-muted-foreground bg-muted/20 rounded-xl px-3 py-2">
                       <span>
                         Horas contratadas:{' '}
                         <strong className="text-foreground">{wc.horasContratadas}h/semana</strong>

@@ -94,7 +94,85 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
           Listado de Trabajadores
         </h2>
       </div>
-      <div className="overflow-x-auto scrollbar-thin">
+      {/* Celular: una tarjeta por trabajadora */}
+      <ul className="lg:hidden divide-y divide-border/60">
+        {sorted.map((worker) => (
+          <li key={worker.id} className="px-4 py-4 flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-11 h-11 rounded-full ${worker.avatarColor} flex items-center justify-center text-sm font-bold shrink-0`}
+              >
+                {worker.initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-semibold text-foreground truncate">{worker.name}</p>
+                <p className="text-sm text-muted-foreground truncate">
+                  {worker.cargo} · {worker.sucursal}
+                </p>
+              </div>
+              <span
+                className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${
+                  worker.estado === 'Activo'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-600'
+                }`}
+              >
+                {worker.estado}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <span>{worker.horasContratadas}h contratadas</span>
+              {worker.rut && <span className="font-mono">{worker.rut}</span>}
+              {worker.area && <span>{worker.area}</span>}
+              {worker.birthday && <span>🎂 {formatBirthday(worker.birthday)}</span>}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onEdit(worker)}
+                disabled={isReadonly}
+                className="flex items-center justify-center gap-2 min-h-[44px] rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold disabled:opacity-40"
+              >
+                <Pencil size={16} />
+                Editar
+              </button>
+              {deleteConfirm === worker.id ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onDelete(worker.id);
+                      setDeleteConfirm(null);
+                    }}
+                    className="min-h-[44px] rounded-xl bg-red-600 text-white text-sm font-semibold"
+                  >
+                    Eliminar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirm(null)}
+                    className="min-h-[44px] rounded-xl bg-muted text-foreground text-sm font-semibold"
+                  >
+                    No
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(worker.id)}
+                  disabled={isReadonly}
+                  className="flex items-center justify-center gap-2 min-h-[44px] rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-semibold disabled:opacity-40"
+                >
+                  <Trash2 size={16} />
+                  Eliminar
+                </button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <div className="hidden lg:block overflow-x-auto scrollbar-thin">
         <table className="w-full" style={{ minWidth: 780 }}>
           <thead>
             <tr className="bg-muted/20 border-b border-border">

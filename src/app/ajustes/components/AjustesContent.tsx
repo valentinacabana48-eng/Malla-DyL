@@ -324,9 +324,11 @@ function ShiftCard({ shift, onEdit, onDelete }: ShiftCardProps) {
   const net = calcNetHoursLocal(shift.start, shift.end, shift.colacion || 0);
   const showNet = (shift.colacion || 0) > 0;
   return (
-    <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex items-center justify-between gap-4 hover:shadow-md transition-shadow">
+    <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex items-start sm:items-center justify-between gap-2 sm:gap-4 hover:shadow-md transition-shadow">
       <div className="flex items-center gap-3 min-w-0">
-        <span className={`w-3 h-3 rounded-full flex-shrink-0 ${shift.legendColor}`} />
+        <span
+          className={`hidden sm:block w-3 h-3 rounded-full flex-shrink-0 ${shift.legendColor}`}
+        />
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span
@@ -337,7 +339,7 @@ function ShiftCard({ shift, onEdit, onDelete }: ShiftCardProps) {
             </span>
             <span className="text-xs text-muted-foreground font-mono">{shift.code}</span>
           </div>
-          <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground">
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 mt-1.5 text-sm text-muted-foreground">
             {shift.start && shift.end ? (
               <>
                 <span className="font-medium text-foreground">{shift.start}</span>

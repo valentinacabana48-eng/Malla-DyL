@@ -264,15 +264,13 @@ export default function DashboardContent() {
         </div>
 
         {/* Logo cards */}
-        <div className="px-6 py-6 flex flex-wrap gap-5 justify-center items-stretch">
+        <div className="px-4 sm:px-6 py-5 sm:py-6 grid grid-cols-3 gap-3 sm:flex sm:flex-wrap sm:gap-5 sm:justify-center sm:items-stretch">
           {BRANCH_LOGOS.map((logo) => (
             <div key={logo.id} className="group flex flex-col items-center gap-3 cursor-default">
               {/* Card */}
               <div
-                className="relative flex items-center justify-center rounded-2xl p-4 border border-border transition-all duration-200 group-hover:border-secondary/40"
+                className="relative flex items-center justify-center rounded-2xl p-2 sm:p-4 border border-border transition-all duration-200 group-hover:border-secondary/40 w-full h-20 sm:w-[160px] sm:h-[110px]"
                 style={{
-                  width: '160px',
-                  height: '110px',
                   background: '#ffffff',
                   boxShadow: '0 2px 8px rgba(15,39,68,0.06)',
                   transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
@@ -514,7 +512,7 @@ export default function DashboardContent() {
               borderColor: '#bfdbfe',
             }}
           >
-            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+            <div className="hidden sm:flex w-11 h-11 rounded-xl bg-blue-100 items-center justify-center shrink-0">
               <Users size={18} className="text-blue-600" />
             </div>
             <div>
@@ -529,7 +527,7 @@ export default function DashboardContent() {
               borderColor: '#bbf7d0',
             }}
           >
-            <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+            <div className="hidden sm:flex w-11 h-11 rounded-xl bg-green-100 items-center justify-center shrink-0">
               <UserCheck size={18} className="text-green-600" />
             </div>
             <div>
@@ -544,7 +542,7 @@ export default function DashboardContent() {
               borderColor: '#fdba74',
             }}
           >
-            <div className="w-11 h-11 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+            <div className="hidden sm:flex w-11 h-11 rounded-xl bg-orange-100 items-center justify-center shrink-0">
               <Package size={18} className="text-orange-500" />
             </div>
             <div>
@@ -561,7 +559,7 @@ export default function DashboardContent() {
               borderColor: '#ddd6fe',
             }}
           >
-            <div className="w-11 h-11 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+            <div className="hidden sm:flex w-11 h-11 rounded-xl bg-purple-100 items-center justify-center shrink-0">
               <Clock size={18} className="text-purple-600" />
             </div>
             <div>

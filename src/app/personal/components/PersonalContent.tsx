@@ -179,15 +179,15 @@ export default function PersonalContent() {
   };
 
   return (
-    <div className="p-6 xl:p-8 max-w-screen-2xl mx-auto">
+    <div className="p-4 lg:p-6 xl:p-8 max-w-screen-2xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between mb-7 gap-4 flex-wrap">
+      <div className="flex items-start justify-between mb-5 lg:mb-7 gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-foreground section-header-line flex items-center gap-2">
             <Users size={20} className="text-secondary" />
             Personal
           </h1>
-          <p className="text-muted-foreground text-sm mt-1 ml-3">
+          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-3">
             Administra la información de los trabajadores de la empresa.
           </p>
         </div>
@@ -248,8 +248,9 @@ export default function PersonalContent() {
           />
         </div>
 
+        {/* En el celular el formulario ocupa toda la pantalla; en el computador va al lado */}
         {editingWorker && (
-          <div className="w-72 xl:w-80 shrink-0">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-background p-4 lg:static lg:z-auto lg:overflow-visible lg:bg-transparent lg:p-0 lg:w-72 xl:w-80 lg:shrink-0">
             <AddWorkerPanel
               worker={editingWorker}
               isNew={isNewWorker}
