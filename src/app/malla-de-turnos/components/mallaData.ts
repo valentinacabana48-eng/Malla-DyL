@@ -1,0 +1,98 @@
+export type ShiftCode = '6a2' | '2a10' | '8a4' | '10a6' | 'DESC' | null;
+
+export interface Shift {
+  code: ShiftCode;
+  label: string;
+  start: string;
+  end: string;
+  colorClass: string;
+  legendColor: string;
+}
+
+export const SHIFTS: Record<string, Shift> = {
+  '6a2': { code: '6a2', label: '6 a 2', start: '06:00', end: '14:00', colorClass: 'shift-badge-6a2', legendColor: 'bg-blue-500' },
+  '2a10': { code: '2a10', label: '2 a 10', start: '14:00', end: '22:00', colorClass: 'shift-badge-2a10', legendColor: 'bg-green-600' },
+  '8a4': { code: '8a4', label: '8 a 4', start: '08:00', end: '16:00', colorClass: 'shift-badge-8a4', legendColor: 'bg-orange-400' },
+  '10a6': { code: '10a6', label: '10 a 6', start: '10:00', end: '18:00', colorClass: 'shift-badge-10a6', legendColor: 'bg-purple-500' },
+  DESC: { code: 'DESC', label: 'DESC', start: '', end: '', colorClass: 'shift-badge-desc', legendColor: 'bg-slate-400' },
+};
+
+export interface Worker {
+  id: string;
+  name: string;
+  initials: string;
+  role: string;
+  sucursal: string;
+  area: string;
+  horasContratadas: number;
+  estado: 'Activo' | 'Inactivo';
+  schedule: (ShiftCode)[];
+}
+
+// 31-day schedule for August 2026
+// Days: 1=Sat,2=Sun,3=Mon,...
+export const WORKERS_DATA: Worker[] = [
+  {
+    id: 'worker-001', name: 'María González', initials: 'MG', role: 'Cajera',
+    sucursal: 'Mayorista Talca', area: 'Cajas', horasContratadas: 42, estado: 'Activo',
+    schedule: ['6a2',null,'2a10','2a10','2a10',null,'DESC','6a2','6a2',null,'2a10','2a10',null,'DESC','8a4','8a4',null,'2a10','2a10',null,'DESC','6a2','6a2',null,'2a10','2a10',null,'DESC','6a2','6a2',null],
+  },
+  {
+    id: 'worker-002', name: 'Carla Morales', initials: 'CM', role: 'Cajera',
+    sucursal: 'Mayorista Talca', area: 'Cajas', horasContratadas: 42, estado: 'Activo',
+    schedule: ['2a10','2a10','2a10',null,'DESC','8a4','8a4','8a4',null,'DESC','8a4','8a4','8a4',null,'DESC','10a6','10a6','10a6',null,'DESC','2a10','2a10','2a10',null,'DESC','2a10','2a10','2a10',null,'DESC',null],
+  },
+  {
+    id: 'worker-003', name: 'Paula Martínez', initials: 'PM', role: 'Cajera',
+    sucursal: 'Mayorista Talca', area: 'Cajas', horasContratadas: 42, estado: 'Activo',
+    schedule: ['8a4','8a4','8a4',null,'DESC','10a6','10a6','10a6',null,'DESC','6a2','6a2','6a2',null,'DESC','2a10','2a10','2a10',null,'DESC','8a4','8a4','8a4',null,'DESC','8a4','8a4','8a4',null,'DESC',null,null],
+  },
+  {
+    id: 'worker-004', name: 'Fernanda López', initials: 'FL', role: 'Jefa de Caja',
+    sucursal: 'Mayorista Talca', area: 'Cajas', horasContratadas: 42, estado: 'Activo',
+    schedule: ['6a2',null,'DESC','2a10','2a10','2a10',null,'DESC','10a6','10a6','10a6',null,'DESC','6a2','6a2',null,'DESC','2a10','2a10',null,'DESC','2a10','2a10',null,'DESC','2a10','2a10',null,'DESC',null,null],
+  },
+  {
+    id: 'worker-005', name: 'Camila Rojas', initials: 'CR', role: 'Cajera',
+    sucursal: 'Mayorista Talca', area: 'Cajas', horasContratadas: 20, estado: 'Activo',
+    schedule: ['10a6','10a6',null,'DESC','8a4','8a4','8a4',null,'DESC','2a10','2a10','2a10',null,'DESC','6a2','6a2',null,'DESC','10a6','10a6',null,'DESC','10a6','10a6',null,'DESC',null,null,null,null,null],
+  },
+  {
+    id: 'worker-006', name: 'Valentina Pérez', initials: 'VP', role: 'Tesorera',
+    sucursal: 'Mayorista Talca', area: 'Tesorería', horasContratadas: 42, estado: 'Activo',
+    schedule: ['2a10','2a10','2a10',null,'DESC','6a2','6a2','6a2',null,'DESC','8a4','8a4','8a4',null,'DESC','10a6','10a6','10a6',null,'DESC','2a10','2a10','2a10',null,'DESC','2a10','2a10','2a10',null,'DESC',null],
+  },
+  {
+    id: 'worker-007', name: 'Karla Díaz', initials: 'KD', role: 'Cajera',
+    sucursal: 'Mayorista Talca', area: 'Cajas', horasContratadas: 30, estado: 'Activo',
+    schedule: ['8a4','8a4','8a4',null,'DESC','10a6','10a6','10a6',null,'DESC','6a2','6a2','6a2',null,'DESC','2a10','2a10','2a10',null,'DESC','8a4','8a4','8a4',null,'DESC',null,null,null,null,null,null],
+  },
+  {
+    id: 'worker-008', name: 'Constanza Silva', initials: 'CS', role: 'Jefa de Caja',
+    sucursal: 'Mayorista Talca', area: 'Cajas', horasContratadas: 42, estado: 'Activo',
+    schedule: ['6a2',null,'DESC','2a10','2a10','2a10',null,'DESC','10a6','10a6','10a6',null,'DESC','6a2','6a2',null,'DESC','2a10','2a10',null,'DESC','2a10','2a10',null,'DESC',null,null,null,null,null,null],
+  },
+  {
+    id: 'worker-009', name: 'Sofía Reyes', initials: 'SR', role: 'Cajera',
+    sucursal: 'Mayorista Curicó', area: 'Cajas', horasContratadas: 30, estado: 'Activo',
+    schedule: ['2a10','2a10',null,'DESC','8a4','8a4','8a4',null,'DESC','6a2','6a2',null,'DESC','10a6','10a6',null,'DESC','6a2','6a2',null,'DESC','8a4','8a4',null,'DESC',null,null,null,null,null,null],
+  },
+  {
+    id: 'worker-010', name: 'Andrea Fuentes', initials: 'AF', role: 'Cajera',
+    sucursal: 'Mayorista Curicó', area: 'Cajas', horasContratadas: 42, estado: 'Activo',
+    schedule: ['10a6','10a6','10a6',null,'DESC','2a10','2a10','2a10',null,'DESC','8a4','8a4','8a4',null,'DESC','6a2','6a2','6a2',null,'DESC','10a6','10a6','10a6',null,'DESC','10a6','10a6','10a6',null,'DESC',null],
+  },
+];
+
+// August 2026 starts on Saturday (day 0 = Sat)
+// 0=Sat,1=Sun,2=Mon,3=Tue,4=Wed,5=Thu,6=Fri
+export const DAYS_OF_WEEK_AUG_2026 = [
+  'S','D','L','M','M','J','V','S','D','L','M','M','J','V','S','D','L','M','M','J','V','S','D','L','M','M','J','V','S','D','L'
+];
+
+export const SUCURSALES = ['Todas', 'Mayorista Talca', 'Mayorista Curicó', 'Mayorista Linares', 'Mayorista Rancagua'];
+export const AREAS = ['Todas', 'Cajas', 'Tesorería', 'Supermercado', 'Bodega'];
+export const MESES = [
+  'Enero 2026','Febrero 2026','Marzo 2026','Abril 2026','Mayo 2026','Junio 2026',
+  'Julio 2026','Agosto 2026','Septiembre 2026','Octubre 2026','Noviembre 2026','Diciembre 2026'
+];
