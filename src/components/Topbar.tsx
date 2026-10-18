@@ -86,7 +86,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
             <button
               onClick={installApp}
               className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-secondary hover:bg-blue-700 transition-all duration-150"
-              title="Instalar D&L Gestor como app"
+              title="Instalar DyL Gestor como app"
             >
               <Download size={12} />
               <span className="hidden sm:block">Instalar app</span>

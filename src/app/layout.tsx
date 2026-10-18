@@ -22,11 +22,11 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'D&L Gestor — Gestión de Mallas de Turnos',
+  title: 'DyL Gestor — Gestión de Mallas de Turnos',
   description:
-    'Sistema de gestión de turnos y personal para Mayorista D&L. Administra cajeras, jefas de caja y tesoreras en todas las sucursales.',
-  applicationName: 'D&L Gestor',
-  appleWebApp: { capable: true, title: 'D&L Gestor', statusBarStyle: 'default' },
+    'Sistema de gestión de turnos y personal para Mayorista DyL. Administra cajeras, jefas de caja y tesoreras en todas las sucursales.',
+  applicationName: 'DyL Gestor',
+  appleWebApp: { capable: true, title: 'DyL Gestor', statusBarStyle: 'default' },
   formatDetection: { telephone: false },
   icons: {
     icon: [

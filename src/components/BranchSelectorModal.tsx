@@ -6,17 +6,17 @@ import AppImage from '@/components/ui/AppImage';
 
 const BRANCH_LOGOS = [
   {
-    name: 'Distribuidora D&L',
+    name: 'Distribuidora DyL',
     src: '/assets/images/descarga__2_-1784608577889.png',
     alt: 'Distribuidora DyL - logo azul y amarillo',
   },
   {
-    name: 'Mayorista D&L',
+    name: 'Mayorista DyL',
     src: '/assets/images/descarga__1_-1784608578251.png',
     alt: 'Mayorista DyL - logo naranja',
   },
   {
-    name: 'Envases D&L',
+    name: 'Envases DyL',
     src: '/assets/images/descarga-1784608578238.png',
     alt: 'Envases DyL - logo verde',
   },

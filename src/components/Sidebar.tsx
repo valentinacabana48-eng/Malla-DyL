@@ -72,7 +72,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {!collapsed && (
           <div>
             <span className="font-extrabold text-sm tracking-widest text-white whitespace-nowrap uppercase">
-              D&L Gestor
+              DyL Gestor
             </span>
             <p className="text-[10px] text-white/40 tracking-wider mt-0.5">Gestión de turnos</p>
           </div>

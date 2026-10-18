@@ -18,19 +18,19 @@ const BRANCH_LOGOS = [
     id: 'logo-distribuidora',
     src: '/assets/images/descarga__2_-1784608577889.png',
     alt: 'Distribuidora DyL - logo azul y amarillo',
-    label: 'Distribuidora D&L',
+    label: 'Distribuidora DyL',
   },
   {
     id: 'logo-mayorista',
     src: '/assets/images/descarga__1_-1784608578251.png',
     alt: 'Mayorista DyL - logo rojo y naranja',
-    label: 'Mayorista D&L',
+    label: 'Mayorista DyL',
   },
   {
     id: 'logo-envases',
     src: '/assets/images/descarga-1784608578238.png',
     alt: 'Envases DyL - logo verde y naranja',
-    label: 'Envases D&L',
+    label: 'Envases DyL',
   },
 ];
 
@@ -254,7 +254,7 @@ export default function DashboardContent() {
               Grupo Empresarial
             </p>
             <h2 className="text-base font-extrabold text-foreground tracking-tight">
-              D&amp;L Empresas
+              DyL Empresas
             </h2>
           </div>
           <div className="h-6 w-px rounded-full" style={{ background: 'var(--border)' }} />

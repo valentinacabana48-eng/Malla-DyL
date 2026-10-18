@@ -1,11 +1,11 @@
 import type { MetadataRoute } from 'next';
 
-// Permite instalar D&L Gestor como app en celulares (Android/iPhone) y en PC.
+// Permite instalar DyL Gestor como app en celulares (Android/iPhone) y en PC.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'D&L Gestor — Mallas de Turnos',
-    short_name: 'D&L Gestor',
-    description: 'Gestión de turnos, personal y asistencia de Mayorista D&L.',
+    name: 'DyL Gestor — Mallas de Turnos',
+    short_name: 'DyL Gestor',
+    description: 'Gestión de turnos, personal y asistencia de Mayorista DyL.',
     lang: 'es-CL',
     start_url: '/',
     scope: '/',

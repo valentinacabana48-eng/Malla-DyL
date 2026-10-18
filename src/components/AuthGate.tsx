@@ -63,7 +63,7 @@ function Shell({ subtitle, children }: { subtitle: string; children: React.React
           </div>
           <div className="flex items-center justify-center gap-2 mb-1">
             <Lock size={18} className="text-blue-300" />
-            <h2 className="text-xl font-bold text-white">D&L Gestor</h2>
+            <h2 className="text-xl font-bold text-white">DyL Gestor</h2>
           </div>
           <p className="text-sm text-white/50">{subtitle}</p>
         </div>

@@ -1,6 +1,6 @@
-# D&L Gestor
+# DyL Gestor
 
-Gestión de mallas de turnos, personal, asistencia y RRHH para Mayorista D&L.
+Gestión de mallas de turnos, personal, asistencia y RRHH para Mayorista DyL.
 
 Funciona como **app instalable (PWA)** en celulares Android, iPhone y en PC (Windows / Mac), y como página web normal. Todos los dispositivos comparten los mismos datos en tiempo real a través de Supabase.
 

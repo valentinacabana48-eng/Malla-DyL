@@ -1,4 +1,4 @@
-// Service worker de D&L Gestor.
+// Service worker de DyL Gestor.
 // - Archivos estáticos (JS/CSS/imágenes): se guardan en caché para que la app abra rápido.
 // - Páginas: siempre se piden a la red; sin conexión se muestra /offline.html.
 // - Datos (Supabase): nunca se guardan en caché, siempre van directo a la red.
