@@ -5,7 +5,7 @@ import AjustesContent from './components/AjustesContent';
 export default function AjustesPage() {
   return (
     <AppLayout>
-      <AdminOnly global>
+      <AdminOnly>
         <AjustesContent />
       </AdminOnly>
     </AppLayout>

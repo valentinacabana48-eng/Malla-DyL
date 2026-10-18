@@ -8,6 +8,7 @@ import {
   getDaysInMonth,
   monthLabelToKey,
   getChileanHolidays,
+  shiftsForSucursales,
   type ShiftCode,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
@@ -382,15 +383,21 @@ export default function MallaContent() {
     setShowBulkShiftModal(false);
   };
 
+  // Turnos que se pueden asignar a las trabajadoras que se están viendo (compartidos + de su sucursal)
+  const pickerShifts = useMemo(
+    () => shiftsForSucursales(shifts, [...new Set(filteredWorkers.map((w) => w.sucursal))]),
+    [shifts, filteredWorkers]
+  );
+
   const turnoOptions = useMemo(() => {
     const opts = ['Todos'];
-    Object.values(shifts).forEach((s) => {
+    Object.values(pickerShifts).forEach((s) => {
       if (s.code !== 'DESC' && s.start) {
         opts.push(`${s.label} (${s.start} - ${s.end})`);
       }
     });
     return opts;
-  }, [shifts]);
+  }, [pickerShifts]);
 
   return (
     <div className="p-4 lg:p-6 xl:p-8 max-w-screen-2xl mx-auto">
@@ -596,7 +603,7 @@ export default function MallaContent() {
       {showBulkShiftModal && (
         <BulkShiftModal
           workers={filteredWorkers}
-          shifts={shifts}
+          shifts={pickerShifts}
           onAssign={handleBulkShiftAssign}
           onClose={() => setShowBulkShiftModal(false)}
         />
@@ -604,7 +611,7 @@ export default function MallaContent() {
       {showAssignModal && (
         <AssignModal
           workers={filteredWorkers}
-          shifts={shifts}
+          shifts={pickerShifts}
           daysOfWeek={daysOfWeek}
           onAssign={handleAssign}
           onAssignSpecialDay={handleAssignSpecialDay}

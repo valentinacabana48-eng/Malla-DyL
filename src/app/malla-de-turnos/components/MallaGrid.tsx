@@ -8,6 +8,7 @@ import {
   type Worker,
   type NonWorkingType,
   useAppContext,
+  shiftsForSucursales,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import type { MonthCompliance } from '@/lib/compliance';
@@ -56,15 +57,20 @@ function groupShiftsByHour(shifts: Record<string, Shift>): Map<string, string[]>
 // ─── Grouped shift list for dropdowns ─────────────────────────────────────
 function GroupedShiftOptions({
   shifts,
+  sucursal,
   excludeCode,
   onSelect,
 }: {
   shifts: Record<string, Shift>;
+  /** Sucursal de la trabajadora: se ofrecen los turnos compartidos y los de esa sucursal */
+  sucursal?: string;
   excludeCode?: ShiftCode;
   onSelect: (code: string) => void;
 }) {
   const [expandedHour, setExpandedHour] = useState<string | null>(null);
-  const groups = groupShiftsByHour(shifts);
+  const groups = groupShiftsByHour(
+    sucursal === undefined ? shifts : shiftsForSucursales(shifts, [sucursal])
+  );
 
   return (
     <>
@@ -218,6 +224,7 @@ function ShiftCell({
   onCellChange,
   onSpecialDayChange,
   isUnderHoursWeek,
+  workerSucursal,
 }: {
   workerId: string;
   dayIndex: number;
@@ -228,6 +235,8 @@ function ShiftCell({
   onCellChange: (wid: string, di: number, s: ShiftCode) => void;
   onSpecialDayChange: (wid: string, di: number, typeCode: string | null) => void;
   isUnderHoursWeek?: boolean;
+  /** Sucursal de la trabajadora, para ofrecer solo sus turnos y los compartidos */
+  workerSucursal?: string;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -272,6 +281,7 @@ function ShiftCell({
             </p>
             <GroupedShiftOptions
               shifts={shifts}
+              sucursal={workerSucursal}
               onSelect={(s) => {
                 onSpecialDayChange(workerId, dayIndex, null);
                 onCellChange(workerId, dayIndex, s);
@@ -332,6 +342,7 @@ function ShiftCell({
             </p>
             <GroupedShiftOptions
               shifts={shifts}
+              sucursal={workerSucursal}
               onSelect={(s) => {
                 onCellChange(workerId, dayIndex, s);
                 setOpen(false);
@@ -396,6 +407,7 @@ function ShiftCell({
           </p>
           <GroupedShiftOptions
             shifts={shifts}
+            sucursal={workerSucursal}
             excludeCode={shift}
             onSelect={(s) => {
               onCellChange(workerId, dayIndex, s);
@@ -1564,6 +1576,7 @@ export default function MallaGrid({
                       <ShiftCell
                         key={`lead-cell-${worker.id}-${ld.day}`}
                         workerId={worker.id}
+                        workerSucursal={worker.sucursal}
                         dayIndex={ld.dayIndex}
                         shift={prevSched[ld.dayIndex] ?? null}
                         specialDay={prevSpecial[ld.dayIndex]}
@@ -1611,6 +1624,7 @@ export default function MallaGrid({
                         <ShiftCell
                           key={`${worker.id}-day-${i}`}
                           workerId={worker.id}
+                          workerSucursal={worker.sucursal}
                           dayIndex={i}
                           shift={sched[i] ?? null}
                           specialDay={workerSpecialDays[i]}
@@ -1632,6 +1646,7 @@ export default function MallaGrid({
                       <ShiftCell
                         key={`trail-cell-${worker.id}-${trd.day}`}
                         workerId={worker.id}
+                        workerSucursal={worker.sucursal}
                         dayIndex={trd.dayIndex}
                         shift={nextSched[trd.dayIndex] ?? null}
                         specialDay={nextSpecial[trd.dayIndex]}
@@ -1654,7 +1669,7 @@ export default function MallaGrid({
       {/* ─── Floating shift selector panel ─────────────────────────────── */}
       {panelOpen && (
         <FloatingShiftPanel
-          shifts={shifts}
+          shifts={shiftsForSucursales(shifts, [...new Set(workers.map((w) => w.sucursal))])}
           nonWorkingTypes={nonWorkingTypes}
           activeShift={activeShift ?? null}
           activeSpecialDay={activeSpecialDay}

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   Settings,
@@ -18,6 +18,7 @@ import {
   CalendarX,
   Mail,
   ShieldCheck,
+  Search,
 } from 'lucide-react';
 import {
   useAppContext,
@@ -62,6 +63,28 @@ function generateCode(label: string): string {
   );
 }
 
+// Código del turno: el de un turno de sucursal lleva la sucursal, para no chocar con otro igual
+function makeShiftCode(label: string, sucursal: string): string {
+  const base = generateCode(label);
+  return sucursal ? `${base}-${generateCode(sucursal)}` : base;
+}
+
+function startHour(start: string): number | null {
+  if (!start) return null;
+  const h = parseInt(start.split(':')[0], 10);
+  return Number.isNaN(h) ? null : h;
+}
+
+// El color se asigna solo según la hora de entrada: el mismo que ya tienen los turnos que
+// entran a esa hora; si no hay ninguno, uno fijo de la paleta para esa hora
+function autoShiftColor(start: string, shifts: Shift[]) {
+  const hour = startHour(start);
+  const same = shifts.find((s) => s.colorClass && startHour(s.start) === hour);
+  if (same) return { colorClass: same.colorClass, legendColor: same.legendColor };
+  const opt = SHIFT_COLOR_OPTIONS[(hour ?? 0) % SHIFT_COLOR_OPTIONS.length];
+  return { colorClass: opt.colorClass, legendColor: opt.legendColor };
+}
+
 function generateNwtCode(label: string): string {
   return `CUSTOM_${label
     .trim()
@@ -100,16 +123,23 @@ interface ShiftFormData {
   label: string;
   start: string;
   end: string;
-  colorIndex: number;
   colacion: number;
+  /** '' = todas las sucursales */
+  sucursal: string;
 }
 
-const EMPTY_FORM: ShiftFormData = { label: '', start: '', end: '', colorIndex: 0, colacion: 0 };
+const EMPTY_FORM: ShiftFormData = { label: '', start: '', end: '', colacion: 0, sucursal: '' };
 
 interface ShiftFormProps {
   initial?: ShiftFormData;
   existingCodes: string[];
   editingCode?: string;
+  /** Sucursales que se pueden elegir para el turno */
+  sucursalOptions: string[];
+  /** Si se puede crear un turno para todas las sucursales (solo el admin general) */
+  allowAll: boolean;
+  /** Color que tendrá el turno (se asigna solo) */
+  previewColor: (start: string) => { colorClass: string };
   onSave: (data: ShiftFormData) => void;
   onCancel: () => void;
 }
@@ -118,6 +148,9 @@ function ShiftForm({
   initial = EMPTY_FORM,
   existingCodes,
   editingCode,
+  sucursalOptions,
+  allowAll,
+  previewColor,
   onSave,
   onCancel,
 }: ShiftFormProps) {
@@ -126,7 +159,7 @@ function ShiftForm({
 
   const grossHours = calcHours(form.start, form.end);
   const netHours = calcNetHoursLocal(form.start, form.end, form.colacion);
-  const previewCode = editingCode || generateCode(form.label);
+  const previewCode = editingCode || makeShiftCode(form.label, form.sucursal);
   const colacionApplies = form.colacion > 0;
 
   function handleSubmit(e: React.FormEvent) {
@@ -147,7 +180,11 @@ function ShiftForm({
       setError('La hora de entrada y salida no pueden ser iguales.');
       return;
     }
-    const code = editingCode || generateCode(form.label);
+    if (!allowAll && !form.sucursal) {
+      setError('Elige la sucursal del turno.');
+      return;
+    }
+    const code = editingCode || makeShiftCode(form.label, form.sucursal);
     if (!editingCode && existingCodes.includes(code)) {
       setError('Ya existe un turno con ese nombre. Usa un nombre diferente.');
       return;
@@ -156,7 +193,7 @@ function ShiftForm({
     onSave(form);
   }
 
-  const selectedColor = SHIFT_COLOR_OPTIONS[form.colorIndex];
+  const selectedColor = previewColor(form.start);
 
   return (
     <form
@@ -260,35 +297,46 @@ function ShiftForm({
         </div>
       )}
 
-      <div className="space-y-2">
-        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Color del turno
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <MapPin size={12} />
+          Sucursal
         </label>
-        <div className="flex flex-wrap gap-2">
-          {SHIFT_COLOR_OPTIONS.map((opt, idx) => (
-            <button
-              key={`color-${idx}`}
-              type="button"
-              onClick={() => setForm((f) => ({ ...f, colorIndex: idx }))}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-all ${opt.colorClass} ${form.colorIndex === idx ? 'border-foreground scale-105 shadow' : 'border-transparent'}`}
-            >
-              {opt.label}
-            </button>
+        <select
+          value={form.sucursal}
+          onChange={(e) => setForm((f) => ({ ...f, sucursal: e.target.value }))}
+          disabled={!!editingCode}
+          className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-70"
+        >
+          {allowAll && <option value="">Todas las sucursales</option>}
+          {!allowAll && !form.sucursal && <option value="">Elige la sucursal…</option>}
+          {sucursalOptions.map((name) => (
+            <option key={`suc-${name}`} value={name}>
+              {name}
+            </option>
           ))}
-        </div>
-        {form.label && (
-          <div className="mt-2">
-            <span className="text-xs text-muted-foreground mr-2">Vista previa:</span>
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${selectedColor.colorClass}`}
-            >
-              <Clock size={11} />
-              {form.label}
-              {form.start && form.end ? ` (${form.start} - ${form.end})` : ''}
-            </span>
-          </div>
-        )}
+        </select>
+        <p className="text-[11px] text-muted-foreground">
+          {form.sucursal
+            ? `Solo ${form.sucursal} verá este turno en su malla.`
+            : 'Todas las sucursales verán este turno.'}
+        </p>
       </div>
+
+      {form.label && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">
+            Así se verá (el color se asigna solo según la hora de entrada):
+          </span>
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${selectedColor.colorClass}`}
+          >
+            <Clock size={11} />
+            {form.label}
+            {form.start && form.end ? ` (${form.start} - ${form.end})` : ''}
+          </span>
+        </div>
+      )}
 
       <div className="flex gap-3 pt-2">
         <button
@@ -311,73 +359,158 @@ function ShiftForm({
   );
 }
 
-// ─── Shift Card ───────────────────────────────────────────────────────────────
+// ─── Lista de turnos (compacta, agrupada por hora de entrada) ─────────────────
 
-interface ShiftCardProps {
-  shift: Shift;
-  onEdit: () => void;
-  onDelete: () => void;
+interface ShiftListProps {
+  shifts: Shift[];
+  canEdit: (s: Shift) => boolean;
+  onEdit: (code: string) => void;
+  onDelete: (code: string) => void;
 }
 
-function ShiftCard({ shift, onEdit, onDelete }: ShiftCardProps) {
-  const gross = calcHours(shift.start, shift.end);
-  const net = calcNetHoursLocal(shift.start, shift.end, shift.colacion || 0);
-  const showNet = (shift.colacion || 0) > 0;
+function ShiftList({ shifts, canEdit, onEdit, onDelete }: ShiftListProps) {
+  const [query, setQuery] = useState('');
+  const [confirmCode, setConfirmCode] = useState<string | null>(null);
+
+  const groups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = shifts.filter(
+      (s) =>
+        !q ||
+        s.label.toLowerCase().includes(q) ||
+        `${s.start}-${s.end}`.includes(q) ||
+        (s.sucursal ?? 'todas').toLowerCase().includes(q)
+    );
+    const map = new Map<string, Shift[]>();
+    filtered
+      .slice()
+      .sort(
+        (x, y) => (x.start || '99').localeCompare(y.start || '99') || x.end.localeCompare(y.end)
+      )
+      .forEach((s) => {
+        const h = startHour(s.start);
+        const key = h === null ? 'Sin horario' : `Entrada ${String(h).padStart(2, '0')}:00`;
+        map.set(key, [...(map.get(key) ?? []), s]);
+      });
+    return [...map.entries()];
+  }, [shifts, query]);
+
   return (
-    <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex items-start lg:items-center justify-between gap-2 lg:gap-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center gap-3 min-w-0">
-        <span
-          className={`hidden lg:block w-3 h-3 rounded-full flex-shrink-0 ${shift.legendColor}`}
+    <div className="space-y-3">
+      <div className="relative">
+        <Search
+          size={15}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
         />
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${shift.colorClass}`}
-            >
-              <Clock size={10} />
-              {shift.label}
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Buscar turno (ej: 08:00, 15:30, nombre o sucursal)…"
+          className="w-full pl-9 pr-3 py-2.5 bg-card border border-border rounded-lg text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
+      {groups.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-6">
+          No hay turnos que coincidan con la búsqueda.
+        </p>
+      )}
+
+      {groups.map(([title, list]) => (
+        <section
+          key={title}
+          className="bg-card border border-border rounded-xl overflow-hidden shadow-sm"
+        >
+          <h3 className="px-4 py-2 bg-muted/40 border-b border-border text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+            <span>{title}</span>
+            <span className="font-semibold normal-case tracking-normal">
+              {list.length} turno{list.length !== 1 ? 's' : ''}
             </span>
-            <span className="text-xs text-muted-foreground font-mono">{shift.code}</span>
-          </div>
-          <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 mt-1.5 text-sm text-muted-foreground">
-            {shift.start && shift.end ? (
-              <>
-                <span className="font-medium text-foreground">{shift.start}</span>
-                <span>→</span>
-                <span className="font-medium text-foreground">{shift.end}</span>
-                <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{gross}h bruto</span>
-                {showNet && (
-                  <span className="text-xs bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Coffee size={9} />
-                    {net}h neto
-                  </span>
-                )}
-                {(shift.colacion || 0) > 0 && (
-                  <span className="text-xs text-muted-foreground">col. {shift.colacion}min</span>
-                )}
-              </>
-            ) : (
-              <span className="italic text-xs">Sin horario definido</span>
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <button
-          onClick={onEdit}
-          className="p-2 rounded-lg text-muted-foreground hover:text-secondary hover:bg-secondary/10 transition-colors"
-          title="Editar turno"
-        >
-          <Pencil size={15} />
-        </button>
-        <button
-          onClick={onDelete}
-          className="p-2 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
-          title="Eliminar turno"
-        >
-          <Trash2 size={15} />
-        </button>
-      </div>
+          </h3>
+          <ul className="divide-y divide-border/60">
+            {list.map((shift) => {
+              const net = calcNetHoursLocal(shift.start, shift.end, shift.colacion || 0);
+              const editable = canEdit(shift);
+              return (
+                <li key={shift.code} className="flex items-center gap-3 px-4 py-2">
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${shift.legendColor || 'bg-gray-400'}`}
+                  />
+                  <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                    <span className="text-sm font-semibold text-foreground whitespace-nowrap">
+                      {shift.start && shift.end ? `${shift.start}–${shift.end}` : shift.label}
+                    </span>
+                    {shift.start && shift.end && (
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {net}h netas{shift.colacion ? ` · col. ${shift.colacion} min` : ''}
+                      </span>
+                    )}
+                    <span
+                      className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-md whitespace-nowrap ${
+                        shift.sucursal
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {shift.sucursal ?? 'Todas'}
+                    </span>
+                  </div>
+                  {confirmCode === shift.code ? (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-xs text-red-600 font-semibold hidden sm:inline">
+                        ¿Eliminar?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDelete(shift.code);
+                          setConfirmCode(null);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold"
+                      >
+                        Eliminar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmCode(null)}
+                        className="px-2.5 py-1.5 rounded-lg bg-muted text-foreground text-xs font-semibold"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : editable ? (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(shift.code)}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-secondary hover:bg-secondary/10 transition-colors"
+                        title="Editar turno"
+                        aria-label={`Editar turno ${shift.label}`}
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmCode(shift.code)}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title="Eliminar turno"
+                        aria-label={`Eliminar turno ${shift.label}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground shrink-0">
+                      Solo admin general
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }
@@ -1832,30 +1965,54 @@ export default function AjustesContent() {
     getSucursalCajas,
   } = useAppContext();
 
+  const { isGlobalAdmin, allowedSucursales } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('turnos');
   const [showForm, setShowForm] = useState(false);
   const [editingCode, setEditingCode] = useState<string | null>(null);
-  const [deletingCode, setDeletingCode] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
-  const shiftList = Object.values(shifts);
+  const allShifts = Object.values(shifts);
   const existingCodes = Object.keys(shifts);
+  // El admin de sucursal ve los turnos compartidos y los de sus sucursales, y edita solo los suyos
+  const mySucursales = isGlobalAdmin
+    ? sucursales.map((s) => s.name)
+    : (allowedSucursales ?? []).filter((n) => sucursales.some((s) => s.name === n));
+  const shiftList = isGlobalAdmin
+    ? allShifts
+    : allShifts.filter((s) => !s.sucursal || mySucursales.includes(s.sucursal));
+  const canEditShift = (s: Shift) =>
+    isGlobalAdmin || (!!s.sucursal && mySucursales.includes(s.sucursal));
+
+  // Al abrir el formulario (nuevo o editar) se sube hasta él
+  useEffect(() => {
+    if (showForm) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [showForm, editingCode]);
 
   function getFormInitial(code: string): ShiftFormData {
     const s = shifts[code];
     if (!s) return EMPTY_FORM;
-    const colorIndex = SHIFT_COLOR_OPTIONS.findIndex((c) => c.colorClass === s.colorClass);
     return {
       label: s.label,
       start: s.start,
       end: s.end,
-      colorIndex: colorIndex >= 0 ? colorIndex : 0,
       colacion: s.colacion || 0,
+      sucursal: s.sucursal ?? '',
     };
   }
 
+  function openNewForm() {
+    setShowForm(true);
+    setEditingCode(null);
+  }
+
   function handleSave(data: ShiftFormData) {
-    const color = SHIFT_COLOR_OPTIONS[data.colorIndex];
-    const code = editingCode || generateCode(data.label);
+    const code = editingCode || makeShiftCode(data.label, data.sucursal);
+    const prev = editingCode ? shifts[editingCode] : undefined;
+    // Turno existente: conserva su color; turno nuevo: color según la hora de entrada
+    const color =
+      prev && prev.colorClass
+        ? { colorClass: prev.colorClass, legendColor: prev.legendColor }
+        : autoShiftColor(data.start, allShifts);
     const shift: Shift = {
       code,
       label: data.label.trim(),
@@ -1864,6 +2021,7 @@ export default function AjustesContent() {
       colorClass: color.colorClass,
       legendColor: color.legendColor,
       colacion: data.colacion || 0,
+      sucursal: prev ? (prev.sucursal ?? null) : data.sucursal || null,
     };
     try {
       if (editingCode) {
@@ -1884,12 +2042,11 @@ export default function AjustesContent() {
   function handleEdit(code: string) {
     setEditingCode(code);
     setShowForm(true);
-    setDeletingCode(null);
   }
 
   function handleDelete(code: string) {
     deleteShift(code);
-    setDeletingCode(null);
+    if (editingCode === code) handleCancelForm();
   }
 
   function handleCancelForm() {
@@ -1897,7 +2054,7 @@ export default function AjustesContent() {
     setEditingCode(null);
   }
 
-  const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+  const ALL_TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'turnos', label: 'Turnos', icon: Clock },
     { id: 'especiales', label: 'Días Especiales', icon: CalendarX },
     { id: 'sucursales', label: 'Sucursales', icon: MapPin },
@@ -1905,6 +2062,8 @@ export default function AjustesContent() {
     { id: 'importar', label: 'Importar', icon: FileSpreadsheet },
     { id: 'acceso', label: 'Usuarios', icon: ShieldCheck },
   ];
+  // El admin de una sucursal solo administra sus turnos
+  const TABS = isGlobalAdmin ? ALL_TABS : ALL_TABS.filter((t) => t.id === 'turnos');
 
   return (
     <div className="p-6 xl:p-8 max-w-3xl mx-auto">
@@ -1916,16 +2075,14 @@ export default function AjustesContent() {
             Ajustes
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Configura turnos, días especiales, sucursales y áreas de tu organización.
+            {isGlobalAdmin
+              ? 'Configura turnos, días especiales, sucursales y áreas de tu organización.'
+              : 'Crea y edita los turnos de tu sucursal.'}
           </p>
         </div>
-        {activeTab === 'turnos' && !showForm && shiftList.length > 0 && (
+        {activeTab === 'turnos' && !showForm && (
           <button
-            onClick={() => {
-              setShowForm(true);
-              setEditingCode(null);
-              setDeletingCode(null);
-            }}
+            onClick={openNewForm}
             className="flex items-center gap-2 bg-secondary text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all shadow-sm"
           >
             <Plus size={16} />
@@ -1935,95 +2092,78 @@ export default function AjustesContent() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-muted/30 rounded-xl p-1 mb-6 border border-border flex-wrap">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => {
-              setActiveTab(tab.id);
-              setShowForm(false);
-              setEditingCode(null);
-              setDeletingCode(null);
-            }}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold transition-all min-w-[80px] ${
-              activeTab === tab.id
-                ? 'bg-card text-secondary shadow-sm border border-border'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <tab.icon size={14} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {TABS.length > 1 && (
+        <div className="flex gap-1 bg-muted/30 rounded-xl p-1 mb-6 border border-border flex-wrap">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setShowForm(false);
+                setEditingCode(null);
+              }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold transition-all min-w-[80px] ${
+                activeTab === tab.id
+                  ? 'bg-card text-secondary shadow-sm border border-border'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <tab.icon size={14} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Turnos Tab ── */}
       {activeTab === 'turnos' && (
         <>
-          {shiftList.length > 0 && (
-            <div className="bg-card border border-border rounded-xl px-5 py-3 mb-6 flex items-center gap-6 shadow-sm">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-foreground">{shiftList.length}</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Turnos</p>
-              </div>
-              <div className="h-8 w-px bg-border" />
-              <div className="flex flex-wrap gap-2">
-                {shiftList.map((s) => (
-                  <span
-                    key={`stat-${s.code}`}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${s.colorClass}`}
-                  >
-                    <Clock size={10} />
-                    {s.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
+          {/* Formulario arriba, antes de la lista */}
           {showForm && (
-            <div className="mb-6">
+            <div ref={formRef} className="mb-6 scroll-mt-4">
               <ShiftForm
-                initial={editingCode ? getFormInitial(editingCode) : EMPTY_FORM}
+                key={editingCode ?? 'nuevo'}
+                initial={
+                  editingCode
+                    ? getFormInitial(editingCode)
+                    : {
+                        ...EMPTY_FORM,
+                        sucursal: isGlobalAdmin
+                          ? ''
+                          : mySucursales.length === 1
+                            ? mySucursales[0]
+                            : '',
+                      }
+                }
                 existingCodes={existingCodes}
                 editingCode={editingCode || undefined}
+                sucursalOptions={mySucursales}
+                allowAll={isGlobalAdmin}
+                previewColor={(start) =>
+                  editingCode && shifts[editingCode]?.colorClass
+                    ? shifts[editingCode]
+                    : autoShiftColor(start, allShifts)
+                }
                 onSave={handleSave}
                 onCancel={handleCancelForm}
               />
             </div>
           )}
 
-          {shiftList.length === 0 && !showForm && (
-            <EmptyState label="turnos" onAdd={() => setShowForm(true)} />
-          )}
+          {shiftList.length === 0 && !showForm && <EmptyState label="turnos" onAdd={openNewForm} />}
 
           {shiftList.length > 0 && (
-            <div className="space-y-3">
+            <>
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                 Turnos configurados ({shiftList.length})
               </h2>
-              {shiftList.map((shift) => (
-                <div key={`shift-${shift.code}`}>
-                  {deletingCode === shift.code ? (
-                    <DeleteConfirm
-                      label={shift.label}
-                      onConfirm={() => handleDelete(shift.code)}
-                      onCancel={() => setDeletingCode(null)}
-                    />
-                  ) : (
-                    <ShiftCard
-                      shift={shift}
-                      onEdit={() => handleEdit(shift.code)}
-                      onDelete={() => {
-                        setDeletingCode(shift.code);
-                        setShowForm(false);
-                        setEditingCode(null);
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+              <ShiftList
+                shifts={shiftList}
+                canEdit={canEditShift}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            </>
           )}
         </>
       )}

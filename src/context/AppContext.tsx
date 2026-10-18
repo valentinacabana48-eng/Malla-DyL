@@ -25,6 +25,18 @@ export interface Shift {
   colorClass: string;
   legendColor: string;
   colacion: number;
+  /** Sucursal dueña del turno; null/undefined = turno compartido por todas */
+  sucursal?: string | null;
+}
+
+/** Turnos que se pueden asignar en esas sucursales: los compartidos y los propios de cada una */
+export function shiftsForSucursales(
+  shifts: Record<string, Shift>,
+  sucursales: string[]
+): Record<string, Shift> {
+  return Object.fromEntries(
+    Object.entries(shifts).filter(([, s]) => !s.sucursal || sucursales.includes(s.sucursal))
+  );
 }
 
 // ─── Non-working day types ─────────────────────────────────────────────────────
@@ -521,6 +533,7 @@ function rowToShift(row: Record<string, unknown>): Shift {
     colorClass: (row.color_class as string) || '',
     legendColor: (row.legend_color as string) || '',
     colacion: (row.colacion as number) || 0,
+    sucursal: (row.sucursal as string | null) ?? null,
   };
 }
 
@@ -533,6 +546,7 @@ function shiftToRow(s: Shift) {
     color_class: s.colorClass,
     legend_color: s.legendColor,
     colacion: s.colacion,
+    sucursal: s.sucursal ?? null,
   };
 }
 

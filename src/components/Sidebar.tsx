@@ -35,7 +35,7 @@ const navItems: {
   { label: 'Asistencia', icon: CalendarCheck, href: '/asistencia' },
   { label: 'RRHH', icon: UserCog, href: '/rrhh', adminOnly: true },
   { label: 'Vista previa', icon: Eye, href: '/vista-previa' },
-  { label: 'Ajustes', icon: Settings, href: '/ajustes', globalAdminOnly: true },
+  { label: 'Ajustes', icon: Settings, href: '/ajustes', adminOnly: true },
 ];
 
 interface SidebarProps {

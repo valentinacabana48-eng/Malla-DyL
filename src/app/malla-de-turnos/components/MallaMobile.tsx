@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import {
   useAppContext,
   monthLabelToKey,
+  shiftsForSucursales,
   type Shift,
   type ShiftCode,
   type Worker,
@@ -173,9 +174,10 @@ export default function MallaMobile({
     return <span className="text-sm text-muted-foreground">Sin turno</span>;
   };
 
-  const sortedShifts = Object.values(shifts).sort((a, b) =>
-    (a.start || '99').localeCompare(b.start || '99')
-  );
+  // Turnos compartidos y los de la sucursal de la trabajadora que se está editando
+  const sortedShifts = Object.values(
+    editingWorker ? shiftsForSucursales(shifts, [editingWorker.sucursal]) : shifts
+  ).sort((a, b) => (a.start || '99').localeCompare(b.start || '99'));
 
   return (
     <div className="space-y-4">
