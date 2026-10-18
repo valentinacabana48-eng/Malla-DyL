@@ -64,7 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select('role')
         .eq('user_id', userId)
         .maybeSingle();
-      if (error) console.error('Error loading role:', error);
+      if (error) {
+        // Un corte de red momentáneo no debe sacar al usuario: se conserva el rol que ya tenía
+        console.error('Error loading role:', error);
+        setRole((prev) => prev ?? 'pendiente');
+        return;
+      }
       setRole((data?.role as UserRole) ?? 'pendiente');
     },
     [supabase]

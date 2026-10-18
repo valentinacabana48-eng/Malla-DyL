@@ -1,91 +1,111 @@
-# Next.js
+# D&L Gestor
 
-A modern Next.js 15 application built with TypeScript and Tailwind CSS.
+Gestión de mallas de turnos, personal, asistencia y RRHH para Mayorista D&L.
 
-## 🚀 Features
+Funciona como **app instalable (PWA)** en celulares Android, iPhone y en PC (Windows / Mac), y como página web normal. Todos los dispositivos comparten los mismos datos en tiempo real a través de Supabase.
 
-- **Next.js 15** - Latest version with improved performance and features
-- **React 19** - Latest React version with enhanced capabilities
-- **Tailwind CSS** - Utility-first CSS framework for rapid UI development
+- **Frontend:** Next.js 15 + React 19 + Tailwind CSS
+- **Backend:** Supabase (PostgreSQL, Auth, Realtime)
 
-## 🛠️ Installation
+---
 
-1. Install dependencies:
-  ```bash
-  npm install
-  # or
-  yarn install
-  ```
+## 1. Puesta en marcha (una sola vez)
 
-2. Start the development server:
-  ```bash
-  npm run dev
-  # or
-  yarn dev
-  ```
-3. Open [http://localhost:4028](http://localhost:4028) with your browser to see the result.
+### a) Base de datos
 
-## 📁 Project Structure
+Aplica la migración nueva en tu proyecto Supabase. Puedes usar la CLI (`supabase db push`) o copiar el contenido de
+`supabase/migrations/20261018000000_auth_roles_rls.sql` en **Supabase → SQL Editor → Run**.
+
+La migración **no borra datos** de trabajadores, mallas, asistencia ni RRHH. Hace lo siguiente:
+
+- Cierra el acceso público a la base de datos. Antes, cualquiera con la URL podía leer y modificar todo.
+- Crea los roles de usuario (`admin`, `lector`, `pendiente`).
+- Elimina la tabla `pin_settings`, porque guardaba los PIN en texto plano y ya no se usa.
+
+> ⚠️ Desde este momento, la versión antigua de la app (con PIN) deja de funcionar. Publica la versión nueva al mismo tiempo.
+
+### b) Configurar el login en Supabase
+
+En **Authentication → URL Configuration**:
+
+- **Site URL:** la dirección de tu app, por ejemplo `https://tu-app.netlify.app`.
+- **Redirect URLs:** agrega esa misma dirección.
+
+En **Authentication → Providers → Email**, deja activado *Confirm email*.
+
+### c) Crear el primer administrador
+
+1. Abre la app y usa **Crear cuenta** con tu correo.
+2. Confirma el correo desde el enlace que te llega.
+3. En **Supabase → SQL Editor** ejecuta:
+
+   ```sql
+   UPDATE public.user_roles SET role = 'admin' WHERE email = 'tu-correo@ejemplo.com';
+   ```
+
+4. Vuelve a la app y presiona **"Ya me dieron acceso"**.
+
+Desde ahí, las demás personas crean su cuenta en la app y tú les das acceso en **Ajustes → Usuarios**.
+
+| Rol | Qué puede hacer |
+| --- | --- |
+| Administrador | Ver y modificar todo, incluido RRHH y Ajustes |
+| Solo lectura | Ver mallas, personal y asistencia, sin modificar |
+| Sin acceso | No ve nada (estado inicial de toda cuenta nueva) |
+
+### d) Variables de entorno
+
+Copia `.env.example` como `.env.local` (o configúralas en tu hosting):
 
 ```
-nextjs/
-├── public/             # Static assets
-├── src/
-│   ├── app/            # App router components
-│   │   ├── layout.tsx  # Root layout component
-│   │   └── page.tsx    # Main page component
-│   ├── components/     # Reusable UI components
-│   ├── styles/         # Global styles and Tailwind configuration
-├── next.config.mjs     # Next.js configuration
-├── package.json        # Project dependencies and scripts
-├── postcss.config.js   # PostCSS configuration
-└── tailwind.config.js  # Tailwind CSS configuration
-
+NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-anon-key
 ```
 
-## 🧩 Page Editing
+Las dos son necesarias **al compilar**, porque también se usan en la política de seguridad (CSP).
 
-You can start editing the page by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-## 🎨 Styling
+## 2. Instalar la app
 
-This project uses Tailwind CSS for styling with the following features:
-- Utility-first approach for rapid development
-- Custom theme configuration
-- Responsive design utilities
-- PostCSS and Autoprefixer integration
+| Dispositivo | Cómo instalar |
+| --- | --- |
+| **Android** (Chrome) | Abre la app → botón **Instalar app** arriba, o menú ⋮ → *Instalar aplicación* |
+| **iPhone / iPad** (Safari) | Abre la app → botón Compartir → **Agregar a pantalla de inicio** |
+| **PC** (Chrome o Edge) | Abre la app → botón **Instalar app** arriba, o ícono de instalar en la barra de direcciones |
 
-## 📦 Available Scripts
+Queda como un ícono más, se abre en su propia ventana y se actualiza sola cuando publicas una versión nueva.
 
-- `npm run dev` - Start development server on port 4028
-- `npm run build` - Build the application for production
-- `npm run start` - Start the development server
-- `npm run serve` - Start the production server
-- `npm run lint` - Run ESLint to check code quality
-- `npm run lint:fix` - Fix ESLint issues automatically
-- `npm run format` - Format code with Prettier
+---
 
-## 📱 Deployment
+## 3. Desarrollo
 
-Build the application for production:
+```bash
+npm install
+npm run dev        # http://localhost:4028
+npm run build      # compila y revisa tipos y lint
+npm run start      # sirve la versión compilada
+```
 
-  ```bash
-  npm run build
-  ```
+### Estructura
 
-## 📚 Learn More
+```
+src/
+  app/                 páginas (malla-de-turnos, asistencia, personal, rrhh, ajustes…)
+  components/          AuthGate (login), AppLayout, Sidebar, LockToggle…
+  context/
+    AuthContext.tsx    sesión y rol del usuario
+    AppContext.tsx     datos de la app (trabajadores, turnos, mallas) + tiempo real
+  lib/
+    supabase/          cliente único y paginación (fetchAll)
+    excel.ts           importar/exportar Excel con ExcelJS
+    pwa.ts             service worker y botón "Instalar app"
+supabase/migrations/   historial de la base de datos
+public/sw.js           service worker (caché de archivos estáticos, nunca de datos)
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Notas
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial
-
-You can check out the [Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## 🙏 Acknowledgments
-
-- Built with [Rocket.new](https://rocket.new)
-- Powered by Next.js and React
-- Styled with Tailwind CSS
-
-Built with ❤️ on Rocket.new
+- **Seguridad:** los permisos se aplican en la base de datos (RLS). Ocultar botones en la interfaz es solo comodidad, no la protección real.
+- **Excel:** se importan archivos `.xlsx` y `.csv`. Los `.xls` antiguos (Excel 97-2003) hay que guardarlos primero como `.xlsx`.
+- **Días bloqueados en asistencia:** la base de datos rechaza cualquier cambio en un día bloqueado hasta que un admin lo desbloquee.
