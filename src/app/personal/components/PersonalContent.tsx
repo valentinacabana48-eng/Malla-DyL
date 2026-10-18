@@ -11,7 +11,8 @@ import PersonalTable from './PersonalTable';
 import AddWorkerPanel from './AddWorkerPanel';
 
 export default function PersonalContent() {
-  const { workers, addWorker, updateWorker, deleteWorker } = useAppContext();
+  const { workers, addWorker, updateWorker, deleteWorker, sucursales, globalSucursal, globalArea } =
+    useAppContext();
   const isReadonly = useReadonly();
   const [filterSucursal, setFilterSucursal] = useState('Todas');
   const [filterArea, setFilterArea] = useState('Todas');
@@ -208,8 +209,8 @@ export default function PersonalContent() {
                 rut: '',
                 cargo: 'Cajera',
                 role: 'Cajera',
-                sucursal: 'Mayorista Talca',
-                area: 'Cajas',
+                sucursal: globalSucursal !== 'Todas' ? globalSucursal : (sucursales[0]?.name ?? ''),
+                area: globalArea !== 'Todas' ? globalArea : 'Cajas',
                 horasContratadas: 42,
                 estado: 'Activo',
                 avatarColor: 'bg-blue-100 text-blue-700',

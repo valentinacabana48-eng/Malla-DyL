@@ -1618,23 +1618,35 @@ function NwtManager() {
   );
 }
 
-// ─── PIN Settings Panel ───────────────────────────────────────────────────────
+// ─── Usuarios ────────────────────────────────────────────────────────────────
 
 interface UserRoleRow {
   user_id: string;
   email: string;
   role: UserRole;
+  /** null = todas las sucursales */
+  sucursales: string[] | null;
   created_at: string;
 }
 
 const ROLE_OPTIONS: { value: UserRole; label: string; description: string }[] = [
-  { value: 'admin', label: 'Administrador', description: 'Puede ver y modificar todo' },
-  { value: 'lector', label: 'Solo lectura', description: 'Puede ver, pero no modificar' },
+  {
+    value: 'admin',
+    label: 'Administrador',
+    description:
+      'Modifica malla, personal, asistencia y RRHH de sus sucursales. Con "Todas" además entra a Ajustes.',
+  },
+  {
+    value: 'lector',
+    label: 'Solo lectura',
+    description: 'Ve sus sucursales, pero no modifica nada',
+  },
   { value: 'pendiente', label: 'Sin acceso', description: 'No puede entrar a la app' },
 ];
 
 function UsersPanel() {
   const { user } = useAuth();
+  const { sucursales: allSucursales } = useAppContext();
   const supabase = getSupabase();
   const [rows, setRows] = useState<UserRoleRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1644,10 +1656,15 @@ function UsersPanel() {
     setLoading(true);
     const { data, error } = await supabase
       .from('user_roles')
-      .select('user_id, email, role, created_at')
+      .select('user_id, email, role, sucursales, created_at')
       .order('created_at');
     if (error) toast.error('No se pudo cargar la lista de usuarios.');
-    setRows((data as UserRoleRow[]) || []);
+    setRows(
+      ((data as UserRoleRow[]) || []).map((r) => ({
+        ...r,
+        sucursales: r.sucursales && r.sucursales.length > 0 ? r.sucursales : null,
+      }))
+    );
     setLoading(false);
   }, [supabase]);
 
@@ -1655,19 +1672,28 @@ function UsersPanel() {
     load();
   }, [load]);
 
-  async function changeRole(userId: string, role: UserRole) {
+  async function saveUser(
+    userId: string,
+    changes: Partial<Pick<UserRoleRow, 'role' | 'sucursales'>>
+  ) {
     setSavingId(userId);
     const { error } = await supabase
       .from('user_roles')
-      .update({ role, updated_at: new Date().toISOString() })
+      .update({ ...changes, updated_at: new Date().toISOString() })
       .eq('user_id', userId);
     setSavingId(null);
     if (error) {
-      toast.error('No se pudo cambiar el rol.');
+      toast.error('No se pudo guardar el cambio.');
       return;
     }
-    setRows((prev) => prev.map((r) => (r.user_id === userId ? { ...r, role } : r)));
-    toast.success('Rol actualizado');
+    setRows((prev) => prev.map((r) => (r.user_id === userId ? { ...r, ...changes } : r)));
+    toast.success('Permisos actualizados');
+  }
+
+  function toggleSucursal(row: UserRoleRow, name: string) {
+    const current = row.sucursales ?? [];
+    const next = current.includes(name) ? current.filter((s) => s !== name) : [...current, name];
+    saveUser(row.user_id, { sucursales: next.length > 0 ? next : null });
   }
 
   const pending = rows.filter((r) => r.role === 'pendiente').length;
@@ -1681,7 +1707,7 @@ function UsersPanel() {
         </h3>
         <p className="text-sm text-muted-foreground mt-1">
           Cada persona entra con su propio correo y contraseña. Las cuentas nuevas quedan sin acceso
-          hasta que les asignes un rol.
+          hasta que les asignes un rol. Elige también qué sucursales puede ver.
         </p>
       </div>
 
@@ -1700,35 +1726,70 @@ function UsersPanel() {
         <div className="flex flex-col divide-y divide-border border border-border rounded-xl overflow-hidden">
           {rows.map((r) => {
             const isMe = r.user_id === user?.id;
+            const busy = isMe || savingId === r.user_id;
+            const chip = (active: boolean) =>
+              `text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors disabled:opacity-60 ${
+                active
+                  ? 'bg-secondary text-white border-secondary'
+                  : 'bg-card text-muted-foreground border-border hover:bg-muted'
+              }`;
             return (
-              <div
-                key={r.user_id}
-                className="flex items-center justify-between gap-3 px-4 py-3 flex-wrap"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Mail size={14} className="text-muted-foreground shrink-0" />
-                  <span className="text-sm font-medium text-foreground truncate">
-                    {r.email || r.user_id}
-                  </span>
-                  {isMe && (
-                    <span className="text-[10px] font-bold uppercase text-secondary bg-blue-50 px-1.5 py-0.5 rounded">
-                      Tú
+              <div key={r.user_id} className="flex flex-col gap-2.5 px-4 py-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Mail size={14} className="text-muted-foreground shrink-0" />
+                    <span className="text-sm font-medium text-foreground truncate">
+                      {r.email || r.user_id}
                     </span>
-                  )}
+                    {isMe && (
+                      <span className="text-[10px] font-bold uppercase text-secondary bg-blue-50 px-1.5 py-0.5 rounded">
+                        Tú
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    value={r.role}
+                    disabled={busy}
+                    onChange={(e) => saveUser(r.user_id, { role: e.target.value as UserRole })}
+                    title={isMe ? 'No puedes cambiar tu propio rol' : undefined}
+                    className="text-sm border border-border rounded-lg px-3 py-1.5 bg-card focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+                  >
+                    {ROLE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <select
-                  value={r.role}
-                  disabled={isMe || savingId === r.user_id}
-                  onChange={(e) => changeRole(r.user_id, e.target.value as UserRole)}
-                  title={isMe ? 'No puedes cambiar tu propio rol' : undefined}
-                  className="text-sm border border-border rounded-lg px-3 py-1.5 bg-card focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
-                >
-                  {ROLE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                {r.role !== 'pendiente' && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs text-muted-foreground mr-1">Sucursales:</span>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => saveUser(r.user_id, { sucursales: null })}
+                      className={chip(r.sucursales === null)}
+                      title={
+                        isMe
+                          ? 'No puedes cambiar tus propias sucursales'
+                          : 'Ve todas las sucursales'
+                      }
+                    >
+                      Todas
+                    </button>
+                    {allSucursales.map((s) => (
+                      <button
+                        key={s.name}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => toggleSucursal(r, s.name)}
+                        className={chip(!!r.sucursales?.includes(s.name))}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

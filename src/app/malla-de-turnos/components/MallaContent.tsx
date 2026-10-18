@@ -78,7 +78,10 @@ export default function MallaContent() {
   );
 
   // ─── Lock state (compartido entre dispositivos, solo admin lo cambia) ──────
-  const { isLocked, setLocked } = useSharedLock('malla_locked');
+  const lockSucursal = selectedSucursal && selectedSucursal !== 'Todas' ? selectedSucursal : null;
+  const { isLocked, setLocked } = useSharedLock(
+    lockSucursal ? `malla_locked:${lockSucursal}` : null
+  );
 
   const handleToggleLock = async (locked: boolean) => {
     const ok = await setLocked(locked);
@@ -557,7 +560,12 @@ export default function MallaContent() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <LockToggle isLocked={isLocked} subject="la malla" onToggle={handleToggleLock} />
+          <LockToggle
+            isLocked={isLocked}
+            subject={lockSucursal ? `la malla de ${lockSucursal}` : 'la malla'}
+            onToggle={handleToggleLock}
+            disabledReason={lockSucursal ? undefined : 'Elige una sucursal para bloquear su malla'}
+          />
           <button
             onClick={() => setShowDownloadModal(true)}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 active:scale-95 transition-all duration-150"

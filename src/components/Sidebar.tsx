@@ -18,7 +18,13 @@ import {
 import Icon from '@/components/ui/AppIcon';
 import { useAuth } from '@/context/AuthContext';
 
-const navItems: { label: string; icon: React.ElementType; href: string; adminOnly?: boolean }[] = [
+const navItems: {
+  label: string;
+  icon: React.ElementType;
+  href: string;
+  adminOnly?: boolean;
+  globalAdminOnly?: boolean;
+}[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
   { label: 'Malla', icon: CalendarDays, href: '/malla-de-turnos' },
   { label: 'Cumplimiento', icon: ShieldCheck, href: '/cumplimiento' },
@@ -26,7 +32,7 @@ const navItems: { label: string; icon: React.ElementType; href: string; adminOnl
   { label: 'Asistencia', icon: CalendarCheck, href: '/asistencia' },
   { label: 'RRHH', icon: UserCog, href: '/rrhh', adminOnly: true },
   { label: 'Vista previa', icon: Eye, href: '/vista-previa' },
-  { label: 'Ajustes', icon: Settings, href: '/ajustes', adminOnly: true },
+  { label: 'Ajustes', icon: Settings, href: '/ajustes', globalAdminOnly: true },
 ];
 
 interface SidebarProps {
@@ -36,8 +42,10 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const { isAdmin } = useAuth();
-  const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin);
+  const { isAdmin, isGlobalAdmin } = useAuth();
+  const visibleItems = navItems.filter(
+    (item) => (!item.adminOnly || isAdmin) && (!item.globalAdminOnly || isGlobalAdmin)
+  );
 
   return (
     <aside

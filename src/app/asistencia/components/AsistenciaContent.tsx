@@ -289,8 +289,8 @@ export default function AsistenciaContent() {
   const [savingCells, setSavingCells] = useState<Set<string>>(new Set());
 
   // ── Per-day lock state ────────────────────────────────────────────────────
-  // lockedDates: set of date strings "YYYY-MM-DD" that are locked
-  const [lockedDates, setLockedDates] = useState<Set<string>>(new Set());
+  // Días bloqueados por sucursal (sucursal '' = bloqueo antiguo, aplica a todas)
+  const [lockRows, setLockRows] = useState<{ record_date: string; sucursal: string }[]>([]);
   const [lockModal, setLockModal] = useState<{
     date: string;
     dateLabel: string;
@@ -298,9 +298,28 @@ export default function AsistenciaContent() {
   } | null>(null);
   const [lockError, setLockError] = useState('');
 
-  // ── Global panel lock (compartido entre dispositivos, solo admin) ─────────
-  const { isLocked: isPanelLocked, setLocked: setPanelLocked } = useSharedLock('asistencia_locked');
+  // ── Bloqueos por sucursal (compartidos entre dispositivos, solo admin) ────
+  // Se bloquea cuando hay UNA sucursal elegida. Si se ven varias, se respetan los
+  // días bloqueados de cualquiera de ellas.
+  const lockSucursal = filterSucursal.length === 1 ? filterSucursal[0] : null;
+  const { isLocked: isPanelLocked, setLocked: setPanelLocked } = useSharedLock(
+    lockSucursal ? `asistencia_locked:${lockSucursal}` : null
+  );
   const { isAdmin } = useAuth();
+  const lockedDates = useMemo(
+    () =>
+      new Set(
+        lockRows
+          .filter(
+            (r) =>
+              r.sucursal === '' ||
+              filterSucursal.length === 0 ||
+              filterSucursal.includes(r.sucursal)
+          )
+          .map((r) => r.record_date)
+      ),
+    [lockRows, filterSucursal]
+  );
 
   // Sync global sucursal and area on mount/change
   useEffect(() => {
@@ -404,7 +423,7 @@ export default function AsistenciaContent() {
         ),
         supabase
           .from('attendance_locked_dates')
-          .select('record_date')
+          .select('record_date, sucursal')
           .gte('record_date', startDate)
           .lte('record_date', endDate),
       ]);
@@ -452,9 +471,7 @@ export default function AsistenciaContent() {
 
       // Load locked dates (ignore errors — table may not exist yet)
       if (!lockRes.error && lockRes.data) {
-        setLockedDates(
-          new Set(lockRes.data.map((r: Record<string, unknown>) => r.record_date as string))
-        );
+        setLockRows(lockRes.data as { record_date: string; sucursal: string }[]);
       }
     } catch (err) {
       console.error('Error loading attendance:', err);
@@ -570,10 +587,17 @@ export default function AsistenciaContent() {
     const label = `${dow} ${day} ${monthShort}`;
     setLockError('');
     if (!isAdmin) return;
+    if (!lockSucursal) {
+      setSaveError('Elige una sola sucursal en los filtros para bloquear o desbloquear días.');
+      setTimeout(() => setSaveError(null), 5000);
+      return;
+    }
     setLockModal({
       date: dateStr,
       dateLabel: label,
-      mode: lockedDates.has(dateStr) ? 'unlock' : 'lock',
+      mode: lockRows.some((r) => r.record_date === dateStr && r.sucursal === lockSucursal)
+        ? 'unlock'
+        : 'lock',
     });
   }
 
@@ -590,34 +614,35 @@ export default function AsistenciaContent() {
   }
 
   async function lockDate(dateStr: string): Promise<boolean> {
+    if (!lockSucursal) return false;
     const { error } = await supabase
       .from('attendance_locked_dates')
       .upsert(
-        { record_date: dateStr, locked_at: new Date().toISOString() },
-        { onConflict: 'record_date' }
+        { record_date: dateStr, sucursal: lockSucursal, locked_at: new Date().toISOString() },
+        { onConflict: 'record_date,sucursal' }
       );
     if (error) {
       console.error('Error locking date:', error);
       return false;
     }
-    setLockedDates((prev) => new Set([...prev, dateStr]));
+    setLockRows((prev) => [...prev, { record_date: dateStr, sucursal: lockSucursal }]);
     return true;
   }
 
   async function unlockDate(dateStr: string): Promise<boolean> {
+    if (!lockSucursal) return false;
     const { error } = await supabase
       .from('attendance_locked_dates')
       .delete()
-      .eq('record_date', dateStr);
+      .eq('record_date', dateStr)
+      .eq('sucursal', lockSucursal);
     if (error) {
       console.error('Error unlocking date:', error);
       return false;
     }
-    setLockedDates((prev) => {
-      const next = new Set(prev);
-      next.delete(dateStr);
-      return next;
-    });
+    setLockRows((prev) =>
+      prev.filter((r) => !(r.record_date === dateStr && r.sucursal === lockSucursal))
+    );
     return true;
   }
 
@@ -1438,8 +1463,11 @@ export default function AsistenciaContent() {
             {/* Global panel lock */}
             <LockToggle
               isLocked={isPanelLocked}
-              subject="la asistencia"
+              subject={lockSucursal ? `la asistencia de ${lockSucursal}` : 'la asistencia'}
               onToggle={setPanelLocked}
+              disabledReason={
+                lockSucursal ? undefined : 'Elige una sola sucursal para bloquear su asistencia'
+              }
             />
             <button
               onClick={loadData}

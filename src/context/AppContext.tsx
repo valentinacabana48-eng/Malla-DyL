@@ -11,6 +11,7 @@ import React, {
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
+import { useAuth } from '@/context/AuthContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -562,21 +563,50 @@ function fetchAllRows(table: string, orderBy: string): Promise<Record<string, un
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
+// El mes elegido es de cada dispositivo: si una persona cambia de mes no le cambia a las demás.
+const SELECTED_MES_KEY = 'dyl_selected_mes';
+
+function currentMonthLabel(): string {
+  const now = new Date();
+  const label = `${MONTH_NAMES_LIST[now.getMonth()]} ${now.getFullYear()}`;
+  return MESES.includes(label) ? label : MESES[0];
+}
+
+function loadSelectedMes(): string {
+  try {
+    const saved = localStorage.getItem(SELECTED_MES_KEY);
+    if (saved && MESES.includes(saved)) return saved;
+  } catch {
+    // localStorage no disponible (modo privado): se usa el mes actual
+  }
+  return currentMonthLabel();
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const supabase = getSupabase();
+  const { isAdmin, allowedSucursales } = useAuth();
 
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [shifts, setShifts] = useState<Record<string, Shift>>({});
   const [sucursales, setSucursales] = useState<Sucursal[]>(DEFAULT_SUCURSALES_DATA);
   const [areas, setAreas] = useState<string[]>(DEFAULT_AREAS);
   const [areaCargos, setAreaCargosState] = useState<AreaCargos>({});
-  const [selectedMes, setSelectedMesState] = useState<string>('Julio 2026');
+  const [selectedMes, setSelectedMesState] = useState<string>(() =>
+    typeof window === 'undefined' ? currentMonthLabel() : loadSelectedMes()
+  );
   const [globalSucursal, setGlobalSucursal] = useState<string>('Todas');
   const [globalArea, setGlobalArea] = useState<string>('Todas');
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [specialDays, setSpecialDaysState] = useState<SpecialDaysData>({});
   const [customNonWorkingTypes, setCustomNonWorkingTypes] = useState<NonWorkingType[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Sucursales que esta persona puede ver (null = todas)
+  const visibleSucursales = useMemo(
+    () =>
+      allowedSucursales ? sucursales.filter((s) => allowedSucursales.includes(s.name)) : sucursales,
+    [sucursales, allowedSucursales]
+  );
 
   // ── Initial data load ──
   useEffect(() => {
@@ -591,7 +621,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           nwtData,
           scheduleRows,
           specialDaysV2Rows,
-          settingsData,
         ] = await Promise.all([
           fetchAllRows('workers', 'name'),
           fetchAllRows('shifts', 'label'),
@@ -601,7 +630,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           fetchAllRows('custom_non_working_types', 'label'),
           fetchAllRows('schedule_data', 'id'),
           fetchAllRows('special_days_v2', 'id'),
-          fetchAllRows('app_settings', 'key'),
         ]);
 
         if (workersData)
@@ -659,11 +687,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             spd[mk][wid] = workerDays;
           });
           setSpecialDaysState(spd);
-        }
-
-        if (settingsData) {
-          const mesSetting = settingsData.find((r) => r.key === 'selected_mes');
-          if (mesSetting) setSelectedMesState(mesSetting.value as string);
         }
       } catch (err) {
         console.error('Error loading data from Supabase:', err);
@@ -769,73 +792,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── setSelectedMes ──
   const setSelectedMes = useCallback(
     async (mes: string) => {
-      // ── Carry-over: if last day of previous month had a shift, copy to day 0 of new month ──
-      setScheduleData((prev) => {
-        const prevMonthKey = monthLabelToKey(selectedMes);
-        const newMonthKey = monthLabelToKey(mes);
-
-        // Determine last day index of previous month
-        const MONTH_NAMES_MAP: Record<string, number> = {
-          Enero: 0,
-          Febrero: 1,
-          Marzo: 2,
-          Abril: 3,
-          Mayo: 4,
-          Junio: 5,
-          Julio: 6,
-          Agosto: 7,
-          Septiembre: 8,
-          Octubre: 9,
-          Noviembre: 10,
-          Diciembre: 11,
-        };
-        const prevParts = selectedMes.split(' ');
-        const prevMonthIdx = MONTH_NAMES_MAP[prevParts[0]] ?? 7;
-        const prevYear = parseInt(prevParts[1] || '2026', 10);
-        const prevDaysInMonth = new Date(prevYear, prevMonthIdx + 1, 0).getDate();
-        const lastDayIdx = prevDaysInMonth - 1; // 0-based
-
-        const prevMonthSched = prev[prevMonthKey] || {};
-        const newMonthSched = { ...(prev[newMonthKey] || {}) };
-        let changed = false;
-
-        Object.keys(prevMonthSched).forEach((workerId) => {
-          const prevDays = prevMonthSched[workerId] || [];
-          const lastShift = prevDays[lastDayIdx];
-          if (!lastShift || lastShift === 'DESC') return; // nothing to carry over
-
-          const newDays = [...(newMonthSched[workerId] || Array(31).fill(null))];
-          if (newDays[0] !== null && newDays[0] !== undefined) return; // already has a shift on day 1
-
-          newDays[0] = lastShift;
-          newMonthSched[workerId] = newDays;
-          changed = true;
-
-          // Persist carry-over to Supabase
-          dbWrite(
-            supabase
-              .from('schedule_data')
-              .upsert(
-                { month_key: newMonthKey, worker_id: workerId, days: newDays },
-                { onConflict: 'month_key,worker_id' }
-              ),
-            'el arrastre de turnos al nuevo mes'
-          );
-        });
-
-        if (!changed) return prev;
-        return { ...prev, [newMonthKey]: newMonthSched };
-      });
-
+      const prevMonthKey = monthLabelToKey(selectedMes);
+      const newMonthKey = monthLabelToKey(mes);
       setSelectedMesState(mes);
-      await dbWrite(
-        supabase
-          .from('app_settings')
-          .upsert({ key: 'selected_mes', value: mes }, { onConflict: 'key' }),
-        'el mes seleccionado'
-      );
+      try {
+        localStorage.setItem(SELECTED_MES_KEY, mes);
+      } catch {
+        // localStorage no disponible: el mes solo dura esta sesión
+      }
+
+      // Arrastre: el turno del último día del mes anterior pasa al día 1 del mes nuevo,
+      // solo si ese día está vacío. Lo hace la BD de forma atómica y solo para los
+      // trabajadores que esta persona puede editar, así no pisa a nadie.
+      if (!isAdmin || prevMonthKey === newMonthKey) return;
+      const [prevYear, prevMonth] = prevMonthKey.split('-').map(Number);
+      const lastDayIdx = new Date(prevYear, prevMonth, 0).getDate() - 1;
+      const { data, error } = await supabase.rpc('carry_over_month', {
+        p_prev_month: prevMonthKey,
+        p_new_month: newMonthKey,
+        p_last_day_index: lastDayIdx,
+      });
+      if (error) {
+        console.error('carry_over_month error:', error);
+        return;
+      }
+      const rows = (data as { r_worker_id: string; r_days: ShiftCode[] }[] | null) || [];
+      if (rows.length === 0) return;
+      setScheduleData((prev) => {
+        const monthSched = { ...(prev[newMonthKey] || {}) };
+        rows.forEach((r) => {
+          monthSched[r.r_worker_id] = r.r_days;
+        });
+        return { ...prev, [newMonthKey]: monthSched };
+      });
     },
-    [selectedMes, supabase]
+    [selectedMes, supabase, isAdmin]
   );
 
   // ── Workers ──
@@ -1051,20 +1042,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { ...prev, [monthKey]: monthSched };
       });
 
-      // Persist all to Supabase
+      // Persistir: la BD cambia solo esas casillas de cada trabajador (atómico), así no se
+      // pisan cambios que otra persona haya hecho en otros días del mismo trabajador.
       let hasError = false;
       await Promise.all(
-        Object.entries(updatedArrays).map(([id, arr]) =>
+        workerIds.map((id) =>
           supabase
-            .from('schedule_data')
-            .upsert(
-              { month_key: monthKey, worker_id: id, days: arr },
-              { onConflict: 'month_key,worker_id' }
-            )
-            .then(({ error }) => {
+            .rpc('set_schedule_cells', {
+              p_month_key: monthKey,
+              p_worker_id: id,
+              p_day_indices: dayIndices,
+              p_shift: shift,
+            })
+            .then(({ data, error }) => {
               if (error) {
-                console.error('bulkAssign upsert error:', error);
+                console.error('bulkAssign error:', error);
                 hasError = true;
+                return;
+              }
+              if (Array.isArray(data)) {
+                setScheduleData((prev) => ({
+                  ...prev,
+                  [monthKey]: { ...(prev[monthKey] || {}), [id]: data as ShiftCode[] },
+                }));
               }
             })
         )
@@ -1154,24 +1154,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async (workerIds: string[], dayIndices: number[], typeCode: string | null) => {
       const monthKey = monthLabelToKey(selectedMes);
 
-      // Build all updated days objects FIRST (before any state updates)
-      const updatedWorkerDays: Record<string, Record<string, string>> = {};
-      workerIds.forEach((wId) => {
-        const currentWorkerDays = { ...((specialDaysRef.current[monthKey] || {})[wId] || {}) };
-        dayIndices.forEach((di) => {
-          if (typeCode === null) {
-            delete currentWorkerDays[di];
-          } else {
-            currentWorkerDays[di] = typeCode;
-          }
-        });
-        const daysForDb: Record<string, string> = {};
-        Object.entries(currentWorkerDays).forEach(([k, v]) => {
-          daysForDb[String(k)] = v;
-        });
-        updatedWorkerDays[wId] = daysForDb;
-      });
-
       // Optimistically update React state
       setSpecialDaysState((prev) => {
         const monthData = { ...(prev[monthKey] || {}) };
@@ -1208,46 +1190,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      // Persist each worker's full days object in one upsert per worker
+      // Persistir de forma atómica por trabajador (solo esas casillas)
+      let hasError = false;
       await Promise.all(
         workerIds.map(async (wId) => {
-          const daysForDb = updatedWorkerDays[wId];
-
-          const { error } = await supabase.from('special_days_v2').upsert(
-            {
-              month_key: monthKey,
-              worker_id: wId,
-              days: daysForDb,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'month_key,worker_id' }
-          );
+          const { error } = await supabase.rpc('set_special_day_cells', {
+            p_month_key: monthKey,
+            p_worker_id: wId,
+            p_day_indices: dayIndices,
+            p_type_code: typeCode,
+          });
           if (error) {
-            console.error('bulkAssignSpecialDay upsert error:', error);
-            toast.error('Algunos días especiales no se pudieron guardar.');
-          }
-
-          // When assigning any special day, always clear shifts in DB for those cells
-          // Unconditionally set target cells to null — no ref check to avoid race conditions
-          if (typeCode !== null) {
-            const currentArr = [
-              ...((scheduleDataRef.current[monthKey] || {})[wId] || Array(31).fill(null)),
-            ];
-            dayIndices.forEach((di) => {
-              currentArr[di] = null;
-            }); // always null
-            await dbWrite(
-              supabase
-                .from('schedule_data')
-                .upsert(
-                  { month_key: monthKey, worker_id: wId, days: currentArr },
-                  { onConflict: 'month_key,worker_id' }
-                ),
-              'la malla'
-            );
+            console.error('bulkAssignSpecialDay error:', error);
+            hasError = true;
           }
         })
       );
+      if (hasError) toast.error('Algunos días especiales no se pudieron guardar.');
     },
     [selectedMes, supabase]
   );
@@ -1560,7 +1519,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         shifts,
         scheduleData,
         specialDays,
-        sucursales,
+        sucursales: visibleSucursales,
         areas,
         areaCargos,
         selectedMes,

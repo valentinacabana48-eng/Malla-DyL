@@ -8,10 +8,17 @@ interface LockToggleProps {
   /** Nombre de lo que se bloquea, p. ej. "la malla" */
   subject: string;
   onToggle: (locked: boolean) => Promise<boolean> | boolean | void;
+  /** Si se indica, el botón queda deshabilitado con este motivo */
+  disabledReason?: string;
 }
 
 /** Botón de bloqueo sin PIN: solo administradores pueden cambiarlo. */
-export default function LockToggle({ isLocked, subject, onToggle }: LockToggleProps) {
+export default function LockToggle({
+  isLocked,
+  subject,
+  onToggle,
+  disabledReason,
+}: LockToggleProps) {
   const { isAdmin } = useAuth();
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,8 +34,10 @@ export default function LockToggle({ isLocked, subject, onToggle }: LockTogglePr
     <>
       <button
         onClick={() => setConfirming(true)}
-        disabled={!isAdmin}
-        title={isAdmin ? undefined : 'Solo un administrador puede cambiar el bloqueo'}
+        disabled={!isAdmin || !!disabledReason}
+        title={
+          disabledReason ?? (isAdmin ? undefined : 'Solo un administrador puede cambiar el bloqueo')
+        }
         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed ${
           isLocked
             ? 'bg-red-500 text-white hover:bg-red-600 disabled:hover:bg-red-500'
@@ -69,7 +78,7 @@ export default function LockToggle({ isLocked, subject, onToggle }: LockTogglePr
             <p className="text-sm text-muted-foreground mb-5">
               {isLocked
                 ? `Se podrá volver a editar ${subject}.`
-                : `Nadie podrá editar ${subject} hasta que un administrador la desbloquee. Aplica en todos los dispositivos.`}
+                : `Nadie podrá editar ${subject} hasta que un administrador la desbloquee. Aplica en todos los dispositivos, solo para esta sucursal.`}
             </p>
             <div className="flex gap-2">
               <button

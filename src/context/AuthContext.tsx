@@ -11,7 +11,11 @@ interface AuthContextValue {
   role: UserRole | null;
   loading: boolean;
   isAdmin: boolean;
+  /** Admin sin sucursales asignadas: puede usar Ajustes y administrar usuarios */
+  isGlobalAdmin: boolean;
   isReadonly: boolean;
+  /** Sucursales que puede ver esta persona; null = todas */
+  allowedSucursales: string[] | null;
   /** true cuando el usuario llegó desde el enlace de "olvidé mi contraseña" */
   recoveringPassword: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
@@ -50,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = getSupabase();
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
+  const [allowedSucursales, setAllowedSucursales] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [recoveringPassword, setRecoveringPassword] = useState(false);
 
@@ -57,11 +62,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (userId: string | undefined) => {
       if (!userId) {
         setRole(null);
+        setAllowedSucursales(null);
         return;
       }
       const { data, error } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, sucursales')
         .eq('user_id', userId)
         .maybeSingle();
       if (error) {
@@ -70,6 +76,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRole((prev) => prev ?? 'pendiente');
         return;
       }
+      const sucursales = (data?.sucursales as string[] | null) ?? null;
+      setAllowedSucursales(sucursales && sucursales.length > 0 ? sucursales : null);
       setRole((data?.role as UserRole) ?? 'pendiente');
     },
     [supabase]
@@ -159,6 +167,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role,
         loading,
         isAdmin: role === 'admin',
+        isGlobalAdmin: role === 'admin' && allowedSucursales === null,
+        allowedSucursales,
         isReadonly: role !== 'admin',
         recoveringPassword,
         signIn,
