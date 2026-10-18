@@ -15,7 +15,8 @@ export default function DesktopModeNotice() {
       const isTouch = navigator.maxTouchPoints > 0;
       const screenW = window.screen.width;
       const smallScreen = Math.min(window.screen.width, window.screen.height) < 600;
-      const zoom = window.innerWidth / screenW;
+      // 0.92: la app queda un poco más ancha que el teléfono para que la letra no se vea enorme
+      const zoom = (window.innerWidth / screenW) * 0.92;
       if (isTouch && smallScreen && window.innerWidth >= 900 && zoom > 1.2) {
         root.style.setProperty('zoom', String(zoom));
         root.style.setProperty('--app-height', `${window.innerHeight / zoom}px`);
