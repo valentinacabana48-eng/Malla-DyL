@@ -157,14 +157,24 @@ function LockModal({ mode, dateLabel, onConfirm, onClose, error }: LockModalProp
   );
 }
 
-// ─── Sucursal Multi-Select Dropdown ──────────────────────────────────────────
-interface SucursalMultiSelectProps {
+// ─── Multi-Select Dropdown (sucursales, cargos) ──────────────────────────────
+interface MultiSelectProps {
   options: string[];
   selected: string[];
   onChange: (val: string[]) => void;
+  allLabel: string;
+  pluralLabel: string;
+  emptyLabel: string;
 }
 
-function SucursalMultiSelect({ options, selected, onChange }: SucursalMultiSelectProps) {
+function MultiSelect({
+  options,
+  selected,
+  onChange,
+  allLabel,
+  pluralLabel,
+  emptyLabel,
+}: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -186,10 +196,10 @@ function SucursalMultiSelect({ options, selected, onChange }: SucursalMultiSelec
 
   const label =
     selected.length === 0
-      ? 'Todas las sucursales'
+      ? allLabel
       : selected.length === 1
         ? selected[0]
-        : `${selected.length} sucursales`;
+        : `${selected.length} ${pluralLabel}`;
 
   return (
     <div ref={ref} className="relative">
@@ -214,9 +224,7 @@ function SucursalMultiSelect({ options, selected, onChange }: SucursalMultiSelec
       </button>
       {open && (
         <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[180px] max-h-56 overflow-y-auto">
-          {options.length === 0 && (
-            <p className="px-3 py-2 text-xs text-gray-400">Sin sucursales</p>
-          )}
+          {options.length === 0 && <p className="px-3 py-2 text-xs text-gray-400">{emptyLabel}</p>}
           {options.map((opt) => {
             const checked = selected.includes(opt);
             return (
@@ -271,7 +279,7 @@ export default function AsistenciaContent() {
   const [endDate, setEndDate] = useState<string>(defaultEnd);
   const [filterSucursal, setFilterSucursal] = useState<string[]>([]);
   const [filterArea, setFilterArea] = useState('Todas');
-  const [filterCargo, setFilterCargo] = useState('Todas');
+  const [filterCargo, setFilterCargo] = useState<string[]>([]);
   const [filterTurno, setFilterTurno] = useState<'Todos' | 'AM' | 'Tarde'>('Todos');
   const [filterTurnoEspecifico, setFilterTurnoEspecifico] = useState<string>('Todos');
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -379,7 +387,7 @@ export default function AsistenciaContent() {
     if (w.estado !== 'Activo') return false;
     if (filterSucursal.length > 0 && !filterSucursal.includes(w.sucursal)) return false;
     if (filterArea !== 'Todas' && w.area !== filterArea) return false;
-    if (filterCargo !== 'Todas' && w.cargo !== filterCargo) return false;
+    if (filterCargo.length > 0 && !filterCargo.includes(w.cargo)) return false;
     if (searchName.trim()) {
       const q = searchName.trim().toLowerCase();
       if (!w.name.toLowerCase().includes(q)) return false;
@@ -1547,12 +1555,9 @@ export default function AsistenciaContent() {
       new Set(workers.filter((w) => w.estado === 'Activo' && w.area).map((w) => w.area))
     ).sort(),
   ];
-  const cargosList = [
-    'Todas',
-    ...Array.from(
-      new Set(workers.filter((w) => w.estado === 'Activo' && w.cargo).map((w) => w.cargo))
-    ).sort(),
-  ];
+  const cargosList = Array.from(
+    new Set(workers.filter((w) => w.estado === 'Activo' && w.cargo).map((w) => w.cargo))
+  ).sort();
   const periodLabel =
     startDate && endDate ? formatPeriodLabel(startDate, endDate) : 'Selecciona fechas';
 
@@ -1683,10 +1688,13 @@ export default function AsistenciaContent() {
           </div>
 
           <div className="relative">
-            <SucursalMultiSelect
+            <MultiSelect
               options={sucursalesList}
               selected={filterSucursal}
               onChange={setFilterSucursal}
+              allLabel="Todas las sucursales"
+              pluralLabel="sucursales"
+              emptyLabel="Sin sucursales"
             />
           </div>
 
@@ -1709,20 +1717,13 @@ export default function AsistenciaContent() {
           </div>
 
           <div className="relative">
-            <select
-              value={filterCargo}
-              onChange={(e) => setFilterCargo(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 text-xs border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
-            >
-              {cargosList.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={12}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            <MultiSelect
+              options={cargosList}
+              selected={filterCargo}
+              onChange={setFilterCargo}
+              allLabel="Todos los cargos"
+              pluralLabel="cargos"
+              emptyLabel="Sin cargos"
             />
           </div>
 
