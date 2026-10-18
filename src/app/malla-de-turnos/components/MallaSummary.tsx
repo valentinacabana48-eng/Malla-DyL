@@ -1129,7 +1129,7 @@ export default function MallaSummary({
           </span>
 
           {/* Print controls */}
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center flex-wrap gap-2 ml-auto">
             <div className="flex items-center rounded-lg border border-border overflow-hidden text-xs">
               <button
                 onClick={() => setPrintMode('day')}
