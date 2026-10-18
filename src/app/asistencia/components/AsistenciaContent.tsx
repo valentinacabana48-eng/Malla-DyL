@@ -1892,9 +1892,9 @@ export default function AsistenciaContent() {
                             : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  <span className="text-[10px] font-medium opacity-70">{dow}</span>
-                  <span className="text-sm font-bold">{day}</span>
-                  <span className="text-[9px] opacity-60">{monthShort}</span>
+                  <span className="text-xs lg:text-[10px] font-medium opacity-70">{dow}</span>
+                  <span className="text-base lg:text-sm font-bold">{day}</span>
+                  <span className="text-[11px] lg:text-[9px] opacity-60">{monthShort}</span>
                   {isLocked ? (
                     <Lock
                       size={8}
