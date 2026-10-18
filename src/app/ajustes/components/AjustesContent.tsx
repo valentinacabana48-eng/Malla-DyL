@@ -28,6 +28,7 @@ import {
   type Shift,
   type NonWorkingType,
   type Sucursal,
+  timeToMinutes,
 } from '@/context/AppContext';
 import { useAuth, type UserRole } from '@/context/AuthContext';
 import { getSupabase } from '@/lib/supabase/client';
@@ -385,7 +386,9 @@ function ShiftList({ shifts, canEdit, onEdit, onDelete }: ShiftListProps) {
     filtered
       .slice()
       .sort(
-        (x, y) => (x.start || '99').localeCompare(y.start || '99') || x.end.localeCompare(y.end)
+        (x, y) =>
+          timeToMinutes(x.start) - timeToMinutes(y.start) ||
+          timeToMinutes(x.end) - timeToMinutes(y.end)
       )
       .forEach((s) => {
         const h = startHour(s.start);
