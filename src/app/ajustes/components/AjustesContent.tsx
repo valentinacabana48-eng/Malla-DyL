@@ -19,6 +19,7 @@ import {
   Mail,
   ShieldCheck,
   Search,
+  ChevronDown,
 } from 'lucide-react';
 import {
   useAppContext,
@@ -373,6 +374,16 @@ interface ShiftListProps {
 function ShiftList({ shifts, canEdit, onEdit, onDelete }: ShiftListProps) {
   const [query, setQuery] = useState('');
   const [confirmCode, setConfirmCode] = useState<string | null>(null);
+  // Grupos cerrados; al buscar se abren todos para ver los resultados
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const searching = query.trim() !== '';
+  const toggleGroup = (title: string) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      return next;
+    });
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -421,100 +432,128 @@ function ShiftList({ shifts, canEdit, onEdit, onDelete }: ShiftListProps) {
         </p>
       )}
 
-      {groups.map(([title, list]) => (
-        <section
-          key={title}
-          className="bg-card border border-border rounded-xl overflow-hidden shadow-sm"
-        >
-          <h3 className="px-4 py-2 bg-muted/40 border-b border-border text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-            <span>{title}</span>
-            <span className="font-semibold normal-case tracking-normal">
-              {list.length} turno{list.length !== 1 ? 's' : ''}
-            </span>
-          </h3>
-          <ul className="divide-y divide-border/60">
-            {list.map((shift) => {
-              const net = calcNetHoursLocal(shift.start, shift.end, shift.colacion || 0);
-              const editable = canEdit(shift);
-              return (
-                <li key={shift.code} className="flex items-center gap-3 px-4 py-2">
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${shift.legendColor || 'bg-gray-400'}`}
+      {groups.map(([title, list]) => {
+        const open = searching || openGroups.has(title);
+        return (
+          <section
+            key={title}
+            className="bg-card border border-border rounded-xl overflow-hidden shadow-sm"
+          >
+            <h3>
+              <button
+                type="button"
+                onClick={() => toggleGroup(title)}
+                aria-expanded={open}
+                className={`w-full min-h-[44px] px-4 py-2 bg-muted/40 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between gap-3 hover:bg-muted/70 transition-colors ${
+                  open ? 'border-b border-border' : ''
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <ChevronDown
+                    size={16}
+                    className={`shrink-0 transition-transform ${open ? '' : '-rotate-90'}`}
                   />
-                  <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                    <span className="text-sm font-semibold text-foreground whitespace-nowrap">
-                      {shift.start && shift.end ? `${shift.start}–${shift.end}` : shift.label}
-                    </span>
-                    {shift.start && shift.end && (
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {net}h netas{shift.colacion ? ` · col. ${shift.colacion} min` : ''}
-                      </span>
-                    )}
-                    <span
-                      className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-md whitespace-nowrap ${
-                        shift.sucursal
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {shift.sucursal ?? 'Todas'}
-                    </span>
-                  </div>
-                  {confirmCode === shift.code ? (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-xs text-red-600 font-semibold hidden sm:inline">
-                        ¿Eliminar?
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onDelete(shift.code);
-                          setConfirmCode(null);
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold"
-                      >
-                        Eliminar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmCode(null)}
-                        className="px-2.5 py-1.5 rounded-lg bg-muted text-foreground text-xs font-semibold"
-                      >
-                        No
-                      </button>
-                    </div>
-                  ) : editable ? (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => onEdit(shift.code)}
-                        className="p-2 rounded-lg text-muted-foreground hover:text-secondary hover:bg-secondary/10 transition-colors"
-                        title="Editar turno"
-                        aria-label={`Editar turno ${shift.label}`}
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmCode(shift.code)}
-                        className="p-2 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title="Eliminar turno"
-                        aria-label={`Eliminar turno ${shift.label}`}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-[11px] text-muted-foreground shrink-0">
-                      Solo admin general
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+                  {title}
+                </span>
+                <span className="flex items-center gap-2 font-semibold normal-case tracking-normal">
+                  <span className="flex -space-x-1" aria-hidden="true">
+                    {list.slice(0, 6).map((s) => (
+                      <span
+                        key={s.code}
+                        className={`w-2.5 h-2.5 rounded-full ring-2 ring-card ${s.legendColor || 'bg-gray-400'}`}
+                      />
+                    ))}
+                  </span>
+                  {list.length} turno{list.length !== 1 ? 's' : ''}
+                </span>
+              </button>
+            </h3>
+            {open && (
+              <ul className="divide-y divide-border/60">
+                {list.map((shift) => {
+                  const net = calcNetHoursLocal(shift.start, shift.end, shift.colacion || 0);
+                  const editable = canEdit(shift);
+                  return (
+                    <li key={shift.code} className="flex items-center gap-3 px-4 py-2">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${shift.legendColor || 'bg-gray-400'}`}
+                      />
+                      <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                        <span className="text-sm font-semibold text-foreground whitespace-nowrap">
+                          {shift.start && shift.end ? `${shift.start}–${shift.end}` : shift.label}
+                        </span>
+                        {shift.start && shift.end && (
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {net}h netas{shift.colacion ? ` · col. ${shift.colacion} min` : ''}
+                          </span>
+                        )}
+                        <span
+                          className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-md whitespace-nowrap ${
+                            shift.sucursal
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {shift.sucursal ?? 'Todas'}
+                        </span>
+                      </div>
+                      {confirmCode === shift.code ? (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs text-red-600 font-semibold hidden sm:inline">
+                            ¿Eliminar?
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onDelete(shift.code);
+                              setConfirmCode(null);
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold"
+                          >
+                            Eliminar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmCode(null)}
+                            className="px-2.5 py-1.5 rounded-lg bg-muted text-foreground text-xs font-semibold"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : editable ? (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => onEdit(shift.code)}
+                            className="p-2 rounded-lg text-muted-foreground hover:text-secondary hover:bg-secondary/10 transition-colors"
+                            title="Editar turno"
+                            aria-label={`Editar turno ${shift.label}`}
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmCode(shift.code)}
+                            className="p-2 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                            title="Eliminar turno"
+                            aria-label={`Eliminar turno ${shift.label}`}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground shrink-0">
+                          Solo admin general
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }
