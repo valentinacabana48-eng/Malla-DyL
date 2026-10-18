@@ -9,6 +9,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { type ShiftCode, type Shift, type Worker } from '@/context/AppContext';
+import { printElement } from '@/lib/printElement';
 
 interface Props {
   workers: Worker[];
@@ -440,8 +441,16 @@ export default function MallaSummary({
   // #, Nombre, (Sucursal), Entrada, Salida, Colación, 3 casillas, HE
   const dayColumnCount = 5 + (multiSucursal ? 1 : 0) + CHECK_COLUMNS.length + 1;
 
+  // Se imprime solo la hoja (del día o de la semana), armada aparte: así no salen hojas de
+  // más (ni en blanco) por el resto de la página de Malla
   const handlePrint = () => {
-    window.print();
+    const report = document.getElementById('malla-print-report');
+    if (!report) return;
+    const title =
+      printMode === 'day'
+        ? `Horario ${selectedDay >= 0 ? `día ${selectedDay + 1}` : ''} ${monthLabel}`
+        : `Horario semanal ${weekOptions[selectedWeekIdx]?.label ?? ''}`;
+    printElement(report, { title });
   };
 
   if (workers.length === 0) return null;
