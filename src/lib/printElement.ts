@@ -21,6 +21,7 @@ export function buildPrintDocument(el: HTMLElement, opts: PrintOptions = {}): st
 <html lang="es" class="${htmlClass}">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=${opts.landscape ? 1100 : 780}">
 <title>${title}</title>
 ${styles}
 <style>
@@ -28,6 +29,8 @@ ${styles}
   html, body { background: #fff !important; margin: 0; padding: 0; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-root { overflow: visible !important; width: 100% !important; }
+  /* Los nombres en una sola línea */
+  .print-root td { white-space: nowrap; }
   .print-root table { min-width: 0 !important; width: 100% !important; }
   /* Filas compactas y sin cortarse entre hojas */
   .print-root td, .print-root th { padding-top: 3px !important; padding-bottom: 3px !important; }
@@ -43,7 +46,10 @@ ${styles}
 export function printElement(el: HTMLElement, opts: PrintOptions = {}) {
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
-  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  // Con el ancho de una hoja: en el celular la hoja se arma con el ancho del iframe, y si es
+  // angosto la tabla se corta a la derecha y los nombres ocupan dos líneas
+  const width = opts.landscape ? 1100 : 780;
+  iframe.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;height:1100px;border:0;`;
   document.body.appendChild(iframe);
 
   const doc = iframe.contentDocument;
