@@ -20,6 +20,7 @@ interface FormData {
   horasContratadas: number;
   estado: Worker['estado'];
   birthday: string;
+  exentoDomingos: boolean;
 }
 
 const AVATAR_COLORS = [
@@ -55,6 +56,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
       horasContratadas: worker.horasContratadas,
       estado: worker.estado,
       birthday: worker.birthday || '',
+      exentoDomingos: !!worker.exentoDomingos,
     },
   });
 
@@ -68,6 +70,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
       horasContratadas: worker.horasContratadas,
       estado: worker.estado,
       birthday: worker.birthday || '',
+      exentoDomingos: !!worker.exentoDomingos,
     });
   }, [worker.id, reset]);
 
@@ -91,6 +94,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
       role: data.cargo,
       avatarColor: worker.avatarColor || AVATAR_COLORS[colorIdx],
       birthday: data.birthday || '',
+      exentoDomingos: !!data.exentoDomingos,
     };
     onSave(saved);
   };
@@ -235,6 +239,22 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
             ))}
           </select>
         </div>
+
+        {/* Domingos */}
+        <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+          <input
+            type="checkbox"
+            {...register('exentoDomingos')}
+            className="mt-0.5 h-4 w-4 rounded border-border text-secondary focus:ring-ring"
+          />
+          <span className="text-xs">
+            <span className="block font-semibold text-foreground">Trabaja todos los domingos</span>
+            <span className="block text-muted-foreground">
+              No se mostrará la alerta de domingos libres (p. ej. contratos de 10, 20 o 30 horas de
+              fin de semana).
+            </span>
+          </span>
+        </label>
 
         {/* Estado */}
         <div>

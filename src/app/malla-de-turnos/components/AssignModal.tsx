@@ -310,25 +310,27 @@ export default function AssignModal({
                 Tipo de día especial
               </label>
               <div className="flex flex-wrap gap-2">
-                {nonWorkingTypes.map((nwt) => (
-                  <button
-                    key={`modal-nwt-${nwt.code}`}
-                    onClick={() => setSelectedSpecialType(nwt.code)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all duration-150 flex items-center gap-1.5 ${
-                      selectedSpecialType === nwt.code
-                        ? `${nwt.colorClass} ring-2 ring-offset-1 ring-current`
-                        : 'border-border text-muted-foreground hover:bg-muted/50'
-                    }`}
-                  >
-                    <span>{nwt.icon}</span>
-                    {nwt.label.toUpperCase()}
-                    {nwt.maxDaysPerMonth !== null && (
-                      <span className="opacity-60 font-normal">
-                        (máx. {nwt.maxDaysPerMonth}/mes)
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {nonWorkingTypes
+                  .filter((t) => !t.legacy)
+                  .map((nwt) => (
+                    <button
+                      key={`modal-nwt-${nwt.code}`}
+                      onClick={() => setSelectedSpecialType(nwt.code)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all duration-150 flex items-center gap-1.5 ${
+                        selectedSpecialType === nwt.code
+                          ? `${nwt.colorClass} ring-2 ring-offset-1 ring-current`
+                          : 'border-border text-muted-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      <span>{nwt.icon}</span>
+                      {nwt.label.toUpperCase()}
+                      {nwt.maxDaysPerMonth !== null && (
+                        <span className="opacity-60 font-normal">
+                          (máx. {nwt.maxDaysPerMonth}/mes)
+                        </span>
+                      )}
+                    </button>
+                  ))}
               </div>
             </div>
           )}

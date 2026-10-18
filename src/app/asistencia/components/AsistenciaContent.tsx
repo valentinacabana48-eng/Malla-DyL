@@ -1084,6 +1084,8 @@ export default function AsistenciaContent() {
       VACACIONES: 'Vacaciones',
       DESCANSO: 'Descanso',
       PERMISO: 'Permiso',
+      PERMISO_CG: 'Permiso con goce',
+      PERMISO_SG: 'Permiso sin goce',
       LICENCIA: 'Licencia',
       CUMPLEANOS: 'Cumpleaños',
       NT: 'No trabajaba',
@@ -1124,6 +1126,8 @@ export default function AsistenciaContent() {
       NT: { bg: 'F2F2F2', fg: '808080' },
       VACACIONES: { bg: 'FFF2CC', fg: '7F6000' },
       PERMISO: { bg: 'EDE7F6', fg: '4A148C' },
+      PERMISO_CG: { bg: 'E0F2F1', fg: '004D40' },
+      PERMISO_SG: { bg: 'FFE0B2', fg: 'E65100' },
       LICENCIA: { bg: 'FBE9E7', fg: 'BF360C' },
       CUMPLEANOS: { bg: 'FCE4EC', fg: '880E4F' },
     };
@@ -1290,7 +1294,9 @@ export default function AsistenciaContent() {
 
       dates.forEach((dt, i) => {
         const status = getReportStatus(w.id, dt);
-        if (status && counts[status] !== undefined) counts[status]++;
+        // Permiso con goce / sin goce se suman en la columna "Permisos"
+        const bucket = status?.startsWith('PERMISO') ? 'PERMISO' : status;
+        if (bucket && counts[bucket] !== undefined) counts[bucket]++;
         const displayVal = getCellDisplayValue(w.id, dt);
         const colNum = FIXED_COLS + 1 + i;
         const colors = STATUS_COLORS[status] ?? { bg: rowBgHex, fg: '000000' };
@@ -2193,6 +2199,8 @@ function PeriodOverview({
                         NT: 'bg-gray-200',
                         LICENCIA: 'bg-yellow-400',
                         PERMISO: 'bg-teal-400',
+                        PERMISO_CG: 'bg-teal-400',
+                        PERMISO_SG: 'bg-orange-400',
                         VACACIONES: 'bg-blue-400',
                         CUMPLEANOS: 'bg-pink-400',
                       };
@@ -2203,6 +2211,8 @@ function PeriodOverview({
                         NT: '-',
                         LICENCIA: 'L',
                         PERMISO: 'M',
+                        PERMISO_CG: 'M',
+                        PERMISO_SG: 'S',
                         VACACIONES: 'V',
                         CUMPLEANOS: 'C',
                       };
@@ -2213,6 +2223,8 @@ function PeriodOverview({
                         NT: 'text-gray-400',
                         LICENCIA: 'text-yellow-900',
                         PERMISO: 'text-white',
+                        PERMISO_CG: 'text-white',
+                        PERMISO_SG: 'text-white',
                         VACACIONES: 'text-white',
                         CUMPLEANOS: 'text-white',
                       };
@@ -2257,6 +2269,8 @@ function PeriodOverview({
           NT: '-',
           LICENCIA: 'L',
           PERMISO: 'M',
+          PERMISO_CG: 'M',
+          PERMISO_SG: 'S',
           VACACIONES: 'V',
           CUMPLEANOS: 'C',
         };
@@ -2267,6 +2281,8 @@ function PeriodOverview({
           NT: 'bg-gray-200',
           LICENCIA: 'bg-yellow-400',
           PERMISO: 'bg-teal-400',
+          PERMISO_CG: 'bg-teal-400',
+          PERMISO_SG: 'bg-orange-400',
           VACACIONES: 'bg-blue-400',
           CUMPLEANOS: 'bg-pink-400',
         };
@@ -2277,6 +2293,8 @@ function PeriodOverview({
           NT: 'text-gray-400',
           LICENCIA: 'text-yellow-900',
           PERMISO: 'text-white',
+          PERMISO_CG: 'text-white',
+          PERMISO_SG: 'text-white',
           VACACIONES: 'text-white',
           CUMPLEANOS: 'text-white',
         };

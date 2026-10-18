@@ -36,6 +36,8 @@ export interface NonWorkingType {
   legendColor: string;
   maxDaysPerMonth: number | null;
   icon: string;
+  /** Tipo antiguo: se sigue mostrando donde ya existe, pero no se ofrece para asignar */
+  legacy?: boolean;
 }
 
 export const NON_WORKING_TYPES: NonWorkingType[] = [
@@ -80,12 +82,30 @@ export const NON_WORKING_TYPES: NonWorkingType[] = [
     icon: '🎂',
   },
   {
+    code: 'PERMISO_CG',
+    label: 'Permiso con goce',
+    colorClass: 'bg-teal-100 text-teal-800 border border-teal-300',
+    legendColor: 'bg-teal-500',
+    maxDaysPerMonth: 3,
+    icon: '📋',
+  },
+  {
+    code: 'PERMISO_SG',
+    label: 'Permiso sin goce',
+    colorClass: 'bg-orange-100 text-orange-800 border border-orange-300',
+    legendColor: 'bg-orange-500',
+    maxDaysPerMonth: 3,
+    icon: '📝',
+  },
+  {
+    // Días cargados antes de separar con/sin goce
     code: 'PERMISO',
     label: 'Permiso',
     colorClass: 'bg-teal-100 text-teal-800 border border-teal-300',
     legendColor: 'bg-teal-500',
     maxDaysPerMonth: 3,
     icon: '📋',
+    legacy: true,
   },
   {
     code: 'VACACIONES',
@@ -176,6 +196,8 @@ export interface Worker {
   estado: 'Activo' | 'Inactivo';
   avatarColor: string;
   birthday: string;
+  /** Trabaja todos los domingos (p. ej. contratos de fin de semana): sin alerta de domingos libres */
+  exentoDomingos?: boolean;
 }
 
 export type MonthSchedule = Record<string, ShiftCode[]>;
@@ -468,6 +490,7 @@ function rowToWorker(row: Record<string, unknown>): Worker {
     estado: (row.estado as 'Activo' | 'Inactivo') || 'Activo',
     avatarColor: (row.avatar_color as string) || '',
     birthday: (row.birthday as string) || '',
+    exentoDomingos: row.exento_domingos === true,
   };
 }
 
@@ -485,6 +508,7 @@ function workerToRow(w: Worker) {
     estado: w.estado,
     avatar_color: w.avatarColor,
     birthday: w.birthday,
+    exento_domingos: !!w.exentoDomingos,
   };
 }
 

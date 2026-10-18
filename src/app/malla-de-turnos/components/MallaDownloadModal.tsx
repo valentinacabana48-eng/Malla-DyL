@@ -282,7 +282,12 @@ async function exportToExcel(
           bold = true;
           bg = C.liceBg;
         } else if (code === 'PERM') {
-          displayVal = 'PERMISO';
+          displayVal =
+            special === 'PERMISO_CG'
+              ? 'PERM. C/GOCE'
+              : special === 'PERMISO_SG'
+                ? 'PERM. S/GOCE'
+                : 'PERMISO';
           fg = '3730A3';
           bold = true;
           bg = C.permBg;

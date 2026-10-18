@@ -48,20 +48,22 @@ export default function ShiftLegend({ shifts }: Props) {
         </button>
         {showSpecial && (
           <div className="flex flex-wrap items-center gap-2 mt-3">
-            {nonWorkingTypes.map((nwt) => (
-              <span
-                key={`leg-nwt-${nwt.code}`}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${nwt.colorClass}`}
-              >
-                <span>{nwt.icon}</span>
-                {nwt.label}
-                {nwt.maxDaysPerMonth !== null && (
-                  <span className="opacity-60 font-normal ml-1">
-                    máx. {nwt.maxDaysPerMonth}/mes
-                  </span>
-                )}
-              </span>
-            ))}
+            {nonWorkingTypes
+              .filter((t) => !t.legacy)
+              .map((nwt) => (
+                <span
+                  key={`leg-nwt-${nwt.code}`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${nwt.colorClass}`}
+                >
+                  <span>{nwt.icon}</span>
+                  {nwt.label}
+                  {nwt.maxDaysPerMonth !== null && (
+                    <span className="opacity-60 font-normal ml-1">
+                      máx. {nwt.maxDaysPerMonth}/mes
+                    </span>
+                  )}
+                </span>
+              ))}
           </div>
         )}
       </div>

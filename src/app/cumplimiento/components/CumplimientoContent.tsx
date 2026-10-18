@@ -1,14 +1,8 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { ShieldCheck, CheckCircle2, XCircle, Search, Info } from 'lucide-react';
-import {
-  useAppContext,
-  getDaysOfWeekForMonth,
-  getDaysInMonth,
-  monthLabelToKey,
-  calcNetHours,
-  MESES,
-} from '@/context/AppContext';
+import { useAppContext, monthLabelToKey, MESES } from '@/context/AppContext';
+import { evaluateMonth, MAX_CONSECUTIVE_DAYS, MIN_SUNDAYS_OFF } from '@/lib/compliance';
 
 interface ComplianceRule {
   id: string;
@@ -17,12 +11,20 @@ interface ComplianceRule {
 }
 
 const RULES: ComplianceRule[] = [
-  { id: 'consecutive', label: 'Días consec.', description: 'Máx. 7 días seguidos sin descanso' },
-  { id: 'sundays_off', label: 'Domingos', description: 'Mínimo 2 domingos libres al mes' },
+  {
+    id: 'consecutive',
+    label: 'Días consec.',
+    description: `Máx. ${MAX_CONSECUTIVE_DAYS} días seguidos sin descanso`,
+  },
+  {
+    id: 'sundays_off',
+    label: 'Domingos',
+    description: `Mínimo ${MIN_SUNDAYS_OFF} domingos libres al mes (salvo quien trabaja todos los domingos)`,
+  },
   {
     id: 'weekly_hours',
     label: 'Hrs/semana',
-    description: 'Horas programadas ≥ horas contratadas/semana',
+    description: 'Horas de cada semana dentro de lo contratado (sin pasarse ni quedar corto)',
   },
 ];
 
@@ -39,21 +41,6 @@ interface WorkerCompliance {
   overallPass: boolean;
   totalMonthHours: number;
 }
-
-const MONTH_NAMES_MAP: Record<string, number> = {
-  Enero: 0,
-  Febrero: 1,
-  Marzo: 2,
-  Abril: 3,
-  Mayo: 4,
-  Junio: 5,
-  Julio: 6,
-  Agosto: 7,
-  Septiembre: 8,
-  Octubre: 9,
-  Noviembre: 10,
-  Diciembre: 11,
-};
 
 export default function CumplimientoContent() {
   const {
@@ -73,9 +60,6 @@ export default function CumplimientoContent() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pass' | 'fail'>('all');
   const [expandedWorker, setExpandedWorker] = useState<string | null>(null);
   const [showHoursInfo, setShowHoursInfo] = useState(false);
-
-  const daysOfWeek = useMemo(() => getDaysOfWeekForMonth(selectedMes), [selectedMes]);
-  const daysInMonth = useMemo(() => getDaysInMonth(selectedMes), [selectedMes]);
 
   const currentMonthSchedule = useMemo(() => {
     const monthKey = monthLabelToKey(selectedMes);
@@ -108,109 +92,67 @@ export default function CumplimientoContent() {
       // Horas mensuales esperadas = horas semanales × 4.33 semanas promedio
       const expectedMonthlyHours = Math.round(horasSemanales * 4.33);
 
-      const assignedCount = sched.filter(
-        (s, i) => s && s !== 'DESC' && !workerSpecialDays[i]
-      ).length;
-      const hasAnyShifts = assignedCount > 0;
+      // Mismas reglas que la Malla (src/lib/compliance.ts)
+      const monthKey = monthLabelToKey(selectedMes);
+      const [year, month] = monthKey.split('-').map(Number);
+      const keyOf = (y: number, m: number) => {
+        const date = new Date(y, m - 1, 1);
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      };
+      const prevKey = keyOf(year, month - 1);
+      const nextKey = keyOf(year, month + 1);
+      const c = evaluateMonth({
+        year,
+        monthIdx: month - 1,
+        sched,
+        special: workerSpecialDays,
+        prevSched: scheduleData[prevKey]?.[worker.id],
+        prevSpecial: specialDays[prevKey]?.[worker.id],
+        nextSched: scheduleData[nextKey]?.[worker.id],
+        nextSpecial: specialDays[nextKey]?.[worker.id],
+        shifts,
+        weeklyHours: horasSemanales,
+        exentoDomingos: worker.exentoDomingos,
+      });
+      const hasAnyShifts = c.hasShifts;
+      const totalMonthHours = c.totalHours;
 
-      // ── Regla 1: Días consecutivos ──
-      let consecutive = 0;
-      let maxConsec = 0;
-      for (let i = 0; i < daysInMonth; i++) {
-        const isSpecial = !!workerSpecialDays[i];
-        if (!isSpecial && sched[i] && sched[i] !== 'DESC') {
-          consecutive++;
-          maxConsec = Math.max(maxConsec, consecutive);
-        } else {
-          consecutive = 0;
-        }
-      }
-      const consecutivePass = !hasAnyShifts || maxConsec < 7;
+      // ── Regla 1: Días seguidos ──
+      const consecutivePass = c.consecutiveOk;
       const consecutiveDetail = hasAnyShifts
         ? consecutivePass
-          ? `Máx. ${maxConsec} días consecutivos ✓`
-          : `${maxConsec} días consecutivos (máx. permitido: 6)`
+          ? `Máx. ${c.maxConsecutive} días seguidos ✓`
+          : `${c.maxConsecutive} días seguidos (máx. permitido: ${MAX_CONSECUTIVE_DAYS})`
         : 'Sin turnos asignados';
 
       // ── Regla 2: Domingos libres ──
-      const totalSundays = daysOfWeek.slice(0, daysInMonth).filter((d) => d === 'D').length;
-      let sundaysOff = 0;
-      for (let i = 0; i < daysInMonth; i++) {
-        if (daysOfWeek[i] === 'D') {
-          const isSpecial = !!workerSpecialDays[i];
-          if (isSpecial || !sched[i] || sched[i] === 'DESC') sundaysOff++;
-        }
-      }
-      const minSundaysOff = Math.min(2, totalSundays);
-      // Workers with 10h or 20h/week contracts work every Sunday by nature of their schedule — skip the Sunday rest rule
-      const worksEverySunday = horasSemanales === 10 || horasSemanales === 20;
-      const sundaysPass =
-        worksEverySunday || !hasAnyShifts || totalSundays < 2 || sundaysOff >= minSundaysOff;
-      const sundaysDetail = worksEverySunday
-        ? 'Trabaja todos los domingos (contrato 10h/20h) ✓'
-        : hasAnyShifts
-          ? sundaysPass
-            ? `${sundaysOff} de ${totalSundays} domingo(s) libre(s) ✓`
-            : `Solo ${sundaysOff} de ${totalSundays} domingo(s) libre(s) (mín. ${minSundaysOff})`
-          : 'Sin turnos asignados';
+      const sundaysPass = c.sundaysOk;
+      const sundaysDetail = worker.exentoDomingos
+        ? 'Trabaja todos los domingos (no aplica) ✓'
+        : !hasAnyShifts
+          ? 'Sin turnos asignados'
+          : !c.sundayRuleApplies
+            ? `El mes tiene ${c.totalSundays} domingo(s): no aplica ✓`
+            : sundaysPass
+              ? `${c.sundaysOff} de ${c.totalSundays} domingo(s) libre(s) ✓`
+              : `Solo ${c.sundaysOff} de ${c.totalSundays} domingo(s) libre(s) (mín. ${MIN_SUNDAYS_OFF})`;
 
-      // ── Regla 3: Horas semanales ──
-      // horasSemanales = horas contratadas por semana
-      const parts = (selectedMes || '').split(' ');
-      const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 7;
-      const year = parseInt(parts[1] || '2026', 10);
-
-      const weekData: Record<
-        number,
-        { hours: number; daysInMonth: number; scheduledDays: number; totalWeekDays: number }
-      > = {};
-      let totalMonthHours = 0;
-
-      for (let i = 0; i < daysInMonth; i++) {
-        const date = new Date(year, monthIdx, i + 1);
-        const dayOfWeek = (date.getDay() + 6) % 7; // Monday=0
-        const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - dayOfWeek);
-        const weekKey = weekStart.getTime();
-        if (!weekData[weekKey])
-          weekData[weekKey] = { hours: 0, daysInMonth: 0, scheduledDays: 0, totalWeekDays: 7 };
-        weekData[weekKey].daysInMonth++;
-
-        const isSpecial = !!workerSpecialDays[i];
-        if (isSpecial || !sched[i] || sched[i] === 'DESC') continue;
-        const shiftInfo = shifts[sched[i] as string];
-        if (!shiftInfo) continue;
-        const hrs = calcNetHours(shiftInfo);
-        weekData[weekKey].hours += hrs;
-        weekData[weekKey].scheduledDays++;
-        totalMonthHours += hrs;
-      }
-
-      // For partial weeks, required hours are proportional to actual scheduled days in that week
-      const tolerance = 0.1; // 10% tolerance
-      const underWeeks = Object.values(weekData).filter((d) => {
-        if (d.hours === 0 || d.scheduledDays === 0) return false; // weeks with 0h are not penalized
-        // proportional required hours based on actual days scheduled (not calendar days)
-        const requiredHours = horasSemanales * (d.scheduledDays / 7);
-        return d.hours < requiredHours * (1 - tolerance);
-      });
-      const weeklyPass = !hasAnyShifts || underWeeks.length === 0;
-      const weeklyDetail = hasAnyShifts
-        ? weeklyPass
-          ? `Todas las semanas ≥ horas proporcionales ✓`
-          : `${underWeeks.length} semana(s) con horas insuficientes`
-        : 'Sin turnos asignados';
-
-      // ── Regla 4: Horas mensuales ──
-      // Tolerancia del 10% sobre las horas mensuales esperadas
-      const monthlyTolerance = expectedMonthlyHours * 0.1;
-      const monthlyPass =
-        !hasAnyShifts || Math.abs(totalMonthHours - expectedMonthlyHours) <= monthlyTolerance;
-      const monthlyDetail = hasAnyShifts
-        ? monthlyPass
-          ? `${totalMonthHours.toFixed(1)}h / ~${expectedMonthlyHours}h esperadas ✓`
-          : `${totalMonthHours.toFixed(1)}h programadas (esperado ~${expectedMonthlyHours}h ±10%)`
-        : `0h programadas (esperado ~${expectedMonthlyHours}h)`;
+      // ── Regla 3: Horas por semana ──
+      const overWeeks = c.weeks.filter((w) => w.over);
+      const underWeeks = c.weeks.filter((w) => w.under);
+      const weeklyPass = !hasAnyShifts || (overWeeks.length === 0 && underWeeks.length === 0);
+      const weeklyDetail = !hasAnyShifts
+        ? 'Sin turnos asignados'
+        : weeklyPass
+          ? `Todas las semanas dentro de las ${horasSemanales}h contratadas ✓`
+          : [
+              overWeeks.length > 0
+                ? `${overWeeks.length} semana(s) sobre ${horasSemanales}h (${overWeeks.map((w) => `${w.startDay}-${w.endDay}: ${w.totalHours}h`).join(', ')})`
+                : '',
+              underWeeks.length > 0 ? `${underWeeks.length} semana(s) con horas insuficientes` : '',
+            ]
+              .filter(Boolean)
+              .join(' · ');
 
       const overallPass = consecutivePass && sundaysPass && weeklyPass;
 
@@ -236,8 +178,8 @@ export default function CumplimientoContent() {
     workers,
     currentMonthSchedule,
     currentMonthSpecialDays,
-    daysOfWeek,
-    daysInMonth,
+    scheduleData,
+    specialDays,
     shifts,
     selectedMes,
     selectedSucursal,

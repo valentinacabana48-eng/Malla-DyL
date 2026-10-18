@@ -425,7 +425,12 @@ export default function MallaExcelPanel({
           bold = true;
           bg = C.liceBg;
         } else if (code === 'PERM') {
-          displayVal = 'PERMISO';
+          displayVal =
+            special === 'PERMISO_CG'
+              ? 'PERM. C/GOCE'
+              : special === 'PERMISO_SG'
+                ? 'PERM. S/GOCE'
+                : 'PERMISO';
           fg = C.permFg;
           bold = true;
           bg = C.permBg;
@@ -654,7 +659,8 @@ export default function MallaExcelPanel({
       { code: 'DESCANSO', desc: 'Descanso' },
       { code: 'VACACIONES', desc: 'Vacaciones' },
       { code: 'LICENCIA', desc: 'Licencia médica' },
-      { code: 'PERMISO', desc: 'Permiso' },
+      { code: 'PERM. C/GOCE', desc: 'Permiso con goce de sueldo' },
+      { code: 'PERM. S/GOCE', desc: 'Permiso sin goce de sueldo' },
       { code: 'FERIADO', desc: 'Feriado' },
       { code: 'CUMPLEAÑOS', desc: 'Cumpleaños' },
     ];

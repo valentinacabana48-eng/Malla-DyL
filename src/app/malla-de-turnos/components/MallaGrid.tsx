@@ -10,6 +10,7 @@ import {
   useAppContext,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
+import type { MonthCompliance } from '@/lib/compliance';
 
 interface Props {
   workers: Worker[];
@@ -20,6 +21,7 @@ interface Props {
   daysInMonth: number;
   monthLabel: string;
   getAlerts: (workerId: string) => string[];
+  getCompliance: (workerId: string) => MonthCompliance | undefined;
   getWeekUnderHours: (workerId: string) => Set<number>;
   onCellChange: (workerId: string, dayIndex: number, shift: ShiftCode) => void;
   onSpecialDayChange: (workerId: string, dayIndex: number, typeCode: string | null) => void;
@@ -281,7 +283,7 @@ function ShiftCell({
               Días especiales
             </p>
             {nonWorkingTypes
-              .filter((t) => t.code !== specialDay)
+              .filter((t) => t.code !== specialDay && !t.legacy)
               .map((nwt) => (
                 <button
                   key={`cell-nwt-${nwt.code}`}
@@ -339,19 +341,21 @@ function ShiftCell({
             <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
               Días especiales
             </p>
-            {nonWorkingTypes.map((nwt) => (
-              <button
-                key={`cell-nwt-${nwt.code}`}
-                onClick={() => {
-                  onSpecialDayChange(workerId, dayIndex, nwt.code);
-                  setOpen(false);
-                }}
-                className="w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors flex items-center gap-1.5"
-              >
-                <span>{nwt.icon}</span>
-                <span>{nwt.label}</span>
-              </button>
-            ))}
+            {nonWorkingTypes
+              .filter((t) => !t.legacy)
+              .map((nwt) => (
+                <button
+                  key={`cell-nwt-${nwt.code}`}
+                  onClick={() => {
+                    onSpecialDayChange(workerId, dayIndex, nwt.code);
+                    setOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors flex items-center gap-1.5"
+                >
+                  <span>{nwt.icon}</span>
+                  <span>{nwt.label}</span>
+                </button>
+              ))}
           </SmartDropdown>
         )}
       </td>
@@ -402,20 +406,22 @@ function ShiftCell({
           <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
             Días especiales
           </p>
-          {nonWorkingTypes.map((nwt) => (
-            <button
-              key={`cell-nwt-${nwt.code}`}
-              onClick={() => {
-                onCellChange(workerId, dayIndex, null);
-                onSpecialDayChange(workerId, dayIndex, nwt.code);
-                setOpen(false);
-              }}
-              className="w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors flex items-center gap-1.5"
-            >
-              <span>{nwt.icon}</span>
-              <span>{nwt.label}</span>
-            </button>
-          ))}
+          {nonWorkingTypes
+            .filter((t) => !t.legacy)
+            .map((nwt) => (
+              <button
+                key={`cell-nwt-${nwt.code}`}
+                onClick={() => {
+                  onCellChange(workerId, dayIndex, null);
+                  onSpecialDayChange(workerId, dayIndex, nwt.code);
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors flex items-center gap-1.5"
+              >
+                <span>{nwt.icon}</span>
+                <span>{nwt.label}</span>
+              </button>
+            ))}
         </SmartDropdown>
       )}
     </td>
@@ -731,7 +737,7 @@ function FloatingShiftPanel({
 
             {/* Special day pills */}
             {nonWorkingTypes
-              .filter((nwt) => nwt.code !== 'DESC')
+              .filter((nwt) => nwt.code !== 'DESC' && !nwt.legacy)
               .map((nwt) => (
                 <button
                   key={`qp-nwt-${nwt.code}`}
@@ -857,6 +863,7 @@ export default function MallaGrid({
   daysInMonth,
   monthLabel,
   getAlerts,
+  getCompliance,
   getWeekUnderHours,
   onCellChange,
   onSpecialDayChange,
@@ -1105,209 +1112,6 @@ export default function MallaGrid({
     return { day: dayNum, dow: DOW_LETTERS[jsDay], dayIndex };
   });
 
-  // ─── Per-worker summary: weekly hours per week + sunday count ─────────
-  const getWorkerSummary = useCallback(
-    (
-      workerId: string
-    ): {
-      weeklyHours: {
-        key: number;
-        hours: number;
-        weekNum: number;
-        daysInWeek: number;
-        scheduledDays: number;
-      }[];
-      sundayCount: number;
-      totalHours: number;
-      firstWeekKey: number | null;
-      lastWeekKey: number | null;
-      firstWeekPrevHours: number;
-      lastWeekNextHours: number;
-    } => {
-      const sched = scheduleData[workerId] || [];
-      const workerSpecialDays = specialDaysData[workerId] || {};
-
-      const MONTH_NAMES_MAP: Record<string, number> = {
-        Enero: 0,
-        Febrero: 1,
-        Marzo: 2,
-        Abril: 3,
-        Mayo: 4,
-        Junio: 5,
-        Julio: 6,
-        Agosto: 7,
-        Septiembre: 8,
-        Octubre: 9,
-        Noviembre: 10,
-        Diciembre: 11,
-      };
-      const parts = (monthLabel || '').split(' ');
-      const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 7;
-      const year = parseInt(parts[1] || '2026', 10);
-
-      const weekHoursMap: Map<number, number> = new Map();
-      const weekDaysMap: Map<number, number> = new Map();
-      const weekScheduledDaysMap: Map<number, number> = new Map();
-      let sundayCount = 0;
-      let totalHours = 0;
-
-      // Build month-clipped weeks: week starts at day 1 (or Monday of the week containing day 1),
-      // clipped to month boundaries. Each week ends on Sunday or end of month.
-      const monthClippedWeeks: { startDay: number; endDay: number; key: number }[] = [];
-      let wd = 1;
-      while (wd <= daysInMonth) {
-        const date = new Date(year, monthIdx, wd);
-        const dow = (date.getDay() + 6) % 7; // 0=Mon, 6=Sun
-        const weekMonday = wd - dow;
-        const weekSunday = weekMonday + 6;
-        const startDay = Math.max(1, weekMonday);
-        const endDay = Math.min(daysInMonth, weekSunday);
-        monthClippedWeeks.push({ startDay, endDay, key: startDay });
-        wd = endDay + 1;
-      }
-
-      // Helper: get the month-clipped week key for a given 1-based day number
-      const getMonthWeekKey = (dayNum: number): number => {
-        const week = monthClippedWeeks.find((w) => dayNum >= w.startDay && dayNum <= w.endDay);
-        return week ? week.key : 1;
-      };
-
-      for (let i = 0; i < daysInMonth; i++) {
-        const isSpecial = !!workerSpecialDays[i];
-        const dow = daysOfWeek[i];
-
-        if (dow === 'D' && (isSpecial || !sched[i] || sched[i] === 'DESC')) {
-          sundayCount++;
-        }
-
-        const dayNum = i + 1;
-        const weekKey = getMonthWeekKey(dayNum);
-        // Track how many calendar days of this month fall in this week
-        weekDaysMap.set(weekKey, (weekDaysMap.get(weekKey) || 0) + 1);
-
-        if (isSpecial || !sched[i] || sched[i] === 'DESC') continue;
-        const shiftInfo = shifts[sched[i] as string];
-        if (!shiftInfo || !shiftInfo.start || !shiftInfo.end) continue;
-
-        const [sh, sm] = shiftInfo.start.split(':').map(Number);
-        const [eh, em] = shiftInfo.end.split(':').map(Number);
-        let mins = eh * 60 + em - (sh * 60 + sm);
-        if (mins < 0) mins += 24 * 60;
-        let hrs = mins / 60;
-        const col = (shiftInfo as { colacion?: number }).colacion;
-        if (col && col > 0) hrs -= col / 60;
-
-        totalHours += hrs;
-
-        weekHoursMap.set(weekKey, (weekHoursMap.get(weekKey) || 0) + hrs);
-        // Track actual scheduled (working) days per week
-        weekScheduledDaysMap.set(weekKey, (weekScheduledDaysMap.get(weekKey) || 0) + 1);
-      }
-
-      // Use month-clipped week keys (startDay) for first/last week
-      const firstWeekKey = monthClippedWeeks.length > 0 ? monthClippedWeeks[0].key : null;
-      const lastWeekKey =
-        monthClippedWeeks.length > 1 ? monthClippedWeeks[monthClippedWeeks.length - 1].key : null;
-
-      // Determine if first/last weeks are "incomplete" (don't span a full Mon-Sun)
-      const firstWeekEndDay = monthClippedWeeks.length > 0 ? monthClippedWeeks[0].endDay : 7;
-      const lastWeekStartDay =
-        monthClippedWeeks.length > 1 ? monthClippedWeeks[monthClippedWeeks.length - 1].startDay : 1;
-      const firstWeekDaysCount =
-        monthClippedWeeks.length > 0
-          ? monthClippedWeeks[0].endDay - monthClippedWeeks[0].startDay + 1
-          : 7;
-      const lastWeekDaysCount =
-        monthClippedWeeks.length > 1
-          ? monthClippedWeeks[monthClippedWeeks.length - 1].endDay -
-            monthClippedWeeks[monthClippedWeeks.length - 1].startDay +
-            1
-          : 7;
-
-      let firstWeekPrevHours = 0;
-      const isFirstWeekIncomplete = leadingCount > 0 && firstWeekDaysCount < 7;
-      if (isFirstWeekIncomplete) {
-        const prevSched = (fullScheduleData[prevMonthKey] || {})[workerId] || [];
-        const prevSpecialDays = (fullSpecialDays[prevMonthKey] || {})[workerId] || {};
-        for (const ld of leadingDays) {
-          const isSpecial = !!prevSpecialDays[ld.dayIndex];
-          if (isSpecial) continue;
-          const shiftCode = prevSched[ld.dayIndex];
-          if (!shiftCode || shiftCode === 'DESC') continue;
-          const shiftInfo = shifts[shiftCode as string];
-          if (!shiftInfo || !shiftInfo.start || !shiftInfo.end) continue;
-          const [sh, sm] = shiftInfo.start.split(':').map(Number);
-          const [eh, em] = shiftInfo.end.split(':').map(Number);
-          let mins = eh * 60 + em - (sh * 60 + sm);
-          if (mins < 0) mins += 24 * 60;
-          let hrs = mins / 60;
-          const col = (shiftInfo as { colacion?: number }).colacion;
-          if (col && col > 0) hrs -= col / 60;
-          firstWeekPrevHours += hrs;
-        }
-      }
-
-      let lastWeekNextHours = 0;
-      const isLastWeekIncomplete = trailingCount > 0 && lastWeekDaysCount < 7;
-      if (isLastWeekIncomplete) {
-        const nextSched = (fullScheduleData[nextMonthKey] || {})[workerId] || [];
-        const nextSpecialDays = (fullSpecialDays[nextMonthKey] || {})[workerId] || {};
-        for (const trd of trailingDays) {
-          const isSpecial = !!nextSpecialDays[trd.dayIndex];
-          if (isSpecial) continue;
-          const shiftCode = nextSched[trd.dayIndex];
-          if (!shiftCode || shiftCode === 'DESC') continue;
-          const shiftInfo = shifts[shiftCode as string];
-          if (!shiftInfo || !shiftInfo.start || !shiftInfo.end) continue;
-          const [sh, sm] = shiftInfo.start.split(':').map(Number);
-          const [eh, em] = shiftInfo.end.split(':').map(Number);
-          let mins = eh * 60 + em - (sh * 60 + sm);
-          if (mins < 0) mins += 24 * 60;
-          let hrs = mins / 60;
-          const col = (shiftInfo as { colacion?: number }).colacion;
-          if (col && col > 0) hrs -= col / 60;
-          lastWeekNextHours += hrs;
-        }
-      }
-
-      // Build sorted weekly hours with week number
-      const sortedWeeks = [...weekHoursMap.entries()].sort((a, b) => a[0] - b[0]);
-      const weeklyHours = sortedWeeks.map(([key, hours], idx) => ({
-        key,
-        hours: Math.round(hours * 10) / 10,
-        weekNum: idx + 1,
-        daysInWeek: weekDaysMap.get(key) ?? 7,
-        scheduledDays: weekScheduledDaysMap.get(key) ?? 0,
-      }));
-
-      return {
-        weeklyHours,
-        sundayCount,
-        totalHours: Math.round(totalHours * 10) / 10,
-        firstWeekKey: isFirstWeekIncomplete ? firstWeekKey : null,
-        lastWeekKey: isLastWeekIncomplete ? lastWeekKey : null,
-        firstWeekPrevHours: Math.round(firstWeekPrevHours * 10) / 10,
-        lastWeekNextHours: Math.round(lastWeekNextHours * 10) / 10,
-      };
-    },
-    [
-      scheduleData,
-      specialDaysData,
-      shifts,
-      daysOfWeek,
-      daysInMonth,
-      monthLabel,
-      leadingDays,
-      trailingDays,
-      leadingCount,
-      trailingCount,
-      fullScheduleData,
-      fullSpecialDays,
-      prevMonthKey,
-      nextMonthKey,
-    ]
-  );
-
   // ─── Early return AFTER all hooks ─────────────────────────────────────
   if (workers.length === 0) {
     return (
@@ -1495,24 +1299,24 @@ export default function MallaGrid({
 
                   {/* Summary cell — sticky, pinned next to worker name */}
                   {(() => {
-                    const {
-                      weeklyHours,
-                      sundayCount,
-                      totalHours,
-                      firstWeekKey,
-                      lastWeekKey,
-                      firstWeekPrevHours,
-                      lastWeekNextHours,
-                    } = getWorkerSummary(worker.id);
-                    const effectiveHorasContratadas =
-                      contractedHoursOverride[worker.id] ?? worker.horasContratadas ?? 42;
-                    const maxWeekHours =
-                      weeklyHours.length > 0 ? Math.max(...weeklyHours.map((w) => w.hours)) : 0;
-                    const horasLimite = effectiveHorasContratadas;
-                    const hoursOver = maxWeekHours > horasLimite;
-                    const underHoursWeeks = getWeekUnderHours(worker.id);
-                    const hasUnderHoursWeek = underHoursWeeks.size > 0;
-                    const sundaysOver = sundayCount < 2;
+                    // Todo sale del mismo cálculo que el color de la fila y Cumplimiento
+                    const compliance = getCompliance(worker.id);
+                    const weeks = compliance?.weeks ?? [];
+                    const weeklyHours = weeks
+                      .map((w, idx) => ({ ...w, key: w.startDay, weekNum: idx + 1 }))
+                      .filter((w) => w.hours > 0);
+                    const totalHours = compliance?.totalHours ?? 0;
+                    const firstWeek = weeks[0];
+                    const lastWeek = weeks.length > 1 ? weeks[weeks.length - 1] : undefined;
+                    const firstWeekKey =
+                      firstWeek && firstWeek.isBoundary && firstWeek.startDay === 1 ? 1 : null;
+                    const lastWeekKey = lastWeek && lastWeek.isBoundary ? lastWeek.startDay : null;
+                    const firstWeekPrevHours = firstWeek?.prevHours ?? 0;
+                    const lastWeekNextHours = lastWeek?.nextHours ?? 0;
+                    const hoursOver = compliance ? !compliance.hoursOk : false;
+                    const sundayCount = compliance?.sundaysOff ?? 0;
+                    const sundaysOver = compliance ? !compliance.sundaysOk : false;
+                    const exentoDomingos = !!worker.exentoDomingos;
 
                     const firstWeekCurrentHours =
                       firstWeekKey !== null
@@ -1564,15 +1368,8 @@ export default function MallaGrid({
                             {expandedWeeklyHours.has(worker.id) && (
                               <div className="mt-0.5 space-y-0.5">
                                 {weeklyHours.map((wk) => {
-                                  // Use actual scheduled days for proportional required hours
-                                  const requiredHours =
-                                    horasLimite * ((wk.scheduledDays || wk.daysInWeek) / 7);
-                                  const tolerance = 0.1;
-                                  const isUnder =
-                                    wk.hours > 0 &&
-                                    wk.scheduledDays > 0 &&
-                                    wk.hours < requiredHours * (1 - tolerance);
-                                  const isOver = wk.hours > horasLimite;
+                                  const isUnder = wk.under;
+                                  const isOver = wk.over;
                                   return (
                                     <div
                                       key={`wk-${wk.key}`}
@@ -1602,26 +1399,13 @@ export default function MallaGrid({
                           (() => {
                             const hasFirstWeek = firstWeekKey !== null;
                             const hasLastWeek = lastWeekKey !== null;
-                            // Use proportional required hours based on days in this month for each partial week
-                            const firstWeekDaysInMonth = weeklyHours[0]?.daysInWeek ?? 7;
-                            const lastWeekDaysInMonth =
-                              weeklyHours[weeklyHours.length - 1]?.daysInWeek ?? 7;
-                            const tolerance = 0.1;
-                            // First week: total = current month + prev month portion
-                            const firstWeekTotal =
-                              Math.round((firstWeekCurrentHours + firstWeekPrevHours) * 10) / 10;
-                            // Last week: total = current month + next month portion
-                            const lastWeekTotal =
-                              Math.round((lastWeekCurrentHours + lastWeekNextHours) * 10) / 10;
-                            // Flag based on full week total vs contracted hours
+                            const firstWeekTotal = firstWeek?.totalHours ?? 0;
+                            const lastWeekTotal = lastWeek?.totalHours ?? 0;
+                            // Misma regla que el resto: se pasa de lo contratado o le faltan horas
                             const firstHasDiff =
-                              hasFirstWeek &&
-                              firstWeekTotal > 0 &&
-                              firstWeekTotal < horasLimite * (1 - tolerance);
+                              hasFirstWeek && !!firstWeek && (firstWeek.over || firstWeek.under);
                             const lastHasDiff =
-                              hasLastWeek &&
-                              lastWeekTotal > 0 &&
-                              lastWeekTotal < horasLimite * (1 - tolerance);
+                              hasLastWeek && !!lastWeek && (lastWeek.over || lastWeek.under);
                             const hasDiff = firstHasDiff || lastHasDiff;
                             const isExpanded = expandedWeekBreakdown.has(worker.id);
                             return (
@@ -1756,9 +1540,16 @@ export default function MallaGrid({
                         {/* Sunday count */}
                         <div
                           className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold ${sundaysOver ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}
+                          title={
+                            exentoDomingos
+                              ? 'Trabaja todos los domingos: no aplica la regla de domingos libres'
+                              : undefined
+                          }
                         >
                           <span>☀</span>
-                          <span>{sundayCount} dom. desc.</span>
+                          <span>
+                            {exentoDomingos ? 'Trab. domingos' : `${sundayCount} dom. desc.`}
+                          </span>
                           {sundaysOver && <span className="text-[9px]">⚠</span>}
                         </div>
                       </td>

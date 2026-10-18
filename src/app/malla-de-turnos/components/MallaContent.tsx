@@ -11,6 +11,7 @@ import {
   type ShiftCode,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
+import { evaluateMonth, type MonthCompliance } from '@/lib/compliance';
 import MallaFilters from './MallaFilters';
 import MallaGrid from './MallaGrid';
 import AssignModal from './AssignModal';
@@ -249,219 +250,55 @@ export default function MallaContent() {
     selectedMes,
   ]);
 
-  const getAlerts = (workerId: string): string[] => {
-    const sched = currentMonthSchedule[workerId] || [];
-    const workerSpecialDays = currentMonthSpecialDays[workerId] || {};
-    const alerts: string[] = [];
-    const worker = workers.find((w) => w.id === workerId);
-    const horasLimite = contractedHoursOverride[workerId] ?? worker?.horasContratadas ?? 42;
-
-    // Count actual shifts assigned (non-null, non-DESC, non-special)
-    const assignedShifts = sched.filter(
-      (s, i) => s && s !== 'DESC' && !workerSpecialDays[i]
-    ).length;
-    // Only run alerts if the worker has at least some shifts assigned this month
-    if (assignedShifts === 0) return alerts;
-
-    let consecutive = 0;
-    let maxConsec = 0;
-    for (let i = 0; i < daysInMonth; i++) {
-      const isSpecial = !!workerSpecialDays[i];
-      if (!isSpecial && sched[i] && sched[i] !== 'DESC') {
-        consecutive++;
-        maxConsec = Math.max(maxConsec, consecutive);
-      } else {
-        consecutive = 0;
-      }
-    }
-    if (maxConsec >= 7) alerts.push(`${maxConsec} días consecutivos trabajados (máx. 6)`);
-
-    // Count total Sundays in this month
-    const totalSundaysInMonth = daysOfWeek.slice(0, daysInMonth).filter((d) => d === 'D').length;
-
-    let sundaysWorked = 0;
-    let sundaysOff = 0;
-    for (let i = 0; i < daysInMonth; i++) {
-      if (daysOfWeek[i] === 'D') {
-        const isSpecial = !!workerSpecialDays[i];
-        if (!isSpecial && sched[i] && sched[i] !== 'DESC') {
-          sundaysWorked++;
-        } else {
-          sundaysOff++;
-        }
-      }
-    }
-
-    // Only require minimum 2 Sundays off if the month actually has 2+ Sundays
-    const minSundaysOff = Math.min(2, totalSundaysInMonth);
-    if (totalSundaysInMonth >= 2 && sundaysOff < minSundaysOff) {
-      alerts.push(
-        `Solo ${sundaysOff} domingo(s) de descanso en el mes (mínimo ${minSundaysOff} requeridos)`
-      );
-    }
-    // Weekly hours check: group days into ISO weeks (Mon–Sun) and sum hours
-    const weekHours: Record<number, number> = {};
-    for (let i = 0; i < daysInMonth; i++) {
-      const isSpecial = !!workerSpecialDays[i];
-      if (isSpecial || !sched[i] || sched[i] === 'DESC') continue;
-      const shiftInfo = shifts[sched[i] as string];
-      if (!shiftInfo) continue;
-      // Determine ISO week number for this day
-      const parts = (selectedMes || '').split(' ');
-      const MONTH_NAMES_MAP: Record<string, number> = {
-        Enero: 0,
-        Febrero: 1,
-        Marzo: 2,
-        Abril: 3,
-        Mayo: 4,
-        Junio: 5,
-        Julio: 6,
-        Agosto: 7,
-        Septiembre: 8,
-        Octubre: 9,
-        Noviembre: 10,
-        Diciembre: 11,
-      };
-      const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 7;
-      const year = parseInt(parts[1] || '2026', 10);
-      const date = new Date(year, monthIdx, i + 1);
-      // ISO week: Mon=0 ... Sun=6; week starts Monday
-      const dayOfWeek = (date.getDay() + 6) % 7; // 0=Mon, 6=Sun
-      const weekStart = new Date(date);
-      weekStart.setDate(date.getDate() - dayOfWeek);
-      const weekKey = weekStart.getTime();
-      const hrs = (() => {
-        if (!shiftInfo.start || !shiftInfo.end) return 0;
-        const [sh, sm] = shiftInfo.start.split(':').map(Number);
-        const [eh, em] = shiftInfo.end.split(':').map(Number);
-        let mins = eh * 60 + em - (sh * 60 + sm);
-        if (mins < 0) mins += 24 * 60;
-        const gross = mins / 60;
-        if (
-          (shiftInfo as { colacion?: number }).colacion &&
-          (shiftInfo as { colacion?: number }).colacion! > 0
-        ) {
-          return gross - (shiftInfo as { colacion?: number }).colacion! / 60;
-        }
-        return gross;
-      })();
-      weekHours[weekKey] = (weekHours[weekKey] || 0) + hrs;
-    }
-    const maxWeekHours = Math.max(0, ...Object.values(weekHours));
-    // Only alert if hours exceed the limit by more than 0.5h (avoid rounding false positives)
-    if (maxWeekHours > horasLimite + 0.5)
-      alerts.push(
-        `Semana con ${Math.round(maxWeekHours * 10) / 10}h (límite ${horasLimite}h/semana)`
-      );
-    return alerts;
-  };
-
-  // Returns a Set of week-start timestamps (ms) where the worker has FEWER hours
-  // programmed than their contracted weekly hours
-  const getWeekUnderHours = (workerId: string): Set<number> => {
-    const sched = currentMonthSchedule[workerId] || [];
-    const workerSpecialDays = currentMonthSpecialDays[workerId] || {};
-    const worker = workers.find((w) => w.id === workerId);
-    const horasLimite = contractedHoursOverride[workerId] ?? worker?.horasContratadas ?? 42;
-
-    const MONTH_NAMES_MAP: Record<string, number> = {
-      Enero: 0,
-      Febrero: 1,
-      Marzo: 2,
-      Abril: 3,
-      Mayo: 4,
-      Junio: 5,
-      Julio: 6,
-      Agosto: 7,
-      Septiembre: 8,
-      Octubre: 9,
-      Noviembre: 10,
-      Diciembre: 11,
+  // ── Reglas de cumplimiento (una sola fuente: src/lib/compliance.ts) ──
+  const complianceByWorker = useMemo(() => {
+    const monthKey = monthLabelToKey(selectedMes);
+    const [year, month] = monthKey.split('-').map(Number);
+    const keyOf = (y: number, m: number) => {
+      const date = new Date(y, m - 1, 1);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     };
-    const parts = (selectedMes || '').split(' ');
-    const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 7;
-    const year = parseInt(parts[1] || '2026', 10);
+    const prevKey = keyOf(year, month - 1);
+    const nextKey = keyOf(year, month + 1);
+    const map = new Map<string, MonthCompliance>();
+    filteredWorkers.forEach((w) => {
+      map.set(
+        w.id,
+        evaluateMonth({
+          year,
+          monthIdx: month - 1,
+          sched: currentMonthSchedule[w.id] || [],
+          special: currentMonthSpecialDays[w.id] || {},
+          prevSched: scheduleData[prevKey]?.[w.id],
+          prevSpecial: specialDays[prevKey]?.[w.id],
+          nextSched: scheduleData[nextKey]?.[w.id],
+          nextSpecial: specialDays[nextKey]?.[w.id],
+          shifts,
+          weeklyHours: contractedHoursOverride[w.id] ?? w.horasContratadas ?? 42,
+          exentoDomingos: w.exentoDomingos,
+        })
+      );
+    });
+    return map;
+  }, [
+    filteredWorkers,
+    selectedMes,
+    currentMonthSchedule,
+    currentMonthSpecialDays,
+    scheduleData,
+    specialDays,
+    shifts,
+    contractedHoursOverride,
+  ]);
 
-    // Build month-clipped weeks (same logic as buildWeekOptions in MallaSummary)
-    // Week 1 starts at day 1, each week ends on Sunday (or end of month)
-    const monthClippedWeeks: { startDay: number; endDay: number; key: number }[] = [];
-    let d = 1;
-    while (d <= daysInMonth) {
-      const date = new Date(year, monthIdx, d);
-      const dow = (date.getDay() + 6) % 7; // 0=Mon, 6=Sun
-      const weekMonday = d - dow;
-      const weekSunday = weekMonday + 6;
-      const startDay = Math.max(1, weekMonday);
-      const endDay = Math.min(daysInMonth, weekSunday);
-      // Use startDay as the key (unique per week within month)
-      monthClippedWeeks.push({ startDay, endDay, key: startDay });
-      d = endDay + 1;
-    }
+  const getCompliance = (workerId: string): MonthCompliance | undefined =>
+    complianceByWorker.get(workerId);
 
-    // Map weekKey → hours
-    const weekData: Record<number, { hours: number }> = {};
-    for (const wk of monthClippedWeeks) {
-      weekData[wk.key] = { hours: 0 };
-    }
+  const getAlerts = (workerId: string): string[] => getCompliance(workerId)?.alerts ?? [];
 
-    for (let i = 0; i < daysInMonth; i++) {
-      const dayNum = i + 1;
-      const isSpecial = !!workerSpecialDays[i];
-      if (isSpecial || !sched[i] || sched[i] === 'DESC') continue;
-
-      const shiftInfo = shifts[sched[i] as string];
-      if (!shiftInfo || !shiftInfo.start || !shiftInfo.end) continue;
-
-      const [sh, sm] = shiftInfo.start.split(':').map(Number);
-      const [eh, em] = shiftInfo.end.split(':').map(Number);
-      let mins = eh * 60 + em - (sh * 60 + sm);
-      if (mins < 0) mins += 24 * 60;
-      let hrs = mins / 60;
-      const col = (shiftInfo as { colacion?: number }).colacion;
-      if (col && col > 0) hrs -= col / 60;
-
-      // Find which month-clipped week this day belongs to
-      const wk = monthClippedWeeks.find((w) => dayNum >= w.startDay && dayNum <= w.endDay);
-      if (wk) {
-        weekData[wk.key].hours += hrs;
-      }
-    }
-
-    // Count actual scheduled (working) days per week
-    const weekScheduledDays: Record<number, number> = {};
-    for (const wk of monthClippedWeeks) {
-      weekScheduledDays[wk.key] = 0;
-    }
-    for (let i = 0; i < daysInMonth; i++) {
-      const dayNum = i + 1;
-      const isSpecial = !!workerSpecialDays[i];
-      if (isSpecial || !sched[i] || sched[i] === 'DESC') continue;
-      const wk = monthClippedWeeks.find((w) => dayNum >= w.startDay && dayNum <= w.endDay);
-      if (wk) weekScheduledDays[wk.key]++;
-    }
-
-    const underWeeks = new Set<number>();
-    for (const wk of monthClippedWeeks) {
-      const data = weekData[wk.key];
-      if (!data || data.hours === 0) continue;
-      // Use actual scheduled days to compute proportional required hours
-      const scheduledDays = weekScheduledDays[wk.key] || 0;
-      if (scheduledDays === 0) continue;
-      // Calendar days of this month in this week (for proportional check)
-      const calendarDaysInMonth = wk.endDay - wk.startDay + 1;
-      // For partial weeks (first/last week spanning another month), use proportional required hours
-      // based on how many calendar days of this month fall in the week
-      const isPartialWeek = calendarDaysInMonth < 7;
-      const requiredHours = isPartialWeek
-        ? horasLimite * (calendarDaysInMonth / 7)
-        : horasLimite * (scheduledDays / 7);
-      const tolerance = 0.1; // 10% tolerance
-      if (data.hours < requiredHours * (1 - tolerance)) {
-        underWeeks.add(wk.key);
-      }
-    }
-    return underWeeks;
-  };
+  // Semanas (por su primer día del mes) con menos horas de lo esperado
+  const getWeekUnderHours = (workerId: string): Set<number> =>
+    new Set((getCompliance(workerId)?.weeks ?? []).filter((w) => w.under).map((w) => w.startDay));
 
   const handleCellChange = async (workerId: string, dayIndex: number, shift: ShiftCode) => {
     if (isLocked) return;
@@ -660,6 +497,7 @@ export default function MallaContent() {
           daysInMonth={daysInMonth}
           monthLabel={selectedMes}
           getAlerts={getAlerts}
+          getCompliance={getCompliance}
           getWeekUnderHours={getWeekUnderHours}
           onCellChange={handleCellChange}
           onSpecialDayChange={handleSpecialDayChange}
