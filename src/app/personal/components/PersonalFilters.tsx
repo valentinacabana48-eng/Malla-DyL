@@ -31,7 +31,7 @@ export default function PersonalFilters({
   return (
     <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-wrap gap-3 lg:gap-4 items-end">
       {/* Sucursal */}
-      <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[160px]">
+      <div className="flex flex-col gap-1 w-full lg:w-auto lg:min-w-[160px]">
         <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
           Sucursal
         </span>
@@ -57,7 +57,7 @@ export default function PersonalFilters({
         </div>
       </div>
       {/* Area */}
-      <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[140px]">
+      <div className="flex flex-col gap-1 w-full lg:w-auto lg:min-w-[140px]">
         <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
           Área
         </span>
@@ -83,7 +83,7 @@ export default function PersonalFilters({
         </div>
       </div>
       {/* Estado */}
-      <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[130px]">
+      <div className="flex flex-col gap-1 w-full lg:w-auto lg:min-w-[130px]">
         <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
           Estado
         </span>
@@ -106,7 +106,7 @@ export default function PersonalFilters({
         </div>
       </div>
       {/* Search */}
-      <div className="flex flex-col gap-1 w-full sm:w-auto flex-1 sm:min-w-[180px]">
+      <div className="flex flex-col gap-1 w-full lg:w-auto flex-1 lg:min-w-[180px]">
         <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
           Buscar trabajador
         </span>

@@ -69,10 +69,10 @@ export default function PersonalSummary({ summary }: { summary: Summary }) {
           return (
             <div
               key={c.id}
-              className="bg-card rounded-xl border border-border px-3 lg:px-4 py-3 shadow-sm flex items-center justify-center sm:justify-start text-center sm:text-left gap-3"
+              className="bg-card rounded-xl border border-border px-3 lg:px-4 py-3 shadow-sm flex items-center justify-center lg:justify-start text-center lg:text-left gap-3"
             >
               <div
-                className={`hidden sm:flex w-10 h-10 rounded-full ${c.iconBg} items-center justify-center shrink-0`}
+                className={`hidden lg:flex w-10 h-10 rounded-full ${c.iconBg} items-center justify-center shrink-0`}
               >
                 <Icon size={18} className={c.iconColor} />
               </div>

@@ -241,7 +241,7 @@ export default function CumplimientoContent() {
           </span>
         </button>
         {showHoursInfo && (
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-blue-900">
+          <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs text-blue-900">
             <div className="bg-white/70 rounded-xl p-3 border border-blue-100">
               <p className="font-bold mb-1">📋 Horas contratadas (semanales)</p>
               <p>
@@ -406,14 +406,14 @@ export default function CumplimientoContent() {
         style={{ boxShadow: 'var(--shadow-card)' }}
       >
         {/* Table header */}
-        <div className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_100px_100px_100px_90px] gap-x-3 md:gap-x-0 border-b border-border bg-muted/30 px-4 py-2.5">
+        <div className="grid grid-cols-[1fr_auto] lg:grid-cols-[1fr_100px_100px_100px_90px] gap-x-3 lg:gap-x-0 border-b border-border bg-muted/30 px-4 py-2.5">
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
             Trabajadora
           </span>
           {RULES.map((r) => (
             <span
               key={r.id}
-              className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center hidden md:block"
+              className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center hidden lg:block"
             >
               {r.label}
             </span>
@@ -434,7 +434,7 @@ export default function CumplimientoContent() {
               <div key={wc.workerId} className="border-b border-border/50 last:border-0">
                 <button
                   onClick={() => setExpandedWorker(isExpanded ? null : wc.workerId)}
-                  className={`w-full grid grid-cols-[1fr_auto] md:grid-cols-[1fr_100px_100px_100px_90px] gap-x-3 md:gap-x-0 px-4 py-3 text-left transition-colors hover:bg-muted/20 ${
+                  className={`w-full grid grid-cols-[1fr_auto] lg:grid-cols-[1fr_100px_100px_100px_90px] gap-x-3 lg:gap-x-0 px-4 py-3 text-left transition-colors hover:bg-muted/20 ${
                     wc.overallPass ? '' : 'bg-red-50/40'
                   }`}
                 >
@@ -450,7 +450,7 @@ export default function CumplimientoContent() {
                       <p className="text-sm font-semibold text-foreground truncate">
                         {wc.workerName}
                       </p>
-                      <p className="text-xs md:text-[10px] text-muted-foreground">
+                      <p className="text-xs lg:text-[10px] text-muted-foreground">
                         {wc.cargo} · {wc.area} ·{' '}
                         <span className="font-medium">{wc.horasContratadas}h/sem</span> (~
                         {wc.expectedMonthlyHours}h/mes)
@@ -464,7 +464,7 @@ export default function CumplimientoContent() {
                     return (
                       <div
                         key={r.id}
-                        className="flex items-center justify-center hidden md:flex"
+                        className="flex items-center justify-center hidden lg:flex"
                         title={rule.detail}
                       >
                         {rule.pass ? (
@@ -479,7 +479,7 @@ export default function CumplimientoContent() {
                   {/* Overall status */}
                   <div className="flex items-center justify-center">
                     <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs md:text-[10px] font-bold ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs lg:text-[10px] font-bold ${
                         wc.overallPass ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                       }`}
                     >
@@ -499,7 +499,7 @@ export default function CumplimientoContent() {
                 {/* Expanded detail */}
                 {isExpanded && (
                   <div className="px-4 pb-4 pt-2 bg-muted/10 border-t border-border/30">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-2">
                       {RULES.map((r) => {
                         const rule = wc.rules[r.id];
                         return (
@@ -518,7 +518,7 @@ export default function CumplimientoContent() {
                                 <XCircle size={12} className="text-red-500 shrink-0" />
                               )}
                               <span
-                                className={`text-xs md:text-[10px] font-bold uppercase tracking-wide ${rule.pass ? 'text-green-700' : 'text-red-600'}`}
+                                className={`text-xs lg:text-[10px] font-bold uppercase tracking-wide ${rule.pass ? 'text-green-700' : 'text-red-600'}`}
                               >
                                 {r.label}
                               </span>
@@ -532,7 +532,7 @@ export default function CumplimientoContent() {
                         );
                       })}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-4 text-xs md:text-[11px] text-muted-foreground bg-muted/20 rounded-xl px-3 py-2">
+                    <div className="mt-3 flex flex-wrap gap-4 text-xs lg:text-[11px] text-muted-foreground bg-muted/20 rounded-xl px-3 py-2">
                       <span>
                         Horas contratadas:{' '}
                         <strong className="text-foreground">{wc.horasContratadas}h/semana</strong>

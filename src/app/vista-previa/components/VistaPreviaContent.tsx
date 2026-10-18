@@ -666,7 +666,7 @@ export default function VistaPreviaContent() {
               {/* ── PRINTABLE DOCUMENT ── */}
               <div ref={printRef} className="print-area">
                 {/* ── COPY 1: Worker's copy ── */}
-                <div className="pdf-page bg-white p-8 rounded-xl border border-border shadow-sm">
+                <div className="pdf-page bg-white p-3 lg:p-8 print:p-8 rounded-xl border border-border shadow-sm">
                   {/* Copy label */}
                   <div className="text-right mb-2">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
@@ -675,21 +675,21 @@ export default function VistaPreviaContent() {
                   </div>
 
                   {/* Logos */}
-                  <div className="flex justify-center items-center gap-6 mb-6">
+                  <div className="flex justify-center items-center gap-3 lg:gap-6 print:gap-6 mb-6">
                     <img
                       src="/assets/images/descarga-1784608578238.png"
                       alt="Mayorista DyL"
-                      className="h-24 object-contain"
+                      className="h-14 lg:h-24 print:h-24 object-contain"
                     />
                     <img
                       src="/assets/images/descarga__2_-1784608577889.png"
                       alt="Envases DyL"
-                      className="h-24 object-contain"
+                      className="h-14 lg:h-24 print:h-24 object-contain"
                     />
                     <img
                       src="/assets/images/descarga__1_-1784608578251.png"
                       alt="Distribuidora DyL"
-                      className="h-24 object-contain"
+                      className="h-14 lg:h-24 print:h-24 object-contain"
                     />
                   </div>
 
@@ -699,12 +699,14 @@ export default function VistaPreviaContent() {
                   </h1>
 
                   {/* Worker name + Month boxes */}
-                  <div className="flex gap-6 mb-6">
-                    <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-6 py-3 flex items-center justify-center">
-                      <span className="text-xl font-bold text-gray-800">{selectedWorker.name}</span>
+                  <div className="flex gap-3 lg:gap-6 print:gap-6 mb-6">
+                    <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
+                      <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
+                        {selectedWorker.name}
+                      </span>
                     </div>
-                    <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-6 py-3 flex items-center justify-center">
-                      <span className="text-xl font-bold text-gray-800">
+                    <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
+                      <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
                         {monthName} {monthYear}
                       </span>
                     </div>
@@ -725,9 +727,11 @@ export default function VistaPreviaContent() {
                       ].map((day) => (
                         <div
                           key={day}
-                          className="text-center py-2 text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
+                          className="text-center py-2 text-[11px] lg:text-xs print:text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
                         >
-                          {day}
+                          {/* Celular: día abreviado (LUN, MAR…) para que quepa */}
+                          <span className="lg:hidden print:hidden">{day.slice(0, 3)}</span>
+                          <span className="hidden lg:inline print:inline">{day}</span>
                         </div>
                       ))}
                     </div>
@@ -743,7 +747,7 @@ export default function VistaPreviaContent() {
                             return (
                               <div
                                 key={`other-${wi}-${ci}`}
-                                className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-1.5 flex flex-col items-center justify-start bg-gray-50/70"
+                                className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start bg-gray-50/70"
                               >
                                 <span className="text-xs font-bold text-gray-300 mb-1">
                                   {cell.otherMonthDate}
@@ -784,17 +788,17 @@ export default function VistaPreviaContent() {
                           return (
                             <div
                               key={`cell-${wi}-${ci}`}
-                              className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-1.5 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
+                              className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
                             >
                               <span className="text-xs font-bold text-gray-700 mb-1">
                                 {cell.date}
                               </span>
                               {shiftInfo ? (
                                 <>
-                                  <span className="text-[10px] font-bold text-blue-700 text-center leading-tight">
+                                  <span className="hidden lg:block print:block text-[10px] font-bold text-blue-700 text-center leading-tight">
                                     {shiftInfo.label.toUpperCase()}
                                   </span>
-                                  <span className="text-[9px] font-semibold text-blue-600 text-center leading-tight">
+                                  <span className="text-[10px] lg:text-[9px] print:text-[9px] font-bold lg:font-semibold print:font-semibold text-blue-600 text-center leading-tight [overflow-wrap:anywhere]">
                                     {shiftInfo.start} - {shiftInfo.end}
                                   </span>
                                   {shiftInfo.colacion > 0 && (
@@ -806,9 +810,15 @@ export default function VistaPreviaContent() {
                                 </>
                               ) : (
                                 <span
-                                  className={`text-[10px] font-semibold text-center leading-tight ${cellColor}`}
+                                  className={`text-[9px] lg:text-[10px] print:text-[10px] font-semibold text-center leading-tight [overflow-wrap:anywhere] ${cellColor}`}
                                 >
-                                  {cellLabel}
+                                  {/* Celular: palabras largas abreviadas (DESCANSO → DESC.) */}
+                                  <span className="lg:hidden print:hidden">
+                                    {cellLabel && cellLabel.length > 7
+                                      ? `${cellLabel.slice(0, 4)}.`
+                                      : cellLabel}
+                                  </span>
+                                  <span className="hidden lg:inline print:inline">{cellLabel}</span>
                                 </span>
                               )}
                             </div>
@@ -874,7 +884,7 @@ export default function VistaPreviaContent() {
                 </div>
 
                 {/* ── COPY 2: Signature copy ── */}
-                <div className="pdf-page pdf-page-break bg-white p-8 rounded-xl border border-border shadow-sm mt-8">
+                <div className="pdf-page pdf-page-break bg-white p-3 lg:p-8 print:p-8 rounded-xl border border-border shadow-sm mt-8">
                   {/* Copy label */}
                   <div className="text-right mb-2">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
@@ -883,21 +893,21 @@ export default function VistaPreviaContent() {
                   </div>
 
                   {/* Logos */}
-                  <div className="flex justify-center items-center gap-6 mb-6">
+                  <div className="flex justify-center items-center gap-3 lg:gap-6 print:gap-6 mb-6">
                     <img
                       src="/assets/images/descarga-1784608578238.png"
                       alt="Mayorista DyL"
-                      className="h-24 object-contain"
+                      className="h-14 lg:h-24 print:h-24 object-contain"
                     />
                     <img
                       src="/assets/images/descarga__2_-1784608577889.png"
                       alt="Envases DyL"
-                      className="h-24 object-contain"
+                      className="h-14 lg:h-24 print:h-24 object-contain"
                     />
                     <img
                       src="/assets/images/descarga__1_-1784608578251.png"
                       alt="Distribuidora DyL"
-                      className="h-24 object-contain"
+                      className="h-14 lg:h-24 print:h-24 object-contain"
                     />
                   </div>
 
@@ -905,12 +915,14 @@ export default function VistaPreviaContent() {
                     MALLA MENSUAL
                   </h1>
 
-                  <div className="flex gap-6 mb-6">
-                    <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-6 py-3 flex items-center justify-center">
-                      <span className="text-xl font-bold text-gray-800">{selectedWorker.name}</span>
+                  <div className="flex gap-3 lg:gap-6 print:gap-6 mb-6">
+                    <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
+                      <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
+                        {selectedWorker.name}
+                      </span>
                     </div>
-                    <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-6 py-3 flex items-center justify-center">
-                      <span className="text-xl font-bold text-gray-800">
+                    <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
+                      <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
                         {monthName} {monthYear}
                       </span>
                     </div>
@@ -929,9 +941,11 @@ export default function VistaPreviaContent() {
                       ].map((day) => (
                         <div
                           key={day}
-                          className="text-center py-2 text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
+                          className="text-center py-2 text-[11px] lg:text-xs print:text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
                         >
-                          {day}
+                          {/* Celular: día abreviado (LUN, MAR…) para que quepa */}
+                          <span className="lg:hidden print:hidden">{day.slice(0, 3)}</span>
+                          <span className="hidden lg:inline print:inline">{day}</span>
                         </div>
                       ))}
                     </div>
@@ -945,7 +959,7 @@ export default function VistaPreviaContent() {
                             return (
                               <div
                                 key={`other2-${wi}-${ci}`}
-                                className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-1.5 flex flex-col items-center justify-start bg-gray-50/70"
+                                className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start bg-gray-50/70"
                               >
                                 <span className="text-xs font-bold text-gray-300 mb-1">
                                   {cell.otherMonthDate}
@@ -986,17 +1000,17 @@ export default function VistaPreviaContent() {
                           return (
                             <div
                               key={`cell2-${wi}-${ci}`}
-                              className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-1.5 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
+                              className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
                             >
                               <span className="text-xs font-bold text-gray-700 mb-1">
                                 {cell.date}
                               </span>
                               {shiftInfo ? (
                                 <>
-                                  <span className="text-[10px] font-bold text-blue-700 text-center leading-tight">
+                                  <span className="hidden lg:block print:block text-[10px] font-bold text-blue-700 text-center leading-tight">
                                     {shiftInfo.label.toUpperCase()}
                                   </span>
-                                  <span className="text-[9px] font-semibold text-blue-600 text-center leading-tight">
+                                  <span className="text-[10px] lg:text-[9px] print:text-[9px] font-bold lg:font-semibold print:font-semibold text-blue-600 text-center leading-tight [overflow-wrap:anywhere]">
                                     {shiftInfo.start} - {shiftInfo.end}
                                   </span>
                                   {shiftInfo.colacion > 0 && (
@@ -1008,9 +1022,15 @@ export default function VistaPreviaContent() {
                                 </>
                               ) : (
                                 <span
-                                  className={`text-[10px] font-semibold text-center leading-tight ${cellColor}`}
+                                  className={`text-[9px] lg:text-[10px] print:text-[10px] font-semibold text-center leading-tight [overflow-wrap:anywhere] ${cellColor}`}
                                 >
-                                  {cellLabel}
+                                  {/* Celular: palabras largas abreviadas (DESCANSO → DESC.) */}
+                                  <span className="lg:hidden print:hidden">
+                                    {cellLabel && cellLabel.length > 7
+                                      ? `${cellLabel.slice(0, 4)}.`
+                                      : cellLabel}
+                                  </span>
+                                  <span className="hidden lg:inline print:inline">{cellLabel}</span>
                                 </span>
                               )}
                             </div>

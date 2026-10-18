@@ -1631,7 +1631,7 @@ export default function AsistenciaContent() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-              <span className="hidden sm:inline">Actualizar</span>
+              <span className="hidden lg:inline">Actualizar</span>
             </button>
             <button
               onClick={saveReport}

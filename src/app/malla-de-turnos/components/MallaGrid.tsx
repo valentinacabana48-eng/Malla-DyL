@@ -1186,14 +1186,14 @@ export default function MallaGrid({
           <thead ref={theadRef} className="sticky top-0 z-20">
             <tr className="bg-muted/30 border-b border-border">
               <th
-                className="text-left px-3 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] sticky left-0 w-[140px] min-w-[140px] max-w-[140px] border-r border-border"
+                className="text-left px-3 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] sticky left-0 w-[112px] min-w-[112px] max-w-[112px] lg:w-[140px] lg:min-w-[140px] lg:max-w-[140px] border-r border-border"
                 style={{ zIndex: 13, backgroundColor: '#f1f5f9' }}
               >
                 COLABORADORAS
               </th>
               {/* Summary column header — sticky */}
               <th
-                className="text-center px-1 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] border-r border-border min-w-[90px] w-[90px] sticky"
+                className="text-center px-1 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] border-r border-border min-w-[90px] w-[90px] lg:sticky"
                 style={{ left: 140, zIndex: 13, backgroundColor: '#f1f5f9' }}
               >
                 <div>Resumen</div>
@@ -1263,14 +1263,14 @@ export default function MallaGrid({
                 >
                   {/* Sticky worker name cell */}
                   <td
-                    className="px-2 py-0.5 sticky left-0 border-r border-border w-[140px] min-w-[140px] max-w-[140px]"
+                    className="px-2 py-0.5 sticky left-0 border-r border-border w-[112px] min-w-[112px] max-w-[112px] lg:w-[140px] lg:min-w-[140px] lg:max-w-[140px]"
                     style={{ zIndex: 2, backgroundColor: stickyBgColor }}
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] font-bold text-muted-foreground shrink-0 w-4 text-right">
+                      <span className="hidden lg:inline text-[9px] font-bold text-muted-foreground shrink-0 w-4 text-right">
                         {rowIdx + 1}.
                       </span>
-                      <div className="w-6 h-6 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-[9px] font-bold shrink-0">
+                      <div className="hidden lg:flex w-6 h-6 rounded-full bg-secondary/15 text-secondary items-center justify-center text-[9px] font-bold shrink-0">
                         {worker.initials}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -1336,7 +1336,7 @@ export default function MallaGrid({
 
                     return (
                       <td
-                        className="border-r border-border px-1 py-0.5 min-w-[90px] w-[90px] text-center align-middle sticky"
+                        className="border-r border-border px-1 py-0.5 min-w-[90px] w-[90px] text-center align-middle lg:sticky"
                         style={{ left: 140, zIndex: 2, backgroundColor: stickyBgColor }}
                       >
                         {/* Monthly total hours */}

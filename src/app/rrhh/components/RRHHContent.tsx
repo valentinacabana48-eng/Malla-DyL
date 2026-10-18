@@ -1188,7 +1188,7 @@ export default function RRHHContent() {
                   </div>
                 )}
                 {/* Weekly summary */}
-                <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
                   <div className="bg-muted/30 rounded-lg px-2 py-1.5 text-center">
                     <p className="text-muted-foreground text-[10px]">Horas/semana contratadas</p>
                     <p className="font-bold text-foreground">{stats.contractedWeekly}h</p>
