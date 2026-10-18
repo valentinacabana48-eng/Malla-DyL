@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Menu, MapPin, Layers, RefreshCw, Lock, Eye, LogOut, Download } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
-import { useInstallPrompt } from '@/lib/pwa';
+import { useInstallPrompt, useIosInstallable } from '@/lib/pwa';
+import IosInstallModal from './IosInstallModal';
 
 interface TopbarProps {
   onMenuToggle: () => void;
@@ -14,6 +15,10 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
   const { globalSucursal, globalArea } = useAppContext();
   const { role, user, signOut } = useAuth();
   const installApp = useInstallPrompt();
+  // En iPhone no hay botón de instalar del navegador: se muestran los pasos a mano
+  const iosInstallable = useIosInstallable();
+  const [showIosInstall, setShowIosInstall] = useState(false);
+  const canInstall = !!installApp || iosInstallable;
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -81,10 +86,10 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
             </div>
           )}
 
-          {/* Install app (Android / PC con Chrome o Edge) */}
-          {installApp && (
+          {/* Install app (Android / PC con Chrome o Edge; en iPhone abre los pasos) */}
+          {canInstall && (
             <button
-              onClick={installApp}
+              onClick={installApp ?? (() => setShowIosInstall(true))}
               className="ml-auto flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-white bg-secondary hover:bg-blue-700 transition-all duration-150"
               title="Instalar DyL Gestor como app"
             >
@@ -96,7 +101,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
           {/* Logout button */}
           <button
             onClick={signOut}
-            className={`${installApp ? '' : 'ml-auto '}flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-red-600 hover:bg-red-50 border border-border transition-all duration-150`}
+            className={`${canInstall ? '' : 'ml-auto '}flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-red-600 hover:bg-red-50 border border-border transition-all duration-150`}
             title={user?.email ? `Cerrar sesión (${user.email})` : 'Cerrar sesión'}
           >
             <LogOut className="w-[18px] h-[18px] lg:w-3 lg:h-3" />
@@ -104,6 +109,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
           </button>
         </div>
       )}
+      {showIosInstall && <IosInstallModal onClose={() => setShowIosInstall(false)} />}
     </header>
   );
 }

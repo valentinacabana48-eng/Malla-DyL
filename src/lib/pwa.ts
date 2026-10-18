@@ -53,3 +53,20 @@ export function useInstallPrompt(): (() => Promise<void>) | null {
     notify();
   };
 }
+
+/** iPhone/iPad sin la app instalada: Safari no ofrece el botón de instalar, hay que hacerlo a mano. */
+export function useIosInstallable(): boolean {
+  const [installable, setInstallable] = useState(false);
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    const isIos =
+      /iPhone|iPad|iPod/.test(ua) ||
+      // iPad con iPadOS se presenta como Mac
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isStandalone =
+      (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
+    setInstallable(isIos && !isStandalone);
+  }, []);
+  return installable;
+}
