@@ -95,7 +95,7 @@ export default function DashboardContent() {
       if (!w.birthday) return false;
       const [, bMonth] = w.birthday.split('-').map(Number);
       if (bMonth !== (selectedMonth + 1)) return false;
-      if (areaFilter !== 'all' && w.areaId !== areaFilter && w.area !== areaFilter) return false;
+      if (areaFilter !== 'all' && w.area !== areaFilter) return false;
       return true;
     }).sort((a, b) => {
       const [,,aDay] = (a.birthday || '').split('-').map(Number);

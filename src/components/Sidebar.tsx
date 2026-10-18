@@ -16,17 +16,18 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import Icon from '@/components/ui/AppIcon';
+import { useAuth } from '@/context/AuthContext';
 
 
-const navItems = [
+const navItems: { label: string; icon: React.ElementType; href: string; adminOnly?: boolean }[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
   { label: 'Malla', icon: CalendarDays, href: '/malla-de-turnos' },
   { label: 'Cumplimiento', icon: ShieldCheck, href: '/cumplimiento' },
   { label: 'Personal', icon: Users, href: '/personal' },
   { label: 'Asistencia', icon: CalendarCheck, href: '/asistencia' },
-  { label: 'RRHH', icon: UserCog, href: '/rrhh' },
+  { label: 'RRHH', icon: UserCog, href: '/rrhh', adminOnly: true },
   { label: 'Vista previa', icon: Eye, href: '/vista-previa' },
-  { label: 'Ajustes', icon: Settings, href: '/ajustes' },
+  { label: 'Ajustes', icon: Settings, href: '/ajustes', adminOnly: true },
 ];
 
 interface SidebarProps {
@@ -36,13 +37,15 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const { isAdmin } = useAuth();
+  const visibleItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <aside
       className="flex flex-col h-full transition-all duration-300 ease-in-out"
       style={{
         width: collapsed ? 64 : 240,
-        minHeight: '100vh',
+        minHeight: '100%',
         background: 'linear-gradient(180deg, #0a1e3d 0%, #0f2744 40%, #112d52 100%)',
         borderRight: '1px solid rgba(255,255,255,0.06)',
       }}
@@ -67,7 +70,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 py-5 px-2.5 flex flex-col gap-0.5">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           const Icon = item.icon;
           return (

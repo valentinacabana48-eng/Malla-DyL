@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { getSupabase } from '@/lib/supabase/client';
+import { fetchAll } from '@/lib/supabase/fetchAll';
 import { useAppContext } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import {
@@ -9,14 +10,16 @@ import {
 } from './asistenciaUtils';
 import DailyAlertModal from './DailyAlertModal';
 import OvertimeModal from './OvertimeModal';
-import AsistenciaLock from './AsistenciaLock';
+import LockToggle from '@/components/LockToggle';
+import { useSharedLock } from '@/hooks/useSharedLock';
+import { useAuth } from '@/context/AuthContext';
 import { CalendarCheck, Download, Clock, ChevronDown, AlertCircle, RefreshCw, Users, CheckCheck, Calendar, Sun, Sunset, Lock, Unlock, X, Eye, EyeOff } from 'lucide-react';
 
 // ─── Stable Supabase client (module-level singleton) ─────────────────────────
 // CRITICAL: Must NOT be inside the component or useMemo — recreating the client
 // on every render causes loadData's useEffect to re-fire and overwrite optimistic
 // updates before the DB write has committed.
-const supabase = createClient();
+const supabase = getSupabase();
 
 interface AttendanceRecord {
   workerId: string;
@@ -50,50 +53,30 @@ interface OvertimeModalState {
 
 // ─── Lock Modal ───────────────────────────────────────────────────────────────
 interface LockModalProps {
-  mode: 'lock' | 'unlock' | 'setpin';
+  mode: 'lock' | 'unlock';
   dateLabel: string;
-  onConfirm: (pin: string) => void;
+  onConfirm: () => Promise<void>;
   onClose: () => void;
   error: string;
 }
 
 function LockModal({ mode, dateLabel, onConfirm, onClose, error }: LockModalProps) {
-  const [pin, setPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
-  const [step, setStep] = useState<'enter' | 'confirm'>('enter');
-  const [showPin, setShowPin] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = () => {
-    if (mode === 'setpin') {
-      if (step === 'enter') {
-        if (pin.length < 4) return;
-        setStep('confirm');
-        return;
-      }
-      if (pin !== confirmPin) return;
-      onConfirm(pin);
-    } else {
-      onConfirm(pin);
-    }
+  const handleSubmit = async () => {
+    setSaving(true);
+    await onConfirm();
+    setSaving(false);
   };
 
-  const title = mode === 'lock' ? 'Guardar y bloquear día'
-    : mode === 'unlock'? 'Desbloquear día' :'Crear clave de asistencia';
-
-  const desc = mode === 'lock' ? `Ingresa la clave para bloquear el ${dateLabel}. Una vez bloqueado, no se podrán modificar ni eliminar registros sin la clave.`
-    : mode === 'unlock' ? `Ingresa la clave para desbloquear el ${dateLabel} y poder editar los registros.`
-    : step === 'enter' ? 'Crea una clave numérica (mínimo 4 dígitos) para proteger los registros de asistencia.'
-    : 'Confirma la clave ingresada.';
-
-  const currentVal = mode === 'setpin' && step === 'confirm' ? confirmPin : pin;
-  const setCurrentVal = (v: string) => {
-    if (mode === 'setpin' && step === 'confirm') setConfirmPin(v);
-    else setPin(v);
-  };
+  const title = mode === 'lock' ? 'Guardar y bloquear día' : 'Desbloquear día';
+  const desc = mode === 'lock'
+    ? `Una vez bloqueado el ${dateLabel}, nadie podrá modificar ni eliminar sus registros hasta que un administrador lo desbloquee.`
+    : `Se podrán volver a editar los registros del ${dateLabel}.`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 w-full max-w-sm mx-4 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 w-full max-w-sm shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${mode === 'unlock' ? 'bg-green-50' : 'bg-red-50'}`}>
@@ -101,38 +84,18 @@ function LockModal({ mode, dateLabel, onConfirm, onClose, error }: LockModalProp
             </div>
             <h2 className="text-base font-bold text-gray-900">{title}</h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar"><X size={18} /></button>
         </div>
         <p className="text-sm text-gray-500 mb-4">{desc}</p>
-        <div className="relative mb-3">
-          <input
-            autoFocus
-            type={showPin ? 'text' : 'password'}
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={currentVal}
-            onChange={e => { setCurrentVal(e.target.value.replace(/\D/g, '')); }}
-            onKeyDown={e => { if (e.key === 'Enter' && currentVal.length >= 4) handleSubmit(); }}
-            placeholder="••••"
-            maxLength={8}
-            className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-300 text-center text-xl tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-blue-300"
-          />
-          <button type="button" onClick={() => setShowPin(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-            {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        </div>
         {error && <p className="text-red-500 text-xs mb-3 text-center">{error}</p>}
-        {mode === 'setpin' && step === 'confirm' && pin !== confirmPin && confirmPin.length >= 4 && (
-          <p className="text-red-500 text-xs mb-3 text-center">Las claves no coinciden.</p>
-        )}
         <div className="flex gap-2 mt-4">
           <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
           <button
             onClick={handleSubmit}
-            disabled={currentVal.length < 4 || (mode === 'setpin' && step === 'confirm' && pin !== confirmPin)}
+            disabled={saving}
             className={`flex-1 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-colors disabled:opacity-50 ${mode === 'unlock' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'}`}
           >
-            {mode === 'setpin' ? (step === 'enter' ? 'Continuar' : 'Crear clave') : mode === 'lock' ? 'Bloquear' : 'Desbloquear'}
+            {saving ? 'Guardando...' : mode === 'lock' ? 'Bloquear' : 'Desbloquear'}
           </button>
         </div>
       </div>
@@ -254,51 +217,12 @@ export default function AsistenciaContent() {
   // ── Per-day lock state ────────────────────────────────────────────────────
   // lockedDates: set of date strings "YYYY-MM-DD" that are locked
   const [lockedDates, setLockedDates] = useState<Set<string>>(new Set());
-  // attendancePin: the single PIN used for all attendance locks (stored in localStorage)
-  const ATTENDANCE_PIN_KEY = 'attendance_pin';
-  const [hasAttendancePin, setHasAttendancePin] = useState(false);
-  const [lockModal, setLockModal] = useState<{ date: string; dateLabel: string; mode: 'lock' | 'unlock' | 'setpin' } | null>(null);
+  const [lockModal, setLockModal] = useState<{ date: string; dateLabel: string; mode: 'lock' | 'unlock' } | null>(null);
   const [lockError, setLockError] = useState('');
 
-  // ── Global panel lock state ───────────────────────────────────────────────
-  const PANEL_LOCK_KEY = 'asistencia_panel_locked';
-  const PANEL_PIN_KEY = 'asistencia_panel_pin';
-  const [isPanelLocked, setIsPanelLocked] = useState(false);
-  const [hasPanelPin, setHasPanelPin] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setHasAttendancePin(!!localStorage.getItem(ATTENDANCE_PIN_KEY));
-      setHasPanelPin(!!localStorage.getItem(PANEL_PIN_KEY));
-      setIsPanelLocked(localStorage.getItem(PANEL_LOCK_KEY) === 'true');
-    }
-  }, []);
-
-  function handlePanelLock() {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(PANEL_LOCK_KEY, 'true');
-    }
-    setIsPanelLocked(true);
-  }
-
-  function handlePanelUnlock(pin: string): boolean {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem(PANEL_PIN_KEY) : null;
-    if (pin !== stored) return false;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(PANEL_LOCK_KEY, 'false');
-    }
-    setIsPanelLocked(false);
-    return true;
-  }
-
-  function handlePanelSetPin(pin: string) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(PANEL_PIN_KEY, pin);
-      localStorage.setItem(PANEL_LOCK_KEY, 'true');
-    }
-    setHasPanelPin(true);
-    setIsPanelLocked(true);
-  }
+  // ── Global panel lock (compartido entre dispositivos, solo admin) ─────────
+  const { isLocked: isPanelLocked, setLocked: setPanelLocked } = useSharedLock('asistencia_locked');
+  const { isAdmin } = useAuth();
 
   // Sync global sucursal and area on mount/change
   useEffect(() => {
@@ -382,15 +306,17 @@ export default function AsistenciaContent() {
     if (!startDate || !endDate || startDate > endDate) return;
     setLoading(true);
     try {
-      const [attRes, otRes, lockRes] = await Promise.all([
-        supabase.from('attendance_records').select('*')
+      const [attRows, otRows, lockRes] = await Promise.all([
+        fetchAll((from, to) => supabase.from('attendance_records').select('*')
           .gte('record_date', startDate)
           .lte('record_date', endDate)
-          .limit(10000),
-        supabase.from('overtime_hours').select('*')
+          .order('id')
+          .range(from, to)),
+        fetchAll((from, to) => supabase.from('overtime_hours').select('*')
           .gte('record_date', startDate)
           .lte('record_date', endDate)
-          .limit(10000),
+          .order('id')
+          .range(from, to)),
         supabase.from('attendance_locked_dates').select('record_date')
           .gte('record_date', startDate)
           .lte('record_date', endDate),
@@ -400,7 +326,7 @@ export default function AsistenciaContent() {
       // A DB record only wins over an in-memory record if it is strictly newer.
       // This means optimistic updates (which have a fresh updated_at) are never
       // overwritten by a stale DB read triggered by a date-range change.
-      (attRes.data ?? []).forEach((r: Record<string, unknown>) => {
+      attRows.forEach((r: Record<string, unknown>) => {
         const wid = r.worker_id as string;
         const dt = r.record_date as string;
         if (!allAttendanceRef.current[wid]) allAttendanceRef.current[wid] = {};
@@ -424,7 +350,7 @@ export default function AsistenciaContent() {
       setAttendance({ ...allAttendanceRef.current });
 
       const otMap: Record<string, Record<string, OvertimeRecord>> = {};
-      (otRes.data ?? []).forEach((r: Record<string, unknown>) => {
+      otRows.forEach((r: Record<string, unknown>) => {
         const wid = r.worker_id as string;
         const dt = r.record_date as string;
         if (!otMap[wid]) otMap[wid] = {};
@@ -540,68 +466,49 @@ export default function AsistenciaContent() {
     const { day, dow, monthShort } = formatDateLabel(dateStr);
     const label = `${dow} ${day} ${monthShort}`;
     setLockError('');
-    if (lockedDates.has(dateStr)) {
-      setLockModal({ date: dateStr, dateLabel: label, mode: 'unlock' });
-    } else if (!hasAttendancePin) {
-      setLockModal({ date: dateStr, dateLabel: label, mode: 'setpin' });
-    } else {
-      setLockModal({ date: dateStr, dateLabel: label, mode: 'lock' });
-    }
+    if (!isAdmin) return;
+    setLockModal({ date: dateStr, dateLabel: label, mode: lockedDates.has(dateStr) ? 'unlock' : 'lock' });
   }
 
-  async function handleLockConfirm(pin: string) {
+  async function handleLockConfirm() {
     if (!lockModal) return;
-    const { date, dateLabel, mode } = lockModal;
-
-    if (mode === 'setpin') {
-      // Save pin and lock the date
-      if (typeof window !== 'undefined') localStorage.setItem(ATTENDANCE_PIN_KEY, pin);
-      setHasAttendancePin(true);
-      await lockDate(date);
+    const { date, mode } = lockModal;
+    const ok = mode === 'lock' ? await lockDate(date) : await unlockDate(date);
+    if (ok) {
       setLockModal(null);
       setLockError('');
-      return;
-    }
-
-    const storedPin = typeof window !== 'undefined' ? localStorage.getItem(ATTENDANCE_PIN_KEY) : null;
-    if (pin !== storedPin) {
-      setLockError('Clave incorrecta. Intenta de nuevo.');
-      return;
-    }
-
-    if (mode === 'lock') {
-      await lockDate(date);
     } else {
-      await unlockDate(date);
-    }
-    setLockModal(null);
-    setLockError('');
-  }
-
-  async function lockDate(dateStr: string) {
-    try {
-      await supabase.from('attendance_locked_dates').upsert(
-        { record_date: dateStr, locked_at: new Date().toISOString() },
-        { onConflict: 'record_date' }
-      );
-      setLockedDates(prev => new Set([...prev, dateStr]));
-    } catch (err) {
-      console.error('Error locking date:', err);
+      setLockError('No se pudo guardar el cambio. Intenta de nuevo.');
     }
   }
 
-  async function unlockDate(dateStr: string) {
-    try {
-      await supabase.from('attendance_locked_dates').delete().eq('record_date', dateStr);
-      setLockedDates(prev => {
-        const next = new Set(prev);
-        next.delete(dateStr);
-        return next;
-      });
-    } catch (err) {
-      console.error('Error unlocking date:', err);
+  async function lockDate(dateStr: string): Promise<boolean> {
+    const { error } = await supabase.from('attendance_locked_dates').upsert(
+      { record_date: dateStr, locked_at: new Date().toISOString() },
+      { onConflict: 'record_date' }
+    );
+    if (error) {
+      console.error('Error locking date:', error);
+      return false;
     }
+    setLockedDates(prev => new Set([...prev, dateStr]));
+    return true;
   }
+
+  async function unlockDate(dateStr: string): Promise<boolean> {
+    const { error } = await supabase.from('attendance_locked_dates').delete().eq('record_date', dateStr);
+    if (error) {
+      console.error('Error unlocking date:', error);
+      return false;
+    }
+    setLockedDates(prev => {
+      const next = new Set(prev);
+      next.delete(dateStr);
+      return next;
+    });
+    return true;
+  }
+
 
   // Bulk mark ALL SCHEDULED workers as present for a date (descansos auto-marked)
   // Overwrites ALL workers (including those with existing records) to ensure "Todas asistieron" is absolute
@@ -700,7 +607,7 @@ export default function AsistenciaContent() {
           updated_at: new Date().toISOString(),
         };
       })
-      .filter(Boolean);
+      .filter((u): u is NonNullable<typeof u> => u !== null);
 
     const allUpserts = [...upserts, ...autoUpserts];
 
@@ -852,7 +759,12 @@ export default function AsistenciaContent() {
       return next;
     });
     setOvertimeModal(null);
-    await supabase.from('overtime_hours').upsert(upsert, { onConflict: 'worker_id,record_date' });
+    const { error } = await supabase.from('overtime_hours').upsert(upsert, { onConflict: 'worker_id,record_date' });
+    if (error) {
+      console.error('Error saving overtime:', error);
+      setSaveError(`No se pudieron guardar las horas extra: ${error.message}`);
+      setTimeout(() => setSaveError(null), 5000);
+    }
   }
 
   // Save report to Supabase (persist current attendance state for all filtered workers/dates)
@@ -862,6 +774,7 @@ export default function AsistenciaContent() {
     const upserts = [];
     for (const w of filteredWorkers) {
       for (const dt of dates) {
+        if (lockedDates.has(dt)) continue; // los días bloqueados ya están guardados y no se pueden modificar
         const status = getEffectiveStatus(w.id, dt);
         if (status === 'NT') continue; // don't save hard NT records
         const existing = attendance[w.id]?.[dt];
@@ -877,10 +790,11 @@ export default function AsistenciaContent() {
       }
     }
     if (upserts.length === 0) return;
-    try {
-      await supabase.from('attendance_records').upsert(upserts, { onConflict: 'worker_id,record_date' });
-    } catch (err) {
-      console.error('Error saving report:', err);
+    const { error } = await supabase.from('attendance_records').upsert(upserts, { onConflict: 'worker_id,record_date' });
+    if (error) {
+      console.error('Error saving report:', error);
+      setSaveError(`Error al guardar: ${error.message}`);
+      setTimeout(() => setSaveError(null), 5000);
     }
   }
 
@@ -922,13 +836,15 @@ export default function AsistenciaContent() {
     // Fresh DB fetch
     let freshAttendance: Record<string, Record<string, AttendanceRecord>> = {};
     try {
-      const { data: attRows } = await supabase
+      const attRows = await fetchAll((from, to) => supabase
         .from('attendance_records')
         .select('*')
         .gte('record_date', startDate)
-        .lte('record_date', endDate);
+        .lte('record_date', endDate)
+        .order('id')
+        .range(from, to));
 
-      (attRows ?? []).forEach((r: Record<string, unknown>) => {
+      attRows.forEach((r: Record<string, unknown>) => {
         const wid = r.worker_id as string;
         const dt  = r.record_date as string;
         if (!freshAttendance[wid]) freshAttendance[wid] = {};
@@ -1274,13 +1190,7 @@ export default function AsistenciaContent() {
           </div>
           <div className="flex items-center gap-2">
             {/* Global panel lock */}
-            <AsistenciaLock
-              isLocked={isPanelLocked}
-              hasPin={hasPanelPin}
-              onLock={handlePanelLock}
-              onUnlock={handlePanelUnlock}
-              onSetPin={handlePanelSetPin}
-            />
+            <LockToggle isLocked={isPanelLocked} subject="la asistencia" onToggle={setPanelLocked} />
             <button
               onClick={loadData}
               disabled={loading}

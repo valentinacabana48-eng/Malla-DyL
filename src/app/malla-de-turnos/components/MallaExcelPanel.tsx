@@ -2,7 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { Download, Upload, X, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
 import ExcelJS from 'exceljs';
-import * as XLSX from 'xlsx';
+import { readFirstSheetRows } from '@/lib/excel';
 import { type Worker, type Shift, type ShiftCode } from '@/context/AppContext';
 
 interface Props {
@@ -520,12 +520,7 @@ export default function MallaExcelPanel({
     setImportStatus(null);
 
     try {
-      const buffer = await file.arrayBuffer();
-      const wb = XLSX.read(buffer, { type: 'array' });
-
-      const wsName = wb.SheetNames[0];
-      const ws = wb.Sheets[wsName];
-      const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(ws, { header: 1, defval: null });
+      const rows = (await readFirstSheetRows(file, null)) as (string | number | null)[][];
 
       if (rows.length < 4) {
         setImportStatus({ type: 'error', message: 'El archivo no tiene el formato correcto. Usa la plantilla exportada.' });
@@ -672,7 +667,7 @@ export default function MallaExcelPanel({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx"
               onChange={handleFileChange}
               className="hidden"
               id="malla-excel-import"

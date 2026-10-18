@@ -8,13 +8,12 @@ import MallaFilters from './MallaFilters';
 import MallaGrid from './MallaGrid';
 import AssignModal from './AssignModal';
 import MallaSummary from './MallaSummary';
-import MallaLock from './MallaLock';
+import LockToggle from '@/components/LockToggle';
+import { useSharedLock } from '@/hooks/useSharedLock';
 import BulkShiftModal from './BulkShiftModal';
 import MallaExcelPanel from './MallaExcelPanel';
 import MallaDownloadModal from './MallaDownloadModal';
 
-const LOCK_KEY = 'malla_locked';
-const PIN_KEY = 'malla_pin';
 const DELETED_BIRTHDAYS_KEY = 'malla_deleted_birthdays';
 
 // Helper: load/save manually-deleted birthday keys from localStorage
@@ -57,48 +56,13 @@ export default function MallaContent() {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [contractedHoursOverride, setContractedHoursOverride] = useState<Record<string, number>>({});
 
-  // ─── Lock state ───────────────────────────────────────────────────────────
-  const [isLocked, setIsLocked] = useState(false);
-  const [hasPin, setHasPin] = useState(false);
+  // ─── Lock state (compartido entre dispositivos, solo admin lo cambia) ──────
+  const { isLocked, setLocked } = useSharedLock('malla_locked');
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedPin = localStorage.getItem(PIN_KEY);
-      const storedLock = localStorage.getItem(LOCK_KEY);
-      setHasPin(!!storedPin);
-      setIsLocked(storedLock === 'true' && !!storedPin);
-    }
-  }, []);
-
-  const handleLock = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(LOCK_KEY, 'true');
-    }
-    setIsLocked(true);
-    toast.success('🔒 Malla bloqueada');
-  };
-
-  const handleUnlock = (pin: string): boolean => {
-    if (typeof window !== 'undefined') {
-      const storedPin = localStorage.getItem(PIN_KEY);
-      if (pin === storedPin) {
-        localStorage.setItem(LOCK_KEY, 'false');
-        setIsLocked(false);
-        toast.success('🔓 Malla desbloqueada');
-        return true;
-      }
-    }
-    return false;
-  };
-
-  const handleSetPin = (pin: string) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(PIN_KEY, pin);
-      localStorage.setItem(LOCK_KEY, 'true');
-    }
-    setHasPin(true);
-    setIsLocked(true);
-    toast.success('🔒 PIN creado. Malla bloqueada.');
+  const handleToggleLock = async (locked: boolean) => {
+    const ok = await setLocked(locked);
+    if (ok) toast.success(locked ? '🔒 Malla bloqueada' : '🔓 Malla desbloqueada');
+    return ok;
   };
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -487,13 +451,7 @@ export default function MallaContent() {
           <p className="text-muted-foreground text-sm mt-1 ml-3">Asignación de turnos por colaborador/a</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <MallaLock
-            isLocked={isLocked}
-            hasPin={hasPin}
-            onLock={handleLock}
-            onUnlock={handleUnlock}
-            onSetPin={handleSetPin}
-          />
+          <LockToggle isLocked={isLocked} subject="la malla" onToggle={handleToggleLock} />
           <button
             onClick={() => setShowDownloadModal(true)}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 active:scale-95 transition-all duration-150"

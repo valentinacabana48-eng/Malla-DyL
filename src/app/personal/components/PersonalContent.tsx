@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Users, Download, Plus } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { createWorkbook, downloadWorkbook } from '@/lib/excel';
 import { useAppContext, type Worker } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import PersonalFilters from './PersonalFilters';
@@ -75,13 +75,14 @@ export default function PersonalContent() {
 
   const isNewWorker = editingWorker ? !workers.find(w => w.id === editingWorker.id) : false;
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (filteredWorkers.length === 0) {
       toast.error('No hay trabajadores para exportar con los filtros actuales');
       return;
     }
 
-    const wb = XLSX.utils.book_new();
+    const wb = await createWorkbook();
+    const ws = wb.addWorksheet('Personal');
 
     // ── Data ──────────────────────────────────────────────────────────────────
     const headers = ['Nombre', 'RUT', 'Cargo', 'Área', 'Sucursal', 'Horas', 'Estado', 'Cumpleaños'];
@@ -95,128 +96,67 @@ export default function PersonalContent() {
       w.estado,
       w.birthday || '',
     ]);
-
-    // Title row (row 1) + blank spacer (row 2) + header (row 3) + data rows
-    const sheetData: (string | number)[][] = [
-      [`Listado de Personal — ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}`],
-      [],
-      headers,
-      ...dataRows,
-    ];
-
-    const ws = XLSX.utils.aoa_to_sheet(sheetData);
-
     const numCols = headers.length;
     const numDataRows = dataRows.length;
 
-    // ── Merge title across all columns ────────────────────────────────────────
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } }];
-
     // ── Column widths ─────────────────────────────────────────────────────────
-    ws['!cols'] = [
-      { wch: 30 }, // Nombre
-      { wch: 14 }, // RUT
-      { wch: 18 }, // Cargo
-      { wch: 18 }, // Área
-      { wch: 18 }, // Sucursal
-      { wch: 8  }, // Horas
-      { wch: 12 }, // Estado
-      { wch: 14 }, // Cumpleaños
-    ];
+    [30, 14, 18, 18, 18, 8, 12, 14].forEach((width, i) => { ws.getColumn(i + 1).width = width; });
 
-    // ── Row heights ───────────────────────────────────────────────────────────
-    ws['!rows'] = [
-      { hpt: 36 }, // title
-      { hpt: 6  }, // spacer
-      { hpt: 22 }, // header
-    ];
+    const border = (color: string, bottom: 'thin' | 'medium' = 'thin', top: 'thin' | 'medium' = 'thin') => ({
+      top: { style: top, color: { argb: `FF${color}` } },
+      bottom: { style: bottom, color: { argb: `FF${color}` } },
+      left: { style: 'thin' as const, color: { argb: `FF${color}` } },
+      right: { style: 'thin' as const, color: { argb: `FF${color}` } },
+    });
+    const fill = (color: string) => ({ type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: `FF${color}` } });
 
-    // ── Helper: apply style to a cell address ─────────────────────────────────
-    const styleCell = (addr: string, style: Record<string, unknown>) => {
-      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
-      ws[addr].s = style;
-    };
+    // ── Title row (merged across all columns) ─────────────────────────────────
+    const title = ws.addRow([`Listado de Personal — ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}`]);
+    ws.mergeCells(1, 1, 1, numCols);
+    title.height = 36;
+    title.getCell(1).font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+    title.getCell(1).fill = fill('1E3A5F');
+    title.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // ── Title row style ───────────────────────────────────────────────────────
-    const titleStyle = {
-      font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' } },
-      fill: { fgColor: { rgb: '1E3A5F' } },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border: {
-        top:    { style: 'thin', color: { rgb: 'FFFFFF' } },
-        bottom: { style: 'thin', color: { rgb: 'FFFFFF' } },
-        left:   { style: 'thin', color: { rgb: 'FFFFFF' } },
-        right:  { style: 'thin', color: { rgb: 'FFFFFF' } },
-      },
-    };
-    styleCell('A1', titleStyle);
+    // ── Spacer ────────────────────────────────────────────────────────────────
+    ws.addRow([]).height = 6;
 
-    // ── Header row style (row index 2 → Excel row 3) ──────────────────────────
-    const headerStyle = {
-      font: { bold: true, sz: 11, color: { rgb: 'FFFFFF' } },
-      fill: { fgColor: { rgb: '2563EB' } },
-      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-      border: {
-        top:    { style: 'thin', color: { rgb: 'BFDBFE' } },
-        bottom: { style: 'medium', color: { rgb: 'FFFFFF' } },
-        left:   { style: 'thin', color: { rgb: 'BFDBFE' } },
-        right:  { style: 'thin', color: { rgb: 'BFDBFE' } },
-      },
-    };
-    const colLetters = ['A','B','C','D','E','F','G','H'];
-    colLetters.forEach(col => styleCell(`${col}3`, headerStyle));
-
-    // ── Data rows style (alternating) ─────────────────────────────────────────
-    for (let i = 0; i < numDataRows; i++) {
-      const excelRow = i + 4; // rows 4 onwards
-      const isEven = i % 2 === 0;
-      const bgColor = isEven ? 'EFF6FF' : 'FFFFFF';
-
-      colLetters.forEach((col, colIdx) => {
-        const addr = `${col}${excelRow}`;
-        const isStatus = colIdx === 6; // Estado column
-        const statusValue = dataRows[i][6];
-        const statusColor = statusValue === 'Activo' ? '16A34A' : statusValue === 'Inactivo' ? 'DC2626' : '6B7280';
-
-        styleCell(addr, {
-          font: {
-            sz: 10,
-            color: { rgb: isStatus ? statusColor : '1E293B' },
-            bold: isStatus,
-          },
-          fill: { fgColor: { rgb: bgColor } },
-          alignment: { horizontal: colIdx === 0 ? 'left' : 'center', vertical: 'center' },
-          border: {
-            top:    { style: 'thin', color: { rgb: 'DBEAFE' } },
-            bottom: { style: 'thin', color: { rgb: 'DBEAFE' } },
-            left:   { style: 'thin', color: { rgb: 'DBEAFE' } },
-            right:  { style: 'thin', color: { rgb: 'DBEAFE' } },
-          },
-        });
-      });
-    }
-
-    // ── Footer row ────────────────────────────────────────────────────────────
-    const footerRow = numDataRows + 4;
-    sheetData.push([`Total: ${numDataRows} trabajador${numDataRows !== 1 ? 'es' : ''}`]);
-    XLSX.utils.sheet_add_aoa(ws, [[`Total: ${numDataRows} trabajador${numDataRows !== 1 ? 'es' : ''}`]], { origin: `A${footerRow}` });
-    ws['!merges'].push({ s: { r: footerRow - 1, c: 0 }, e: { r: footerRow - 1, c: numCols - 1 } });
-    styleCell(`A${footerRow}`, {
-      font: { bold: true, sz: 10, color: { rgb: '1E3A5F' } },
-      fill: { fgColor: { rgb: 'DBEAFE' } },
-      alignment: { horizontal: 'right', vertical: 'center' },
-      border: {
-        top:    { style: 'medium', color: { rgb: '2563EB' } },
-        bottom: { style: 'thin', color: { rgb: '2563EB' } },
-        left:   { style: 'thin', color: { rgb: '2563EB' } },
-        right:  { style: 'thin', color: { rgb: '2563EB' } },
-      },
+    // ── Header row ────────────────────────────────────────────────────────────
+    const headerRow = ws.addRow(headers);
+    headerRow.height = 22;
+    headerRow.eachCell(cell => {
+      cell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+      cell.fill = fill('2563EB');
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = border('BFDBFE', 'medium');
     });
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Personal');
+    // ── Data rows (alternating) ───────────────────────────────────────────────
+    dataRows.forEach((values, i) => {
+      const row = ws.addRow(values);
+      const bgColor = i % 2 === 0 ? 'EFF6FF' : 'FFFFFF';
+      const statusValue = values[6];
+      const statusColor = statusValue === 'Activo' ? '16A34A' : statusValue === 'Inactivo' ? 'DC2626' : '6B7280';
+      for (let col = 1; col <= numCols; col++) {
+        const cell = row.getCell(col);
+        const isStatus = col === 7; // Estado column
+        cell.font = { size: 10, bold: isStatus, color: { argb: `FF${isStatus ? statusColor : '1E293B'}` } };
+        cell.fill = fill(bgColor);
+        cell.alignment = { horizontal: col === 1 ? 'left' : 'center', vertical: 'middle' };
+        cell.border = border('DBEAFE');
+      }
+    });
+
+    // ── Footer row ────────────────────────────────────────────────────────────
+    const footer = ws.addRow([`Total: ${numDataRows} trabajador${numDataRows !== 1 ? 'es' : ''}`]);
+    ws.mergeCells(footer.number, 1, footer.number, numCols);
+    footer.getCell(1).font = { bold: true, size: 10, color: { argb: 'FF1E3A5F' } };
+    footer.getCell(1).fill = fill('DBEAFE');
+    footer.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+    footer.getCell(1).border = border('2563EB', 'thin', 'medium');
 
     const today = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `personal_${today}.xlsx`);
+    await downloadWorkbook(wb, `personal_${today}.xlsx`);
     toast.success(`${filteredWorkers.length} trabajador(es) exportados correctamente`);
   };
 
@@ -242,10 +182,10 @@ export default function PersonalContent() {
           </button>
           <button
             onClick={() => setEditingWorker({
-              id: `pw-${Date.now()}`,
+              id: crypto.randomUUID(),
               name: '', initials: '', rut: '', cargo: 'Cajera', role: 'Cajera',
               sucursal: 'Mayorista Talca', area: 'Cajas',
-              horasContratadas: 42, estado: 'Activo', avatarColor: 'bg-blue-100 text-blue-700'
+              horasContratadas: 42, estado: 'Activo', avatarColor: 'bg-blue-100 text-blue-700', birthday: ''
             })}
             disabled={isReadonly}
             className="flex items-center gap-2 bg-secondary text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"

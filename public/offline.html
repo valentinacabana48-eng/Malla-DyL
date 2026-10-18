@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sin conexión · D&amp;L Gestor</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+           font-family: system-ui, -apple-system, sans-serif; background: #0f2744; color: #fff; padding: 16px; box-sizing: border-box; }
+    .card { max-width: 360px; text-align: center; }
+    img { width: 96px; height: 96px; border-radius: 24px; margin-bottom: 20px; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    p { color: rgba(255,255,255,.7); font-size: 14px; line-height: 1.5; margin: 0 0 24px; }
+    button { background: #3b82f6; color: #fff; border: 0; border-radius: 12px; padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="/icons/icon-192.png" alt="">
+    <h1>Sin conexión a internet</h1>
+    <p>D&amp;L Gestor necesita internet para mostrar los turnos actualizados. Revisa tu conexión e intenta de nuevo.</p>
+    <button onclick="location.reload()">Reintentar</button>
+  </div>
+</body>
+</html>

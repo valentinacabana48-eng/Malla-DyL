@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useAppContext, SHIFT_COLOR_OPTIONS } from '@/context/AppContext';
 import type { Worker, Shift, Sucursal } from '@/context/AppContext';
-import * as XLSX from 'xlsx';
+import { readFirstSheetRows, downloadSimpleWorkbook } from '@/lib/excel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -168,10 +168,7 @@ function parseSheetData(data: unknown[][]): ParseResult {
 
 function downloadTemplate(type: ImportType) {
   const tpl = TEMPLATES[type];
-  const ws = XLSX.utils.aoa_to_sheet([tpl.headers, ...tpl.example]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Plantilla');
-  XLSX.writeFile(wb, `plantilla_${type}.xlsx`);
+  downloadSimpleWorkbook([{ name: 'Plantilla', rows: [tpl.headers, ...tpl.example] }], `plantilla_${type}.xlsx`);
 }
 
 // ─── Preview Table ────────────────────────────────────────────────────────────
@@ -280,14 +277,10 @@ export default function ExcelImportPanel() {
     setImportSuccess(null);
     setFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
+    (async () => {
       try {
-        const data = e.target?.result;
-        const wb = XLSX.read(data, { type: 'binary' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' });
-        const result = parseSheetData(rows as unknown[][]);
+        const rows = await readFirstSheetRows(file, '');
+        const result = parseSheetData(rows);
         setParseResult(result);
 
         // Auto-select detected types
@@ -297,13 +290,15 @@ export default function ExcelImportPanel() {
         if (result.sucursales.length > 0 && activeType === 'sucursales') detected.add('sucursales');
         if (result.areas.length > 0 && activeType === 'areas') detected.add('areas');
         setSelectedTypes(detected);
-      } catch {
-        setParseResult({ workers: [], shifts: [], sucursales: [], areas: [], errors: ['Error al leer el archivo. Asegúrate de que sea un .xlsx o .csv válido.'] });
+      } catch (err) {
+        const message = err instanceof Error && err.message.includes('.xls')
+          ? err.message
+          : 'Error al leer el archivo. Asegúrate de que sea un .xlsx o .csv válido.';
+        setParseResult({ workers: [], shifts: [], sucursales: [], areas: [], errors: [message] });
       } finally {
         setIsLoading(false);
       }
-    };
-    reader.readAsBinaryString(file);
+    })();
   }, [activeType]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -444,7 +439,7 @@ export default function ExcelImportPanel() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".xlsx,.xls,.csv"
+          accept=".xlsx,.csv"
           onChange={handleFileChange}
           className="hidden"
         />

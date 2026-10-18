@@ -1,8 +1,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Menu, MapPin, Layers, RefreshCw, Lock, Eye, LogOut } from 'lucide-react';
+import { Menu, MapPin, Layers, RefreshCw, Lock, Eye, LogOut, Download } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
-import { usePinContext } from '@/context/PinContext';
+import { useAuth } from '@/context/AuthContext';
+import { useInstallPrompt } from '@/lib/pwa';
 
 interface TopbarProps {
   onMenuToggle: () => void;
@@ -11,7 +12,8 @@ interface TopbarProps {
 
 export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
   const { globalSucursal, globalArea } = useAppContext();
-  const { accessLevel, logout } = usePinContext();
+  const { role, user, signOut } = useAuth();
+  const installApp = useInstallPrompt();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -61,24 +63,36 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
           </button>
 
           {/* Access level badge */}
-          {accessLevel === 'readonly' && (
+          {role === 'lector' && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
               <Eye size={13} className="text-amber-600 shrink-0" />
               <span className="text-xs font-semibold text-amber-700 hidden sm:block">Solo lectura</span>
             </div>
           )}
-          {accessLevel === 'admin' && (
+          {role === 'admin' && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
               <Lock size={13} className="text-green-600 shrink-0" />
               <span className="text-xs font-semibold text-green-700 hidden sm:block">Admin</span>
             </div>
           )}
 
-          {/* Logout PIN button */}
+          {/* Install app (Android / PC con Chrome o Edge) */}
+          {installApp && (
+            <button
+              onClick={installApp}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-secondary hover:bg-blue-700 transition-all duration-150"
+              title="Instalar D&L Gestor como app"
+            >
+              <Download size={12} />
+              <span className="hidden sm:block">Instalar app</span>
+            </button>
+          )}
+
+          {/* Logout button */}
           <button
-            onClick={logout}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-red-600 hover:bg-red-50 border border-border transition-all duration-150"
-            title="Cerrar sesión PIN"
+            onClick={signOut}
+            className={`${installApp ? '' : 'ml-auto '}flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-red-600 hover:bg-red-50 border border-border transition-all duration-150`}
+            title={user?.email ? `Cerrar sesión (${user.email})` : 'Cerrar sesión'}
           >
             <LogOut size={12} />
             <span className="hidden sm:block">Salir</span>

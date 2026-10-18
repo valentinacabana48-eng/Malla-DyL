@@ -1,6 +1,11 @@
 # Node modules
-node_modules/
-package-lock.json
+node_modules
+
+# Variables de entorno (claves): nunca subirlas al repositorio
+.env
+.env*.local
+.env.*
+!.env.example
 
 # Next.js build output
 .next/

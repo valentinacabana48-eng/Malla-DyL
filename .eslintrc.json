@@ -47,7 +47,8 @@
     "node_modules/",
     ".next/",
     "out/",
-    "public/"
+    "public/",
+    "supabase/"
   ],
   "env": {
     "browser": true,

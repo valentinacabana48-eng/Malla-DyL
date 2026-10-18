@@ -1,9 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Settings, Plus, Pencil, Trash2, Clock, CheckCircle, XCircle, AlertTriangle, MapPin, Users, Coffee, Tag, FileSpreadsheet, CalendarX, Lock, Eye, EyeOff, Mail, ShieldCheck } from 'lucide-react';
+import { Settings, Plus, Pencil, Trash2, Clock, CheckCircle, XCircle, AlertTriangle, MapPin, Users, Coffee, Tag, FileSpreadsheet, CalendarX, Mail, ShieldCheck } from 'lucide-react';
 import { useAppContext, SHIFT_COLOR_OPTIONS, NON_WORKING_COLOR_OPTIONS, NON_WORKING_TYPES, type Shift, type NonWorkingType, type Sucursal } from '@/context/AppContext';
-import { usePinContext } from '@/context/PinContext';
+import { useAuth, type UserRole } from '@/context/AuthContext';
+import { getSupabase } from '@/lib/supabase/client';
 import ExcelImportPanel from './ExcelImportPanel';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1224,139 +1225,111 @@ function NwtManager() {
 
 // ─── PIN Settings Panel ───────────────────────────────────────────────────────
 
-function PinSettingsPanel() {
-  const { pinSettings, updatePins, accessLevel } = usePinContext();
-  const [adminPin, setAdminPin] = useState('');
-  const [readonlyPin, setReadonlyPin] = useState('');
-  const [recoveryEmail, setRecoveryEmail] = useState('');
-  const [showPins, setShowPins] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+interface UserRoleRow {
+  user_id: string;
+  email: string;
+  role: UserRole;
+  created_at: string;
+}
 
-  React.useEffect(() => {
-    if (pinSettings) {
-      setAdminPin(pinSettings.adminPin);
-      setReadonlyPin(pinSettings.readonlyPin);
-      setRecoveryEmail(pinSettings.recoveryEmail);
+const ROLE_OPTIONS: { value: UserRole; label: string; description: string }[] = [
+  { value: 'admin', label: 'Administrador', description: 'Puede ver y modificar todo' },
+  { value: 'lector', label: 'Solo lectura', description: 'Puede ver, pero no modificar' },
+  { value: 'pendiente', label: 'Sin acceso', description: 'No puede entrar a la app' },
+];
+
+function UsersPanel() {
+  const { user } = useAuth();
+  const supabase = getSupabase();
+  const [rows, setRows] = useState<UserRoleRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('user_id, email, role, created_at')
+      .order('created_at');
+    if (error) toast.error('No se pudo cargar la lista de usuarios.');
+    setRows((data as UserRoleRow[]) || []);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function changeRole(userId: string, role: UserRole) {
+    setSavingId(userId);
+    const { error } = await supabase
+      .from('user_roles')
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq('user_id', userId);
+    setSavingId(null);
+    if (error) {
+      toast.error('No se pudo cambiar el rol.');
+      return;
     }
-  }, [pinSettings]);
-
-  const isReadonly = accessLevel === 'readonly';
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    if (adminPin.length < 4) { setError('El PIN Admin debe tener al menos 4 dígitos.'); return; }
-    if (readonlyPin.length < 4) { setError('El PIN Lectura debe tener al menos 4 dígitos.'); return; }
-    if (adminPin === readonlyPin) { setError('Los PINs no pueden ser iguales.'); return; }
-    if (!recoveryEmail.includes('@')) { setError('Ingresa un correo válido.'); return; }
-    setSaving(true);
-    const ok = await updatePins({ adminPin, readonlyPin, recoveryEmail });
-    setSaving(false);
-    if (ok) {
-      setSuccess('Configuración guardada correctamente.');
-      setTimeout(() => setSuccess(''), 3000);
-    } else {
-      setError('Error al guardar. Intenta nuevamente.');
-    }
+    setRows(prev => prev.map(r => r.user_id === userId ? { ...r, role } : r));
+    toast.success('Rol actualizado');
   }
 
-  if (isReadonly) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-        <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
-          <Lock size={28} className="text-muted-foreground" />
-        </div>
-        <p className="text-sm font-semibold text-foreground">Acceso restringido</p>
-        <p className="text-xs text-muted-foreground max-w-xs">Solo el acceso Admin puede modificar la configuración de PINs.</p>
-      </div>
-    );
-  }
+  const pending = rows.filter(r => r.role === 'pendiente').length;
 
   return (
-    <form onSubmit={handleSave} className="flex flex-col gap-6 max-w-md">
-      <div className="flex items-center gap-2 mb-1">
-        <ShieldCheck size={18} className="text-secondary" />
-        <h3 className="text-base font-semibold text-foreground">Configuración de acceso por PIN</h3>
+    <div className="flex flex-col gap-5">
+      <div>
+        <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+          <ShieldCheck size={18} className="text-secondary" />
+          Usuarios y permisos
+        </h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Cada persona entra con su propio correo y contraseña. Las cuentas nuevas quedan sin acceso hasta que les asignes un rol.
+        </p>
       </div>
 
-      {/* Admin PIN */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-blue-400" />
-          PIN Admin (acceso completo)
-        </label>
-        <div className="relative">
-          <input
-            type={showPins ? 'text' : 'password'}
-            value={adminPin}
-            onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 10))}
-            placeholder="Mín. 4 dígitos"
-            className="w-full pl-4 pr-10 py-3 bg-background border border-border rounded-xl text-sm font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          <button type="button" onClick={() => setShowPins(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-            {showPins ? <EyeOff size={15} /> : <Eye size={15} />}
-          </button>
-        </div>
-        <p className="text-[11px] text-muted-foreground">Permite editar todo en la aplicación.</p>
-      </div>
-
-      {/* Readonly PIN */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-slate-400" />
-          PIN Lectura (solo visualizar)
-        </label>
-        <input
-          type={showPins ? 'text' : 'password'}
-          value={readonlyPin}
-          onChange={e => setReadonlyPin(e.target.value.replace(/\D/g, '').slice(0, 10))}
-          placeholder="Mín. 4 dígitos"
-          className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <p className="text-[11px] text-muted-foreground">Solo permite ver datos, sin modificar nada.</p>
-      </div>
-
-      {/* Recovery Email */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <Mail size={12} />
-          Correo de recuperación
-        </label>
-        <input
-          type="email"
-          value={recoveryEmail}
-          onChange={e => setRecoveryEmail(e.target.value)}
-          placeholder="correo@ejemplo.com"
-          className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <p className="text-[11px] text-muted-foreground">Se enviará el código de recuperación a este correo cuando lo solicites.</p>
-      </div>
-
-      {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2.5 text-sm">
+      {pending > 0 && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2.5 text-sm">
           <AlertTriangle size={14} />
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg px-4 py-2.5 text-sm">
-          <CheckCircle size={14} />
-          {success}
+          {pending === 1 ? 'Hay 1 cuenta esperando aprobación.' : `Hay ${pending} cuentas esperando aprobación.`}
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="flex items-center gap-2 bg-secondary text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all shadow-sm w-fit disabled:opacity-60"
-      >
-        <CheckCircle size={15} />
-        {saving ? 'Guardando...' : 'Guardar configuración'}
-      </button>
-    </form>
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Cargando usuarios...</p>
+      ) : (
+        <div className="flex flex-col divide-y divide-border border border-border rounded-xl overflow-hidden">
+          {rows.map(r => {
+            const isMe = r.user_id === user?.id;
+            return (
+              <div key={r.user_id} className="flex items-center justify-between gap-3 px-4 py-3 flex-wrap">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Mail size={14} className="text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium text-foreground truncate">{r.email || r.user_id}</span>
+                  {isMe && <span className="text-[10px] font-bold uppercase text-secondary bg-blue-50 px-1.5 py-0.5 rounded">Tú</span>}
+                </div>
+                <select
+                  value={r.role}
+                  disabled={isMe || savingId === r.user_id}
+                  onChange={e => changeRole(r.user_id, e.target.value as UserRole)}
+                  title={isMe ? 'No puedes cambiar tu propio rol' : undefined}
+                  className="text-sm border border-border rounded-lg px-3 py-1.5 bg-card focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+                >
+                  {ROLE_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <ul className="text-xs text-muted-foreground flex flex-col gap-1">
+        {ROLE_OPTIONS.map(o => (
+          <li key={o.value}><span className="font-semibold text-foreground">{o.label}:</span> {o.description}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -1438,7 +1411,7 @@ export default function AjustesContent() {
     { id: 'sucursales', label: 'Sucursales', icon: MapPin },
     { id: 'areas', label: 'Áreas', icon: Users },
     { id: 'importar', label: 'Importar', icon: FileSpreadsheet },
-    { id: 'acceso', label: 'Acceso PIN', icon: Lock },
+    { id: 'acceso', label: 'Usuarios', icon: ShieldCheck },
   ];
 
   return (
@@ -1587,10 +1560,10 @@ export default function AjustesContent() {
         </div>
       )}
 
-      {/* ── Acceso PIN Tab ── */}
+      {/* ── Usuarios Tab ── */}
       {activeTab === 'acceso' && (
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <PinSettingsPanel />
+          <UsersPanel />
         </div>
       )}
     </div>

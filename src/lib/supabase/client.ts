@@ -85,3 +85,11 @@ export function createClient() {
     }
   );
 }
+
+// Un solo cliente para toda la app: evita sesiones y canales realtime duplicados.
+let browserClient: ReturnType<typeof createClient> | null = null;
+
+export function getSupabase() {
+  if (!browserClient) browserClient = createClient();
+  return browserClient;
+}

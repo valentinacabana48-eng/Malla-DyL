@@ -1,7 +1,9 @@
 'use client';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Users, Clock, Sun, Star, Edit3, Save, X, AlertCircle, Download, Search } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { getSupabase } from '@/lib/supabase/client';
+import { fetchAll } from '@/lib/supabase/fetchAll';
+import { downloadSimpleWorkbook } from '@/lib/excel';
 import { useAppContext, getDaysOfWeekForMonth, getDaysInMonth, monthLabelToKey, MESES } from '@/context/AppContext';
 
 // ─── Chilean public holidays 2026 (YYYY-MM-DD) ────────────────────────────
@@ -61,7 +63,7 @@ function TimeInput({ value, onChange }: { value: string; onChange: (v: string) =
 }
 
 export default function RRHHContent() {
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = getSupabase();
   const { workers, shifts, scheduleData, specialDays, areas, sucursales, selectedMes, setSelectedMes, globalArea, globalSucursal } = useAppContext();
 
   const [selectedArea, setSelectedArea] = useState(globalArea && globalArea !== 'Todas' ? globalArea : 'Todas');
@@ -249,10 +251,12 @@ export default function RRHHContent() {
   // ─── Load time records from Supabase ──────────────────────────────────
   const loadTimeRecords = useCallback(async () => {
     try {
-      const { data } = await supabase
+      const data = await fetchAll((from, to) => supabase
         .from('rrhh_time_records')
         .select('*')
-        .eq('month_key', monthKey);
+        .eq('month_key', monthKey)
+        .order('id')
+        .range(from, to));
 
       if (data && data.length > 0) {
         const records: WorkerDayRecords = {};
@@ -378,8 +382,6 @@ export default function RRHHContent() {
   const handleExport = useCallback(async () => {
     setExporting(true);
     try {
-      const XLSX = await import('xlsx');
-
       // ── Sheet 1: Horario programado ──
       const horarioHeaders = ['Trabajador/a', 'RUT', 'Cargo', 'Área', 'Sucursal', 'Horas Contratadas'];
       for (let i = 1; i <= daysInMonth; i++) {
@@ -451,29 +453,6 @@ export default function RRHHContent() {
         return row;
       });
 
-      // ── Build workbook ──
-      const wb = XLSX.utils.book_new();
-
-      // Sheet 1
-      const ws1Data = [horarioHeaders, ...horarioRows];
-      const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
-      // Column widths
-      ws1['!cols'] = [
-        { wch: 28 }, { wch: 14 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 10 },
-        ...Array(daysInMonth).fill({ wch: 14 }),
-      ];
-      XLSX.utils.book_append_sheet(wb, ws1, 'Horario Programado');
-
-      // Sheet 2
-      const ws2Data = [horasHeaders, ...horasRows];
-      const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
-      ws2['!cols'] = [
-        { wch: 28 }, { wch: 14 }, { wch: 20 }, { wch: 16 }, { wch: 16 },
-        { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-        ...Array(maxWeeks).fill({ wch: 12 }),
-      ];
-      XLSX.utils.book_append_sheet(wb, ws2, 'Horas y Extras');
-
       // ── Summary sheet ──
       const summaryData = [
         ['REPORTE RRHH', ''],
@@ -485,13 +464,22 @@ export default function RRHHContent() {
         ['Total trabajadores', filteredWorkers.length],
         ['Fecha de exportación', new Date().toLocaleDateString('es-CL')],
       ];
-      const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-      wsSummary['!cols'] = [{ wch: 24 }, { wch: 28 }];
-      XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen');
 
       // ── Download ──
       const fileName = `RRHH_${selectedMes.replace(' ', '_')}_${selectedSucursal !== 'Todas' ? selectedSucursal + '_' : ''}${selectedCargo !== 'Todos' ? selectedCargo + '_' : ''}export.xlsx`;
-      XLSX.writeFile(wb, fileName);
+      await downloadSimpleWorkbook([
+        {
+          name: 'Horario Programado',
+          rows: [horarioHeaders, ...horarioRows],
+          colWidths: [28, 14, 20, 16, 16, 10, ...Array(daysInMonth).fill(14)],
+        },
+        {
+          name: 'Horas y Extras',
+          rows: [horasHeaders, ...horasRows],
+          colWidths: [28, 14, 20, 16, 16, 14, 14, 14, 14, 14, ...Array(maxWeeks).fill(12)],
+        },
+        { name: 'Resumen', rows: summaryData, colWidths: [24, 28] },
+      ], fileName);
     } catch (err) {
       console.error('Error exportando Excel:', err);
     } finally {
