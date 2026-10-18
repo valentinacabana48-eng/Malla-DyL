@@ -201,8 +201,6 @@ export default function MallaSummary({
   const [selectedDay, setSelectedDay] = useState<number>(-1);
   const [printMode, setPrintMode] = useState<'day' | 'week'>('week');
   const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
-  // Qué se imprime: la tabla resumen de la semana (una hoja) o las listas de trabajadoras
-  const [printTarget, setPrintTarget] = useState<'matrix' | 'lists'>('lists');
 
   const dayOptions = useMemo(
     () => buildDayOptions(daysInMonth, monthLabel),
@@ -442,10 +440,8 @@ export default function MallaSummary({
   // #, Nombre, (Sucursal), Entrada, Salida, Colación, 3 casillas, HE
   const dayColumnCount = 5 + (multiSucursal ? 1 : 0) + CHECK_COLUMNS.length + 1;
 
-  const handlePrint = (target: 'matrix' | 'lists') => {
-    setPrintTarget(target);
-    // Se espera a que React aplique el estilo de impresión elegido
-    setTimeout(() => window.print(), 50);
+  const handlePrint = () => {
+    window.print();
   };
 
   if (workers.length === 0) return null;
@@ -500,40 +496,8 @@ export default function MallaSummary({
 
   return (
     <>
-      {/* ── Impresión de la tabla resumen semanal: una sola hoja horizontal ── */}
-      {printTarget === 'matrix' && (
-        <style>{`
-          @media print {
-            @page { size: A4 landscape; margin: 10mm; }
-            body, html { margin: 0 !important; padding: 0 !important; }
-            body * { visibility: hidden !important; }
-            #malla-print-matrix, #malla-print-matrix * { visibility: visible !important; }
-            #malla-print-matrix {
-              position: absolute !important;
-              top: 0 !important;
-              left: 0 !important;
-              width: 100% !important;
-              overflow: visible !important;
-              background: white !important;
-            }
-            #malla-print-matrix table {
-              min-width: 0 !important;
-              width: 100% !important;
-              font-size: 10px !important;
-              page-break-inside: avoid;
-            }
-            #malla-print-matrix th, #malla-print-matrix td {
-              padding-top: 2px !important;
-              padding-bottom: 2px !important;
-            }
-            #malla-print-report { display: none !important; }
-          }
-        `}</style>
-      )}
-
       {/* ── Print-only report ── */}
-      {printTarget === 'lists' && (
-        <style>{`
+      <style>{`
         @media print {
           @page {
             size: A4 portrait;
@@ -568,7 +532,6 @@ export default function MallaSummary({
           }
         }
       `}</style>
-      )}
 
       <div id="malla-print-report" className="hidden print:block">
         <div style={{ fontFamily: 'sans-serif', color: '#111' }}>
@@ -1204,40 +1167,19 @@ export default function MallaSummary({
               </div>
             )}
 
-            {printMode === 'week' && (
-              <button
-                onClick={() => handlePrint('lists')}
-                title="Imprime la lista de trabajadoras de cada día de la semana (varias hojas)"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border bg-background text-foreground border-border hover:bg-muted/50 active:scale-95"
-              >
-                <Printer size={13} />
-                Listas por día
-              </button>
-            )}
             <button
-              onClick={() => handlePrint(printMode === 'week' ? 'matrix' : 'lists')}
-              title={
-                printMode === 'week'
-                  ? 'Imprime la tabla resumen de la semana en una sola hoja'
-                  : 'Imprime la hoja del día'
-              }
+              onClick={handlePrint}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border bg-secondary text-white border-secondary hover:bg-blue-700 active:scale-95 shadow-sm"
             >
               <Printer size={13} />
-              {printMode === 'week' ? 'Imprimir resumen' : 'Imprimir'}
+              Imprimir
             </button>
           </div>
         </div>
 
         {/* ── WEEKLY VIEW: grouped Mañana / Tarde table ── */}
         {printMode === 'week' ? (
-          <div id="malla-print-matrix" className="overflow-x-auto w-full">
-            <div className="hidden print:block" style={{ marginBottom: '8px' }}>
-              <p style={{ fontSize: '15px', fontWeight: 700 }}>Resumen por horario — {wk?.label}</p>
-              <p style={{ fontSize: '11px', color: '#555' }}>
-                {monthLabel} · {cargoLabel}
-              </p>
-            </div>
+          <div className="overflow-x-auto w-full">
             {weeklySummary.length === 0 ? (
               <div className="px-5 py-8 text-center text-sm text-muted-foreground">
                 No hay turnos asignados para esta semana.
