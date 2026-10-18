@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
-import { Plus_Jakarta_Sans } from 'next/font/google';
+import localFont from 'next/font/local';
 import { Toaster } from 'sonner';
 import { AppProvider } from '@/context/AppContext';
 import { AuthProvider } from '@/context/AuthContext';
@@ -8,9 +8,11 @@ import AuthGate from '@/components/AuthGate';
 import PwaSetup from '@/components/PwaSetup';
 import '../styles/tailwind.css';
 
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+// Fuente guardada en el proyecto (antes se descargaba de Google Fonts al compilar y
+// eso hacía fallar el deploy de Netlify cuando Google cambiaba el formato de sus enlaces)
+const plusJakarta = localFont({
+  src: './fonts/PlusJakartaSans-latin.woff2',
+  weight: '200 800',
   variable: '--font-plus-jakarta',
   display: 'swap',
 });
