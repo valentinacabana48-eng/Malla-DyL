@@ -6,6 +6,7 @@ import { AppProvider } from '@/context/AppContext';
 import { AuthProvider } from '@/context/AuthContext';
 import AuthGate from '@/components/AuthGate';
 import PwaSetup from '@/components/PwaSetup';
+import DesktopModeNotice from '@/components/DesktopModeNotice';
 import '../styles/tailwind.css';
 
 // Fuente guardada en el proyecto (antes se descargaba de Google Fonts al compilar y
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es" className={plusJakarta.variable}>
       <body className={plusJakarta.className}>
         <PwaSetup />
+        <DesktopModeNotice />
         <AuthProvider>
           <AuthGate>
             <AppProvider>{children}</AppProvider>
