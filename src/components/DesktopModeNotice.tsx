@@ -1,5 +1,6 @@
 'use client';
 import { useEffect } from 'react';
+import { getVista } from '@/lib/vista';
 
 // Algunos celulares abren la app en "Versión para computadora" (a veces sin que la persona
 // lo haya activado, por ejemplo en la app instalada): el navegador finge una pantalla de
@@ -11,7 +12,16 @@ export default function DesktopModeNotice() {
   useEffect(() => {
     const root = document.documentElement;
 
+    const viewport = document.querySelector('meta[name="viewport"]');
     const apply = () => {
+      // Vista computador elegida a mano: sin zoom; en un teléfono normal se le da a la página
+      // un ancho de computador para que quepa el diseño de escritorio
+      if (getVista() === 'escritorio') {
+        root.style.removeProperty('zoom');
+        root.style.removeProperty('--app-height');
+        if (window.innerWidth < 1024) viewport?.setAttribute('content', 'width=1280');
+        return;
+      }
       const isTouch = navigator.maxTouchPoints > 0;
       const screenW = window.screen.width;
       const smallScreen = Math.min(window.screen.width, window.screen.height) < 600;

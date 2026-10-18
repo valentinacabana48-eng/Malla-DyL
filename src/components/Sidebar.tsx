@@ -14,9 +14,12 @@ import {
   CalendarCheck,
   UserCog,
   ShieldCheck,
+  Monitor,
+  Smartphone,
 } from 'lucide-react';
 import Icon from '@/components/ui/AppIcon';
 import { useAuth } from '@/context/AuthContext';
+import { setVista, useVistaActual } from '@/lib/vista';
 
 const navItems: {
   label: string;
@@ -43,6 +46,7 @@ interface SidebarProps {
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { isAdmin, isGlobalAdmin } = useAuth();
+  const vista = useVistaActual();
   const visibleItems = navItems.filter(
     (item) => (!item.adminOnly || isAdmin) && (!item.globalAdminOnly || isGlobalAdmin)
   );
@@ -111,6 +115,29 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           );
         })}
       </nav>
+
+      {/* Cambiar entre la vista celular y la de computador (solo en teléfonos y tablets) */}
+      {vista.ofrecer && (
+        <div className="px-2.5 pb-3">
+          <button
+            type="button"
+            onClick={() => setVista(vista.actual === 'movil' ? 'escritorio' : 'movil')}
+            title={collapsed ? 'Cambiar vista' : undefined}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl sidebar-nav-hover text-white/70 hover:text-white border border-white/[0.1]"
+          >
+            {vista.actual === 'movil' ? (
+              <Monitor size={18} className="shrink-0" />
+            ) : (
+              <Smartphone size={18} className="shrink-0" />
+            )}
+            {!collapsed && (
+              <span className="text-sm font-medium whitespace-nowrap">
+                {vista.actual === 'movil' ? 'Ver versión computador' : 'Ver versión celular'}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Bottom */}
       <div className="px-2.5 pb-5 flex flex-col gap-3 border-t border-white/[0.07] pt-4">

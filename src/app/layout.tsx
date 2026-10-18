@@ -7,6 +7,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import AuthGate from '@/components/AuthGate';
 import PwaSetup from '@/components/PwaSetup';
 import DesktopModeNotice from '@/components/DesktopModeNotice';
+import { VISTA_INIT_SCRIPT } from '@/lib/vista';
 import '../styles/tailwind.css';
 
 // Fuente guardada en el proyecto (antes se descargaba de Google Fonts al compilar y
@@ -42,7 +43,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={plusJakarta.variable}>
+    <html lang="es" className={plusJakarta.variable} suppressHydrationWarning>
+      <head>
+        {/* Aplica la vista elegida (celular / computador) antes de pintar */}
+        <script dangerouslySetInnerHTML={{ __html: VISTA_INIT_SCRIPT }} />
+      </head>
       <body className={plusJakarta.className}>
         <PwaSetup />
         <DesktopModeNotice />
