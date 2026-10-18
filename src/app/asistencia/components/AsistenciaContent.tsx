@@ -14,9 +14,11 @@ import {
   getStatusStyle,
   getStatusLabel,
   ATTENDANCE_STATUSES,
+  SELECTABLE_STATUSES,
 } from './asistenciaUtils';
 import DailyAlertModal from './DailyAlertModal';
 import OvertimeModal from './OvertimeModal';
+import RetiroModal from './RetiroModal';
 import LockToggle from '@/components/LockToggle';
 import { useSharedLock } from '@/hooks/useSharedLock';
 import { useAuth } from '@/context/AuthContext';
@@ -37,6 +39,7 @@ import {
   X,
   Eye,
   EyeOff,
+  LogOut,
 } from 'lucide-react';
 
 // ─── Stable Supabase client (module-level singleton) ─────────────────────────
@@ -52,6 +55,9 @@ interface AttendanceRecord {
   absenceReason: string;
   notes: string;
   updatedAt?: string;
+  /** Retiro anticipado: horas a descontar ese día */
+  retiroHoras?: number;
+  retiroMotivo?: string;
 }
 
 interface OvertimeRecord {
@@ -283,6 +289,14 @@ export default function AsistenciaContent() {
 
   const [dailyAlert, setDailyAlert] = useState<DailyAlertState | null>(null);
   const [overtimeModal, setOvertimeModal] = useState<OvertimeModalState | null>(null);
+  const [retiroModal, setRetiroModal] = useState<{
+    workerId: string;
+    workerName: string;
+    date: string;
+    dateLabel: string;
+    currentHours: number;
+    currentReason: string;
+  } | null>(null);
   const [savingDate, setSavingDate] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
@@ -448,6 +462,8 @@ export default function AsistenciaContent() {
             absenceReason: (r.absence_reason as string) || '',
             notes: (r.notes as string) || '',
             updatedAt: rUpdated,
+            retiroHoras: Number(r.retiro_horas) || 0,
+            retiroMotivo: (r.retiro_motivo as string) || '',
           };
         }
       });
@@ -690,6 +706,8 @@ export default function AsistenciaContent() {
           absenceReason: '',
           notes: '',
           updatedAt: u.updated_at,
+          retiroHoras: prev[u.worker_id]?.[u.record_date]?.retiroHoras,
+          retiroMotivo: prev[u.worker_id]?.[u.record_date]?.retiroMotivo,
         };
         next[u.worker_id][u.record_date] = record;
         if (!allAttendanceRef.current[u.worker_id]) allAttendanceRef.current[u.worker_id] = {};
@@ -790,6 +808,8 @@ export default function AsistenciaContent() {
           absenceReason: u.absence_reason,
           notes: u.notes,
           updatedAt: u.updated_at,
+          retiroHoras: prev[u.worker_id]?.[u.record_date]?.retiroHoras,
+          retiroMotivo: prev[u.worker_id]?.[u.record_date]?.retiroMotivo,
         };
         next[u.worker_id][u.record_date] = record;
         // Keep persistent ref in sync so loadData never overwrites this
@@ -852,6 +872,8 @@ export default function AsistenciaContent() {
         absenceReason: newStatus === 'AUSENTE' ? 'Falta injustificada' : '',
         notes: '',
         updatedAt: now,
+        retiroHoras: prev[workerId]?.[dateStr]?.retiroHoras,
+        retiroMotivo: prev[workerId]?.[dateStr]?.retiroMotivo,
       };
       next[workerId][dateStr] = record;
       // Keep persistent ref in sync so loadData never overwrites this optimistic update
@@ -942,6 +964,51 @@ export default function AsistenciaContent() {
       console.error('Error saving overtime:', error);
       setSaveError(`No se pudieron guardar las horas extra: ${error.message}`);
       setTimeout(() => setSaveError(null), 5000);
+    }
+  }
+
+  // Retiro anticipado: horas a descontar de ese día (0 = sin retiro)
+  async function saveRetiro(workerId: string, dateStr: string, hours: number, reason: string) {
+    if (isPanelLocked || lockedDates.has(dateStr)) return;
+    setRetiroModal(null);
+    const prevRecord = attendance[workerId]?.[dateStr];
+    const status = getEffectiveStatus(workerId, dateStr);
+    const now = new Date().toISOString();
+    const record: AttendanceRecord = {
+      workerId,
+      recordDate: dateStr,
+      status,
+      absenceReason: prevRecord?.absenceReason ?? '',
+      notes: prevRecord?.notes ?? '',
+      updatedAt: now,
+      retiroHoras: hours,
+      retiroMotivo: reason,
+    };
+    setAttendance((prev) => ({
+      ...prev,
+      [workerId]: { ...(prev[workerId] || {}), [dateStr]: record },
+    }));
+    if (!allAttendanceRef.current[workerId]) allAttendanceRef.current[workerId] = {};
+    allAttendanceRef.current[workerId][dateStr] = record;
+
+    // Si no había registro, se crea con el estado que se ve; si había, se conserva el resto
+    const { error } = await supabase.from('attendance_records').upsert(
+      {
+        worker_id: workerId,
+        record_date: dateStr,
+        period_key: periodKey,
+        status,
+        retiro_horas: hours,
+        retiro_motivo: reason,
+        updated_at: now,
+      },
+      { onConflict: 'worker_id,record_date' }
+    );
+    if (error) {
+      console.error('Error saving retiro:', error);
+      setSaveError(`No se pudo guardar el retiro: ${error.message}`);
+      setTimeout(() => setSaveError(null), 5000);
+      await reloadFromDb([{ worker_id: workerId, record_date: dateStr }]);
     }
   }
 
@@ -1062,6 +1129,8 @@ export default function AsistenciaContent() {
           status: r.status as string,
           absenceReason: (r.absence_reason as string) || '',
           notes: (r.notes as string) || '',
+          retiroHoras: Number(r.retiro_horas) || 0,
+          retiroMotivo: (r.retiro_motivo as string) || '',
         };
       });
     } catch (err) {
@@ -1080,7 +1149,8 @@ export default function AsistenciaContent() {
 
     const STATUS_LABEL_MAP: Record<string, string> = {
       PRESENTE: 'Presente',
-      AUSENTE: 'Ausente',
+      AUSENTE: 'Falta injustificada',
+      FALTA_JUSTIFICADA: 'Falta justificada',
       VACACIONES: 'Vacaciones',
       DESCANSO: 'Descanso',
       PERMISO: 'Permiso',
@@ -1105,8 +1175,8 @@ export default function AsistenciaContent() {
       if (!status) return '';
       if (status === 'AUSENTE') {
         const reason = freshAttendance[workerId]?.[dateStr]?.absenceReason;
-        if (reason && reason.trim()) return `Ausente - ${reason.trim()}`;
-        return 'Ausente';
+        if (reason && reason.trim()) return `Falta injustificada - ${reason.trim()}`;
+        return 'Falta injustificada';
       }
       return STATUS_LABEL_MAP[status] ?? status;
     }
@@ -1122,6 +1192,7 @@ export default function AsistenciaContent() {
     const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
       PRESENTE: { bg: 'E2EFDA', fg: '375623' },
       AUSENTE: { bg: 'FCE4D6', fg: '843C0C' },
+      FALTA_JUSTIFICADA: { bg: 'FFF2CC', fg: '7F6000' },
       DESCANSO: { bg: 'DDEBF7', fg: '1F4E79' },
       NT: { bg: 'F2F2F2', fg: '808080' },
       VACACIONES: { bg: 'FFF2CC', fg: '7F6000' },
@@ -1144,13 +1215,25 @@ export default function AsistenciaContent() {
     const FIXED_COLS = 3;
     const TOTAL_LABELS = [
       'Presentes',
-      'Ausentes',
+      'Faltas injust.',
+      'Faltas just.',
       'Descansos',
       'Vacaciones',
       'Permisos',
       'Licencias',
+      'Hrs. descontadas',
     ];
-    const TOTAL_KEYS = ['PRESENTE', 'AUSENTE', 'DESCANSO', 'VACACIONES', 'PERMISO', 'LICENCIA'];
+    // RETIRO = suma de horas descontadas por retiro anticipado
+    const TOTAL_KEYS = [
+      'PRESENTE',
+      'AUSENTE',
+      'FALTA_JUSTIFICADA',
+      'DESCANSO',
+      'VACACIONES',
+      'PERMISO',
+      'LICENCIA',
+      'RETIRO',
+    ];
     const totalCols = FIXED_COLS + dates.length + TOTAL_LABELS.length;
 
     ws.getColumn(1).width = 32;
@@ -1286,10 +1369,12 @@ export default function AsistenciaContent() {
       const counts: Record<string, number> = {
         PRESENTE: 0,
         AUSENTE: 0,
+        FALTA_JUSTIFICADA: 0,
         DESCANSO: 0,
         VACACIONES: 0,
         PERMISO: 0,
         LICENCIA: 0,
+        RETIRO: 0,
       };
 
       dates.forEach((dt, i) => {
@@ -1297,7 +1382,10 @@ export default function AsistenciaContent() {
         // Permiso con goce / sin goce se suman en la columna "Permisos"
         const bucket = status?.startsWith('PERMISO') ? 'PERMISO' : status;
         if (bucket && counts[bucket] !== undefined) counts[bucket]++;
-        const displayVal = getCellDisplayValue(w.id, dt);
+        const retiro = freshAttendance[w.id]?.[dt]?.retiroHoras ?? 0;
+        counts.RETIRO += retiro;
+        const baseVal = getCellDisplayValue(w.id, dt);
+        const displayVal = retiro > 0 ? `${baseVal} (-${retiro}h)` : baseVal;
         const colNum = FIXED_COLS + 1 + i;
         const colors = STATUS_COLORS[status] ?? { bg: rowBgHex, fg: '000000' };
 
@@ -1328,7 +1416,10 @@ export default function AsistenciaContent() {
         cell.font = {
           bold: val > 0,
           size: 10,
-          color: { argb: key === 'AUSENTE' && val > 0 ? argb('843C0C') : argb('000000') },
+          color: {
+            argb:
+              (key === 'AUSENTE' || key === 'RETIRO') && val > 0 ? argb('843C0C') : argb('000000'),
+          },
         };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb('F2F2F2') } };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -1353,13 +1444,25 @@ export default function AsistenciaContent() {
     const legendData = [
       { sym: 'Símbolo', label: 'Estado', note: 'Color de celda', isHeader: true },
       { sym: '✓', label: 'Presente', note: 'Verde claro', isHeader: false },
-      { sym: 'X', label: 'Ausente', note: 'Rojo claro', isHeader: false },
+      { sym: 'X', label: 'Falta injustificada', note: 'Rojo claro', isHeader: false },
+      { sym: 'J', label: 'Falta justificada', note: 'Amarillo claro', isHeader: false },
       { sym: 'V', label: 'Vacaciones', note: 'Amarillo claro', isHeader: false },
       { sym: 'D', label: 'Descanso', note: 'Azul claro', isHeader: false },
-      { sym: 'P', label: 'Permiso', note: 'Lila claro', isHeader: false },
+      {
+        sym: 'P',
+        label: 'Permiso con goce / sin goce',
+        note: 'Verde agua / naranjo',
+        isHeader: false,
+      },
       { sym: 'L', label: 'Licencia', note: 'Naranja claro', isHeader: false },
       { sym: 'C', label: 'Cumpleaños', note: 'Rosa claro', isHeader: false },
       { sym: 'HE', label: 'Horas Extra', note: 'Suma del período', isHeader: false },
+      {
+        sym: '(-Xh)',
+        label: 'Se retiró antes',
+        note: 'Horas descontadas ese día',
+        isHeader: false,
+      },
       { sym: '—', label: 'Domingo', note: 'Encabezado naranja', isHeader: false },
       { sym: '—', label: 'Feriado', note: 'Encabezado rojo', isHeader: false },
     ];
@@ -1382,17 +1485,19 @@ export default function AsistenciaContent() {
             ? 'PRESENTE'
             : row.sym === 'X'
               ? 'AUSENTE'
-              : row.sym === 'V'
-                ? 'VACACIONES'
-                : row.sym === 'D'
-                  ? 'DESCANSO'
-                  : row.sym === 'P'
-                    ? 'PERMISO'
-                    : row.sym === 'L'
-                      ? 'LICENCIA'
-                      : row.sym === 'C'
-                        ? 'CUMPLEANOS'
-                        : ''
+              : row.sym === 'J'
+                ? 'FALTA_JUSTIFICADA'
+                : row.sym === 'V'
+                  ? 'VACACIONES'
+                  : row.sym === 'D'
+                    ? 'DESCANSO'
+                    : row.sym === 'P'
+                      ? 'PERMISO'
+                      : row.sym === 'L'
+                        ? 'LICENCIA'
+                        : row.sym === 'C'
+                          ? 'CUMPLEANOS'
+                          : ''
         ] ?? { bg: 'F5F5F5', fg: '000000' };
         const symCell = wsL.getCell(excelRow, 1);
         symCell.value = row.sym;
@@ -1794,6 +1899,19 @@ export default function AsistenciaContent() {
                 currentHours: overtime[w.id]?.[selectedDate]?.hours ?? 0,
               });
             }}
+            onOpenRetiro={(w) => {
+              if (lockedDates.has(selectedDate)) return;
+              const { day, dow, monthShort } = formatDateLabel(selectedDate);
+              const rec = attendance[w.id]?.[selectedDate];
+              setRetiroModal({
+                workerId: w.id,
+                workerName: w.name,
+                date: selectedDate,
+                dateLabel: `${dow} ${day} ${monthShort}`,
+                currentHours: rec?.retiroHoras ?? 0,
+                currentReason: rec?.retiroMotivo ?? '',
+              });
+            }}
             onOpenDailyAlert={() => openDailyAlert(selectedDate)}
             onMarkAllPresent={() => markAllPresent(selectedDate)}
             markingAll={markingAll}
@@ -1847,6 +1965,18 @@ export default function AsistenciaContent() {
           onClose={() => setDailyAlert(null)}
         />
       )}
+      {retiroModal && (
+        <RetiroModal
+          workerName={retiroModal.workerName}
+          dateLabel={retiroModal.dateLabel}
+          currentHours={retiroModal.currentHours}
+          currentReason={retiroModal.currentReason}
+          onSave={(hours, reason) =>
+            saveRetiro(retiroModal.workerId, retiroModal.date, hours, reason)
+          }
+          onClose={() => setRetiroModal(null)}
+        />
+      )}
       {overtimeModal && (
         <OvertimeModal
           workerName={overtimeModal.workerName}
@@ -1898,6 +2028,7 @@ interface DayViewProps {
   isMallaNT: (wid: string, dt: string) => boolean;
   onChangeStatus: (wid: string, dt: string, status: string) => void;
   onOpenOvertime: (w: Worker) => void;
+  onOpenRetiro: (w: Worker) => void;
   onOpenDailyAlert: () => void;
   onMarkAllPresent: () => void;
   markingAll: boolean;
@@ -1919,6 +2050,7 @@ function DayView({
   isMallaNT,
   onChangeStatus,
   onOpenOvertime,
+  onOpenRetiro,
   onOpenDailyAlert,
   onMarkAllPresent,
   markingAll,
@@ -1955,7 +2087,7 @@ function DayView({
           </div>
           <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center min-w-[80px]">
             <div className="text-lg font-bold text-red-500">{absentCount}</div>
-            <div className="text-[10px] text-gray-500">Ausentes</div>
+            <div className="text-[10px] text-gray-500">Faltas injust.</div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center min-w-[80px]">
             <div className="text-lg font-bold text-amber-500">{totalHE}</div>
@@ -2044,11 +2176,15 @@ function DayView({
                         disabled={isLocked || isNT}
                         className={`appearance-none text-xs font-medium px-2.5 py-1.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-300 pr-6 ${getStatusStyle(status)} ${isLocked || isNT ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
                       >
-                        {ATTENDANCE_STATUSES.map((s) => (
+                        {SELECTABLE_STATUSES.map((s) => (
                           <option key={s.code} value={s.code}>
                             {s.label}
                           </option>
                         ))}
+                        {/* Estado antiguo ya guardado: se muestra para no perderlo */}
+                        {!SELECTABLE_STATUSES.some((s) => s.code === status) && (
+                          <option value={status}>{getStatusLabel(status)}</option>
+                        )}
                       </select>
                       {!(isLocked || isNT) && (
                         <ChevronDown
@@ -2076,6 +2212,31 @@ function DayView({
                   <Clock size={11} />
                   {he > 0 ? `${he}h` : 'HE'}
                 </button>
+                {/* Retiro anticipado */}
+                {(() => {
+                  const retiro = attendance[w.id]?.[date]?.retiroHoras ?? 0;
+                  return (
+                    <button
+                      onClick={() => onOpenRetiro(w)}
+                      disabled={isLocked}
+                      title={
+                        retiro > 0
+                          ? `Se retiró antes: -${retiro}h${attendance[w.id]?.[date]?.retiroMotivo ? ` (${attendance[w.id]?.[date]?.retiroMotivo})` : ''}`
+                          : 'Anotar si se retiró antes'
+                      }
+                      className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+                        retiro > 0
+                          ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                          : isLocked
+                            ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                            : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-rose-50 hover:text-rose-600'
+                      }`}
+                    >
+                      <LogOut size={11} />
+                      {retiro > 0 ? `-${retiro}h` : 'Retiro'}
+                    </button>
+                  );
+                })()}
               </div>
             );
           })}
@@ -2161,10 +2322,16 @@ export function PeriodOverview({
                   P
                 </th>
                 <th className="px-3 py-2.5 font-semibold text-gray-600 text-center min-w-[60px] sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
-                  A
+                  F
                 </th>
                 <th className="px-3 py-2.5 font-semibold text-amber-600 text-center min-w-[60px] sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                   HE
+                </th>
+                <th
+                  className="px-3 py-2.5 font-semibold text-rose-600 text-center min-w-[60px] sticky top-0 z-20 bg-gray-50 border-b border-gray-200"
+                  title="Horas descontadas por retiro anticipado"
+                >
+                  Desc.
                 </th>
               </tr>
             </thead>
@@ -2172,7 +2339,8 @@ export function PeriodOverview({
               {workers.map((w) => {
                 let totalP = 0,
                   totalA = 0,
-                  totalHE = 0;
+                  totalHE = 0,
+                  totalRetiro = 0;
                 return (
                   <tr key={w.id} className="group hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-2 sticky left-0 z-10 bg-white group-hover:bg-gray-50 border-b border-r border-gray-100">
@@ -2193,6 +2361,8 @@ export function PeriodOverview({
                       if (status === 'PRESENTE') totalP++;
                       if (status === 'AUSENTE') totalA++;
                       totalHE += he;
+                      const retiro = attendance[w.id]?.[dt]?.retiroHoras ?? 0;
+                      totalRetiro += retiro;
                       const statusColors: Record<string, string> = {
                         PRESENTE: 'bg-green-500',
                         AUSENTE: 'bg-red-500',
@@ -2203,13 +2373,12 @@ export function PeriodOverview({
                         PERMISO_CG: 'bg-teal-400',
                         PERMISO_SG: 'bg-orange-400',
                         FALTA_JUSTIFICADA: 'bg-amber-400',
-                        ENFERMEDAD: 'bg-rose-400',
                         VACACIONES: 'bg-blue-400',
                         CUMPLEANOS: 'bg-pink-400',
                       };
                       const statusLetters: Record<string, string> = {
                         PRESENTE: 'P',
-                        AUSENTE: 'A',
+                        AUSENTE: 'F',
                         DESCANSO: 'D',
                         NT: '-',
                         LICENCIA: 'L',
@@ -2217,7 +2386,6 @@ export function PeriodOverview({
                         PERMISO_CG: 'M',
                         PERMISO_SG: 'S',
                         FALTA_JUSTIFICADA: 'J',
-                        ENFERMEDAD: 'E',
                         VACACIONES: 'V',
                         CUMPLEANOS: 'C',
                       };
@@ -2231,7 +2399,6 @@ export function PeriodOverview({
                         PERMISO_CG: 'text-white',
                         PERMISO_SG: 'text-white',
                         FALTA_JUSTIFICADA: 'text-white',
-                        ENFERMEDAD: 'text-white',
                         VACACIONES: 'text-white',
                         CUMPLEANOS: 'text-white',
                       };
@@ -2239,7 +2406,11 @@ export function PeriodOverview({
                         <td key={dt} className="px-1 py-2 text-center border-b border-gray-100">
                           <button
                             onClick={() => onSelectDate(dt)}
-                            title={getStatusLabel(status)}
+                            title={
+                              retiro > 0
+                                ? `${getStatusLabel(status)} · se retiró antes (-${retiro}h)`
+                                : getStatusLabel(status)
+                            }
                             className={`w-5 h-5 rounded-sm mx-auto flex items-center justify-center transition-transform hover:scale-110 ${statusColors[status] ?? 'bg-gray-200'}`}
                           >
                             <span
@@ -2250,6 +2421,14 @@ export function PeriodOverview({
                           </button>
                           {he > 0 && (
                             <span className="text-[9px] text-amber-600 font-bold block">{he}h</span>
+                          )}
+                          {retiro > 0 && (
+                            <span
+                              className="text-[9px] text-rose-600 font-bold block"
+                              title="Se retiró antes"
+                            >
+                              -{retiro}h
+                            </span>
                           )}
                         </td>
                       );
@@ -2263,6 +2442,9 @@ export function PeriodOverview({
                     <td className="px-3 py-2 text-center border-b border-gray-100 font-bold text-amber-500">
                       {totalHE > 0 ? totalHE : '-'}
                     </td>
+                    <td className="px-3 py-2 text-center border-b border-gray-100 font-bold text-rose-600">
+                      {totalRetiro > 0 ? `-${totalRetiro}` : '-'}
+                    </td>
                   </tr>
                 );
               })}
@@ -2275,7 +2457,7 @@ export function PeriodOverview({
       {(() => {
         const legendLetters: Record<string, string> = {
           PRESENTE: 'P',
-          AUSENTE: 'A',
+          AUSENTE: 'F',
           DESCANSO: 'D',
           NT: '-',
           LICENCIA: 'L',
@@ -2283,7 +2465,6 @@ export function PeriodOverview({
           PERMISO_CG: 'M',
           PERMISO_SG: 'S',
           FALTA_JUSTIFICADA: 'J',
-          ENFERMEDAD: 'E',
           VACACIONES: 'V',
           CUMPLEANOS: 'C',
         };
@@ -2297,7 +2478,6 @@ export function PeriodOverview({
           PERMISO_CG: 'bg-teal-400',
           PERMISO_SG: 'bg-orange-400',
           FALTA_JUSTIFICADA: 'bg-amber-400',
-          ENFERMEDAD: 'bg-rose-400',
           VACACIONES: 'bg-blue-400',
           CUMPLEANOS: 'bg-pink-400',
         };
@@ -2311,13 +2491,12 @@ export function PeriodOverview({
           PERMISO_CG: 'text-white',
           PERMISO_SG: 'text-white',
           FALTA_JUSTIFICADA: 'text-white',
-          ENFERMEDAD: 'text-white',
           VACACIONES: 'text-white',
           CUMPLEANOS: 'text-white',
         };
         return (
           <div className="flex flex-wrap gap-2">
-            {ATTENDANCE_STATUSES.map((s) => (
+            {SELECTABLE_STATUSES.map((s) => (
               <div
                 key={s.code}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${s.color}`}

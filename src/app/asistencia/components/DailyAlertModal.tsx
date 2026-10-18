@@ -118,7 +118,7 @@ export default function DailyAlertModal({
                 className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm border border-red-200 transition-colors"
               >
                 <XCircle size={18} />
-                No, hubo ausentes
+                No, hubo faltas
               </button>
             </div>
           </div>
@@ -194,7 +194,7 @@ export default function DailyAlertModal({
                 onClick={handleConfirmAbsences}
                 className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
               >
-                Confirmar ({absentIds.size} ausente{absentIds.size !== 1 ? 's' : ''})
+                Confirmar ({absentIds.size} falta{absentIds.size !== 1 ? 's' : ''})
               </button>
             </div>
           </>
