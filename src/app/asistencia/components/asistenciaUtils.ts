@@ -27,6 +27,12 @@ export function buildCustomPeriodKey(startDate: string, endDate: string): string
   return `${startDate}_${endDate}`;
 }
 
+/** Fecha de hoy en formato "YYYY-MM-DD" según la hora local del dispositivo */
+export function getTodayStr(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 /** Get dates between two date strings (inclusive) */
 export function getDatesInRange(startDate: string, endDate: string): string[] {
   const dates: string[] = [];

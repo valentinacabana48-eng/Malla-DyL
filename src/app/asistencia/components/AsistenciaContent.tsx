@@ -6,6 +6,7 @@ import { useAppContext } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import {
   getDatesInRange,
+  getTodayStr,
   getDefaultStartDate,
   getDefaultEndDate,
   formatPeriodLabel,
@@ -284,6 +285,7 @@ export default function AsistenciaContent() {
   const [overtimeModal, setOvertimeModal] = useState<OvertimeModalState | null>(null);
   const [savingDate, setSavingDate] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [savingCells, setSavingCells] = useState<Set<string>>(new Set());
 
   // ── Per-day lock state ────────────────────────────────────────────────────
@@ -465,6 +467,16 @@ export default function AsistenciaContent() {
     loadData();
   }, [loadData]);
 
+  // Tras un guardado que no pisa registros ajenos (ignoreDuplicates), se descarta la copia local
+  // de esas celdas y se vuelve a leer la base: así se ve lo que realmente quedó guardado.
+  async function reloadFromDb(rows: { worker_id: string; record_date: string }[]) {
+    rows.forEach((r) => {
+      if (allAttendanceRef.current[r.worker_id])
+        delete allAttendanceRef.current[r.worker_id][r.record_date];
+    });
+    await loadData();
+  }
+
   // Get workers with scheduled shift on a date (excludes descanso and special days)
   function getWorkersForDate(dateStr: string) {
     return filteredWorkers
@@ -609,8 +621,8 @@ export default function AsistenciaContent() {
     return true;
   }
 
-  // Bulk mark ALL SCHEDULED workers as present for a date (descansos auto-marked)
-  // Overwrites ALL workers (including those with existing records) to ensure "Todas asistieron" is absolute
+  // Marca como presentes a quienes aún no tienen registro ese día (los descansos se marcan solos).
+  // No pisa lo que ya se registró a mano (ausencias, vacaciones, notas…): eso se cambia uno por uno.
   async function markAllPresent(dateStr: string) {
     if (isPanelLocked) return;
     if (lockedDates.has(dateStr)) return;
@@ -618,21 +630,22 @@ export default function AsistenciaContent() {
     setSavingDate(dateStr);
     const now = new Date().toISOString();
 
-    // Upsert ALL workers (overwrite existing records too)
-    const allUpserts = filteredWorkers.map((w) => {
-      const autoStatus = getAutoStatus(w.id, dateStr);
-      const status =
-        autoStatus !== null ? (autoStatus === 'NT_SOFT' ? 'NT' : autoStatus) : 'PRESENTE';
-      return {
-        worker_id: w.id,
-        record_date: dateStr,
-        period_key: periodKey,
-        status,
-        absence_reason: '',
-        notes: '',
-        updated_at: now,
-      };
-    });
+    const allUpserts = filteredWorkers
+      .filter((w) => !attendance[w.id]?.[dateStr])
+      .map((w) => {
+        const autoStatus = getAutoStatus(w.id, dateStr);
+        const status =
+          autoStatus !== null ? (autoStatus === 'NT_SOFT' ? 'NT' : autoStatus) : 'PRESENTE';
+        return {
+          worker_id: w.id,
+          record_date: dateStr,
+          period_key: periodKey,
+          status,
+          absence_reason: '',
+          notes: '',
+          updated_at: now,
+        };
+      });
 
     // Optimistic update
     setAttendance((prev) => {
@@ -656,15 +669,22 @@ export default function AsistenciaContent() {
 
     try {
       if (allUpserts.length > 0) {
+        // ignoreDuplicates: si otra persona registró a alguien mientras tanto, se respeta su registro
         const { error } = await supabase
           .from('attendance_records')
-          .upsert(allUpserts, { onConflict: 'worker_id,record_date' });
+          .upsert(allUpserts, { onConflict: 'worker_id,record_date', ignoreDuplicates: true });
         if (error) {
           console.error('Error marking all present:', error);
+          setSaveError(`Error al guardar: ${error.message}`);
+          setTimeout(() => setSaveError(null), 5000);
         }
+        await reloadFromDb(allUpserts);
       }
     } catch (err) {
       console.error('Error marking all present:', err);
+      setSaveError('Error al guardar. Intenta de nuevo.');
+      setTimeout(() => setSaveError(null), 5000);
+      await reloadFromDb(allUpserts);
     } finally {
       setMarkingAll(false);
       setSavingDate(null);
@@ -699,8 +719,11 @@ export default function AsistenciaContent() {
       updated_at: new Date().toISOString(),
     }));
 
+    // Estados automáticos (descanso, no trabaja…) solo para quienes aún no tienen registro:
+    // no se pisa, por ejemplo, a alguien sin turno que vino a cubrir y ya fue marcado presente.
     const autoUpserts = filteredWorkers
       .filter((w) => !workersForDate.find((wf) => wf.id === w.id))
+      .filter((w) => !attendance[w.id]?.[date])
       .map((w) => {
         const autoStatus = getAutoStatus(w.id, date);
         if (!autoStatus) return null;
@@ -742,9 +765,20 @@ export default function AsistenciaContent() {
     });
 
     try {
-      const { error } = await supabase
-        .from('attendance_records')
-        .upsert(allUpserts, { onConflict: 'worker_id,record_date' });
+      const [confirmed, auto] = await Promise.all([
+        upserts.length > 0
+          ? supabase
+              .from('attendance_records')
+              .upsert(upserts, { onConflict: 'worker_id,record_date' })
+          : Promise.resolve({ error: null }),
+        autoUpserts.length > 0
+          ? supabase
+              .from('attendance_records')
+              .upsert(autoUpserts, { onConflict: 'worker_id,record_date', ignoreDuplicates: true })
+          : Promise.resolve({ error: null }),
+      ]);
+      const error = confirmed.error || auto.error;
+      if (autoUpserts.length > 0 || error) await reloadFromDb(error ? allUpserts : autoUpserts);
       if (error) {
         console.error('Error saving attendance:', error);
         setSaveError(`Error al guardar: ${error.message}`);
@@ -876,37 +910,50 @@ export default function AsistenciaContent() {
     }
   }
 
-  // Save report to Supabase (persist current attendance state for all filtered workers/dates)
+  // Guarda el estado que se ve en pantalla para los días que aún no tienen registro.
+  // - Solo hasta hoy: no se marca asistencia de días que todavía no ocurren.
+  // - Nunca pisa registros existentes (ignoreDuplicates), aunque otra persona los haya
+  //   cambiado después de que esta pantalla se cargó.
   async function saveReport() {
     if (filteredWorkers.length === 0 || dates.length === 0) return;
+    const today = getTodayStr();
     const now = new Date().toISOString();
     const upserts = [];
     for (const w of filteredWorkers) {
       for (const dt of dates) {
-        if (lockedDates.has(dt)) continue; // los días bloqueados ya están guardados y no se pueden modificar
+        if (dt > today) continue;
+        if (lockedDates.has(dt)) continue; // los días bloqueados no se pueden modificar
+        if (attendance[w.id]?.[dt]) continue; // ya está guardado
         const status = getEffectiveStatus(w.id, dt);
         if (status === 'NT') continue; // don't save hard NT records
-        const existing = attendance[w.id]?.[dt];
         upserts.push({
           worker_id: w.id,
           record_date: dt,
           period_key: periodKey,
           status,
-          absence_reason: existing?.absenceReason || '',
-          notes: existing?.notes || '',
+          absence_reason: '',
+          notes: '',
           updated_at: now,
         });
       }
     }
-    if (upserts.length === 0) return;
+    if (upserts.length === 0) {
+      setSaveNotice('No había días pendientes por guardar.');
+      setTimeout(() => setSaveNotice(null), 4000);
+      return;
+    }
     const { error } = await supabase
       .from('attendance_records')
-      .upsert(upserts, { onConflict: 'worker_id,record_date' });
+      .upsert(upserts, { onConflict: 'worker_id,record_date', ignoreDuplicates: true });
     if (error) {
       console.error('Error saving report:', error);
       setSaveError(`Error al guardar: ${error.message}`);
       setTimeout(() => setSaveError(null), 5000);
+      return;
     }
+    await loadData();
+    setSaveNotice(`Reporte guardado: ${upserts.length} registro(s) pendiente(s) hasta hoy.`);
+    setTimeout(() => setSaveNotice(null), 4000);
   }
 
   // Chilean public holidays (fixed + moveable approximations)
@@ -1739,6 +1786,12 @@ export default function AsistenciaContent() {
           >
             <X size={14} />
           </button>
+        </div>
+      )}
+      {saveNotice && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-3 bg-green-600 text-white text-sm font-medium rounded-xl shadow-lg">
+          <CheckCheck size={16} className="shrink-0" />
+          {saveNotice}
         </div>
       )}
       {dailyAlert && (
