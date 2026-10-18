@@ -2,7 +2,14 @@
 import React, { useState, useMemo } from 'react';
 import { X, FileSpreadsheet, Download, Calendar, CalendarRange } from 'lucide-react';
 import ExcelJS from 'exceljs';
-import { type Worker, type Shift, type ShiftCode, type ScheduleData, type SpecialDaysData, MESES,  } from '@/context/AppContext';
+import {
+  type Worker,
+  type Shift,
+  type ShiftCode,
+  type ScheduleData,
+  type SpecialDaysData,
+  MESES,
+} from '@/context/AppContext';
 
 interface Props {
   workers: Worker[];
@@ -15,29 +22,33 @@ interface Props {
 
 // ─── Color palette (same as MallaExcelPanel) ─────────────────────────────────
 const C = {
-  headerBg:   '1E40AF',
-  headerFg:   'FFFFFF',
-  white:      'FFFFFFFF',
-  rowEven:    'FFFFFF',
-  rowOdd:     'EFF6FF',
-  satBg:      'E0E7FF',
-  sunBg:      'C7D2FE',
-  satHdrBg:   '93C5FD',
-  sunHdrBg:   '60A5FA',
-  sumHdrBg:   '1E40AF',
-  descBg:     'DBEAFE',
-  feriBg:     'FEE2E2',
-  vacaBg:     'D1FAE5',
-  liceBg:     'FEF3C7',
-  permBg:     'E0E7FF',
-  cumpBg:     'F3E8FF',
+  headerBg: '1E40AF',
+  headerFg: 'FFFFFF',
+  white: 'FFFFFFFF',
+  rowEven: 'FFFFFF',
+  rowOdd: 'EFF6FF',
+  satBg: 'E0E7FF',
+  sunBg: 'C7D2FE',
+  satHdrBg: '93C5FD',
+  sunHdrBg: '60A5FA',
+  sumHdrBg: '1E40AF',
+  descBg: 'DBEAFE',
+  feriBg: 'FEE2E2',
+  vacaBg: 'D1FAE5',
+  liceBg: 'FEF3C7',
+  permBg: 'E0E7FF',
+  cumpBg: 'F3E8FF',
 };
 
 type FillArg = ExcelJS.Fill;
 
 function solidFill(hex: string): FillArg {
   const clean = hex.replace('#', '').padEnd(8, 'F').slice(0, 8);
-  return { type: 'pattern', pattern: 'solid', fgColor: { argb: clean.length === 6 ? 'FF' + clean : clean } };
+  return {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: clean.length === 6 ? 'FF' + clean : clean },
+  };
 }
 
 function applyCell(
@@ -60,7 +71,13 @@ function applyCell(
     name: 'Calibri',
     size: opts.sz ?? 9,
     bold: opts.bold ?? false,
-    color: { argb: opts.fgArgb ? (opts.fgArgb.length === 6 ? 'FF' + opts.fgArgb : opts.fgArgb) : 'FF000000' },
+    color: {
+      argb: opts.fgArgb
+        ? opts.fgArgb.length === 6
+          ? 'FF' + opts.fgArgb
+          : opts.fgArgb
+        : 'FF000000',
+    },
   };
   cell.alignment = {
     horizontal: opts.halign ?? 'center',
@@ -76,18 +93,18 @@ function getShiftHours(code: string, shifts: Record<string, Shift>): number {
   if (!shiftInfo?.start || !shiftInfo?.end) return 0;
   const [sh, sm] = shiftInfo.start.split(':').map(Number);
   const [eh, em] = shiftInfo.end.split(':').map(Number);
-  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  let mins = eh * 60 + em - (sh * 60 + sm);
   if (mins < 0) mins += 24 * 60;
   let hrs = mins / 60;
   if ((shiftInfo as { colacion?: number }).colacion) {
-    hrs -= ((shiftInfo as { colacion?: number }).colacion! / 60);
+    hrs -= (shiftInfo as { colacion?: number }).colacion! / 60;
   }
   return hrs;
 }
 
 // Build list of days from startDate to endDate (inclusive)
 function buildDayList(startDate: Date, endDate: Date): Date[] {
-  let days: Date[] = [];
+  const days: Date[] = [];
   const cur = new Date(startDate);
   cur.setHours(0, 0, 0, 0);
   const end = new Date(endDate);
@@ -108,7 +125,12 @@ function dateToMonthKey(date: Date): string {
 
 const DOW_LETTERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 const DAY_NAMES_MAP: Record<string, string> = {
-  L: 'lun', M: 'mar', J: 'jue', V: 'vie', S: 'sáb', D: 'dom',
+  L: 'lun',
+  M: 'mar',
+  J: 'jue',
+  V: 'vie',
+  S: 'sáb',
+  D: 'dom',
 };
 
 async function exportToExcel(
@@ -148,30 +170,48 @@ async function exportToExcel(
     const dow = DOW_LETTERS[date.getDay()];
     const isSat = dow === 'S';
     const isSun = dow === 'D';
-    let bg = isSun ? C.sunHdrBg : isSat ? C.satHdrBg : C.headerBg;
-    let fg = isSun ? '1E3A8A' : isSat ? '1E3A8A' : C.headerFg;
+    const bg = isSun ? C.sunHdrBg : isSat ? C.satHdrBg : C.headerBg;
+    const fg = isSun ? '1E3A8A' : isSat ? '1E3A8A' : C.headerFg;
     applyCell(ws.getCell(1, FIXED_COLS + 1 + d), DAY_NAMES_MAP[dow] || dow.toLowerCase(), {
-      bgArgb: bg, fgArgb: fg, sz: 9,
+      bgArgb: bg,
+      fgArgb: fg,
+      sz: 9,
     });
   }
 
   // ── ROW 2: Fixed headers + date strings ───────────────────────────────────
   ws.getRow(2).height = 18;
-  applyCell(ws.getCell(2, 1), 'NOMBRE', { bgArgb: C.headerBg, fgArgb: C.headerFg, bold: true, sz: 10, halign: 'center' });
-  applyCell(ws.getCell(2, 2), 'Jornada', { bgArgb: C.headerBg, fgArgb: C.headerFg, bold: true, sz: 10, halign: 'center' });
+  applyCell(ws.getCell(2, 1), 'NOMBRE', {
+    bgArgb: C.headerBg,
+    fgArgb: C.headerFg,
+    bold: true,
+    sz: 10,
+    halign: 'center',
+  });
+  applyCell(ws.getCell(2, 2), 'Jornada', {
+    bgArgb: C.headerBg,
+    fgArgb: C.headerFg,
+    bold: true,
+    sz: 10,
+    halign: 'center',
+  });
 
   for (let d = 0; d < days.length; d++) {
     const date = days[d];
     const dow = DOW_LETTERS[date.getDay()];
     const isSat = dow === 'S';
     const isSun = dow === 'D';
-    let bg = isSun ? C.sunHdrBg : isSat ? C.satHdrBg : C.headerBg;
-    let fg = isSun ? '1E3A8A' : isSat ? '1E3A8A' : C.headerFg;
+    const bg = isSun ? C.sunHdrBg : isSat ? C.satHdrBg : C.headerBg;
+    const fg = isSun ? '1E3A8A' : isSat ? '1E3A8A' : C.headerFg;
     const dd = String(date.getDate()).padStart(2, '0');
     const mm = String(date.getMonth() + 1).padStart(2, '0');
     const yyyy = date.getFullYear();
     applyCell(ws.getCell(2, FIXED_COLS + 1 + d), `${dd}-${mm}-${yyyy}`, {
-      bgArgb: bg, fgArgb: fg, bold: true, sz: 9, halign: 'center',
+      bgArgb: bg,
+      fgArgb: fg,
+      bold: true,
+      sz: 9,
+      halign: 'center',
     });
   }
 
@@ -189,10 +229,18 @@ async function exportToExcel(
     ws.getRow(currentRow).height = 16;
 
     applyCell(ws.getCell(currentRow, 1), worker.name, {
-      bgArgb: rowBg, fgArgb: '1A1A1A', bold: true, sz: 10, halign: 'left',
+      bgArgb: rowBg,
+      fgArgb: '1A1A1A',
+      bold: true,
+      sz: 10,
+      halign: 'left',
     });
     applyCell(ws.getCell(currentRow, 2), worker.horasContratadas ?? 42, {
-      bgArgb: rowBg, fgArgb: '1A1A1A', bold: true, sz: 9, halign: 'center',
+      bgArgb: rowBg,
+      fgArgb: '1A1A1A',
+      bold: true,
+      sz: 9,
+      halign: 'center',
     });
 
     for (let d = 0; d < days.length; d++) {
@@ -219,13 +267,39 @@ async function exportToExcel(
 
       if (special) {
         const code = special.slice(0, 4).toUpperCase();
-        if (code === 'DESC') { displayVal = 'DESCANSO'; fg = '3B82F6'; bg = C.descBg; }
-        else if (code === 'VACA') { displayVal = 'VACACIONES'; fg = '065F46'; bold = true; bg = C.vacaBg; }
-        else if (code === 'LICE') { displayVal = 'LICENCIA'; fg = '92400E'; bold = true; bg = C.liceBg; }
-        else if (code === 'PERM') { displayVal = 'PERMISO'; fg = '3730A3'; bold = true; bg = C.permBg; }
-        else if (code === 'FERI') { displayVal = 'FERIADO'; fg = 'B91C1C'; bold = true; bg = C.feriBg; }
-        else if (code === 'CUMP') { displayVal = 'CUMPLEAÑOS'; fg = '7C3AED'; bold = true; bg = C.cumpBg; }
-        else { displayVal = special; bold = true; }
+        if (code === 'DESC') {
+          displayVal = 'DESCANSO';
+          fg = '3B82F6';
+          bg = C.descBg;
+        } else if (code === 'VACA') {
+          displayVal = 'VACACIONES';
+          fg = '065F46';
+          bold = true;
+          bg = C.vacaBg;
+        } else if (code === 'LICE') {
+          displayVal = 'LICENCIA';
+          fg = '92400E';
+          bold = true;
+          bg = C.liceBg;
+        } else if (code === 'PERM') {
+          displayVal = 'PERMISO';
+          fg = '3730A3';
+          bold = true;
+          bg = C.permBg;
+        } else if (code === 'FERI') {
+          displayVal = 'FERIADO';
+          fg = 'B91C1C';
+          bold = true;
+          bg = C.feriBg;
+        } else if (code === 'CUMP') {
+          displayVal = 'CUMPLEAÑOS';
+          fg = '7C3AED';
+          bold = true;
+          bg = C.cumpBg;
+        } else {
+          displayVal = special;
+          bold = true;
+        }
 
         // Count for summary
         shiftCountsPerDay[d][displayVal] = (shiftCountsPerDay[d][displayVal] || 0) + 1;
@@ -244,7 +318,11 @@ async function exportToExcel(
       }
 
       applyCell(ws.getCell(currentRow, FIXED_COLS + 1 + d), displayVal, {
-        bgArgb: bg, fgArgb: fg, bold, sz: 9, halign: 'center',
+        bgArgb: bg,
+        fgArgb: fg,
+        bold,
+        sz: 9,
+        halign: 'center',
       });
     }
 
@@ -258,33 +336,51 @@ async function exportToExcel(
   // ── Summary section ───────────────────────────────────────────────────────
   ws.getRow(currentRow).height = 18;
   applyCell(ws.getCell(currentRow, 1), 'TURNO', {
-    bgArgb: C.sumHdrBg, fgArgb: 'FFFFFF', bold: true, sz: 9, halign: 'left',
+    bgArgb: C.sumHdrBg,
+    fgArgb: 'FFFFFF',
+    bold: true,
+    sz: 9,
+    halign: 'left',
   });
   applyCell(ws.getCell(currentRow, 2), '', {
-    bgArgb: C.sumHdrBg, fgArgb: 'FFFFFF', bold: true, sz: 9,
+    bgArgb: C.sumHdrBg,
+    fgArgb: 'FFFFFF',
+    bold: true,
+    sz: 9,
   });
   for (let d = 0; d < days.length; d++) {
     const date = days[d];
     applyCell(ws.getCell(currentRow, FIXED_COLS + 1 + d), date.getDate(), {
-      bgArgb: C.sumHdrBg, fgArgb: 'FFFFFF', bold: true, sz: 9,
+      bgArgb: C.sumHdrBg,
+      fgArgb: 'FFFFFF',
+      bold: true,
+      sz: 9,
     });
   }
   currentRow++;
 
   const allCodes = new Set<string>();
-  for (let d = 0; d < days.length; d++) Object.keys(shiftCountsPerDay[d]).forEach(c => allCodes.add(c));
+  for (let d = 0; d < days.length; d++)
+    Object.keys(shiftCountsPerDay[d]).forEach((c) => allCodes.add(c));
   const summaryCodes = Array.from(allCodes).sort();
 
   for (const code of summaryCodes) {
     ws.getRow(currentRow).height = 15;
     applyCell(ws.getCell(currentRow, 1), code, {
-      bgArgb: 'FFFFFF', fgArgb: '1A1A1A', bold: true, sz: 9, halign: 'left',
+      bgArgb: 'FFFFFF',
+      fgArgb: '1A1A1A',
+      bold: true,
+      sz: 9,
+      halign: 'left',
     });
     applyCell(ws.getCell(currentRow, 2), '', { bgArgb: 'FFFFFF', fgArgb: '1A1A1A', sz: 9 });
     for (let d = 0; d < days.length; d++) {
       const count = shiftCountsPerDay[d][code] || 0;
       applyCell(ws.getCell(currentRow, FIXED_COLS + 1 + d), count > 0 ? count : '', {
-        bgArgb: 'FFFFFF', fgArgb: '1A1A1A', bold: count > 0, sz: 9,
+        bgArgb: 'FFFFFF',
+        fgArgb: '1A1A1A',
+        bold: count > 0,
+        sz: 9,
       });
     }
     currentRow++;
@@ -293,19 +389,33 @@ async function exportToExcel(
   // Total row
   ws.getRow(currentRow).height = 18;
   applyCell(ws.getCell(currentRow, 1), 'TOTAL TRABAJADORES', {
-    bgArgb: C.sumHdrBg, fgArgb: 'FFFFFF', bold: true, sz: 9, halign: 'left',
+    bgArgb: C.sumHdrBg,
+    fgArgb: 'FFFFFF',
+    bold: true,
+    sz: 9,
+    halign: 'left',
   });
-  applyCell(ws.getCell(currentRow, 2), '', { bgArgb: C.sumHdrBg, fgArgb: 'FFFFFF', bold: true, sz: 9 });
+  applyCell(ws.getCell(currentRow, 2), '', {
+    bgArgb: C.sumHdrBg,
+    fgArgb: 'FFFFFF',
+    bold: true,
+    sz: 9,
+  });
   for (let d = 0; d < days.length; d++) {
     const dayTotal = Object.values(shiftCountsPerDay[d]).reduce((a, b) => a + b, 0);
     applyCell(ws.getCell(currentRow, FIXED_COLS + 1 + d), dayTotal, {
-      bgArgb: C.sumHdrBg, fgArgb: 'FFFFFF', bold: true, sz: 9,
+      bgArgb: C.sumHdrBg,
+      fgArgb: 'FFFFFF',
+      bold: true,
+      sz: 9,
     });
   }
 
   // ── Download ──────────────────────────────────────────────────────────────
   const buffer = await wb.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -319,8 +429,18 @@ async function exportToExcel(
 // ─── Month label → Date range ─────────────────────────────────────────────────
 function monthLabelToDateRange(monthLabel: string): { start: Date; end: Date } {
   const MONTH_NAMES: Record<string, number> = {
-    'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-    'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+    Enero: 0,
+    Febrero: 1,
+    Marzo: 2,
+    Abril: 3,
+    Mayo: 4,
+    Junio: 5,
+    Julio: 6,
+    Agosto: 7,
+    Septiembre: 8,
+    Octubre: 9,
+    Noviembre: 10,
+    Diciembre: 11,
   };
   const parts = monthLabel.split(' ');
   const monthIdx = MONTH_NAMES[parts[0]] ?? 0;
@@ -331,7 +451,12 @@ function monthLabelToDateRange(monthLabel: string): { start: Date; end: Date } {
 }
 
 export default function MallaDownloadModal({
-  workers, scheduleData, specialDays, shifts, currentMonth, onClose,
+  workers,
+  scheduleData,
+  specialDays,
+  shifts,
+  currentMonth,
+  onClose,
 }: Props) {
   const [mode, setMode] = useState<'month' | 'range'>('month');
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
@@ -377,7 +502,8 @@ export default function MallaDownloadModal({
           return;
         }
         days = buildDayList(start, end);
-        const fmt = (d: Date) => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+        const fmt = (d: Date) =>
+          `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
         fileName = `Malla_${fmt(start)}_al_${fmt(end)}.xlsx`;
       }
 
@@ -416,7 +542,9 @@ export default function MallaDownloadModal({
             <button
               onClick={() => setMode('month')}
               className={`flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-all ${
-                mode === 'month' ?'border-teal-500 bg-teal-50 text-teal-700' :'border-border bg-muted/30 text-muted-foreground hover:border-teal-300 hover:bg-teal-50/50'
+                mode === 'month'
+                  ? 'border-teal-500 bg-teal-50 text-teal-700'
+                  : 'border-border bg-muted/30 text-muted-foreground hover:border-teal-300 hover:bg-teal-50/50'
               }`}
             >
               <Calendar size={20} />
@@ -425,7 +553,9 @@ export default function MallaDownloadModal({
             <button
               onClick={() => setMode('range')}
               className={`flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-all ${
-                mode === 'range' ?'border-teal-500 bg-teal-50 text-teal-700' :'border-border bg-muted/30 text-muted-foreground hover:border-teal-300 hover:bg-teal-50/50'
+                mode === 'range'
+                  ? 'border-teal-500 bg-teal-50 text-teal-700'
+                  : 'border-border bg-muted/30 text-muted-foreground hover:border-teal-300 hover:bg-teal-50/50'
               }`}
             >
               <CalendarRange size={20} />
@@ -441,11 +571,13 @@ export default function MallaDownloadModal({
               </label>
               <select
                 value={selectedMonth}
-                onChange={e => setSelectedMonth(e.target.value)}
+                onChange={(e) => setSelectedMonth(e.target.value)}
                 className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
               >
-                {MESES.map(m => (
-                  <option key={m} value={m}>{m}</option>
+                {MESES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
                 ))}
               </select>
             </div>
@@ -461,7 +593,7 @@ export default function MallaDownloadModal({
                 <input
                   type="date"
                   value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
+                  onChange={(e) => setStartDate(e.target.value)}
                   className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
@@ -472,13 +604,11 @@ export default function MallaDownloadModal({
                 <input
                   type="date"
                   value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
+                  onChange={(e) => setEndDate(e.target.value)}
                   className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Máximo 366 días por exportación.
-              </p>
+              <p className="text-xs text-muted-foreground">Máximo 366 días por exportación.</p>
             </div>
           )}
 
@@ -498,7 +628,14 @@ export default function MallaDownloadModal({
             {exporting ? (
               <>
                 <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                 </svg>
                 Generando Excel...

@@ -2,7 +2,13 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { User, X, Zap, CheckSquare } from 'lucide-react';
-import { type ShiftCode, type Shift, type Worker, type NonWorkingType, useAppContext } from '@/context/AppContext';
+import {
+  type ShiftCode,
+  type Shift,
+  type Worker,
+  type NonWorkingType,
+  useAppContext,
+} from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 
 interface Props {
@@ -39,9 +45,7 @@ function groupShiftsByHour(shifts: Record<string, Shift>): Map<string, string[]>
     groups.get(label)!.push(code);
   });
 
-  const sorted = new Map(
-    [...groups.entries()].sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
-  );
+  const sorted = new Map([...groups.entries()].sort((a, b) => parseInt(a[0]) - parseInt(b[0])));
 
   if (noHour.length > 0) sorted.set('—', noHour);
   return sorted;
@@ -88,20 +92,23 @@ function GroupedShiftOptions({
               className="w-full text-left px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted/40 transition-colors flex items-center justify-between"
             >
               <span>🕐 {hourLabel}</span>
-              <span className="text-[10px] opacity-60">{isExpanded ? '▲' : '▼'} {filteredCodes.length}</span>
+              <span className="text-[10px] opacity-60">
+                {isExpanded ? '▲' : '▼'} {filteredCodes.length}
+              </span>
             </button>
-            {isExpanded && filteredCodes.map((s) => {
-              const info = shifts[s];
-              return (
-                <button
-                  key={`grp-item-${s}`}
-                  onClick={() => onSelect(s)}
-                  className={`w-full text-left pl-6 pr-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors ${info?.colorClass || ''}`}
-                >
-                  {info ? `${s.toUpperCase()} ${info.start}–${info.end}` : s}
-                </button>
-              );
-            })}
+            {isExpanded &&
+              filteredCodes.map((s) => {
+                const info = shifts[s];
+                return (
+                  <button
+                    key={`grp-item-${s}`}
+                    onClick={() => onSelect(s)}
+                    className={`w-full text-left pl-6 pr-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors ${info?.colorClass || ''}`}
+                  >
+                    {info ? `${s.toUpperCase()} ${info.start}–${info.end}` : s}
+                  </button>
+                );
+              })}
           </div>
         );
       })}
@@ -164,7 +171,7 @@ function SmartDropdown({
     if (left < anchor.right + 2) left = anchor.right + 2;
 
     setStyle({ position: 'fixed', top, left, zIndex: 9999, visibility: 'visible' });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Close on outside click
@@ -172,8 +179,10 @@ function SmartDropdown({
     if (!open) return;
     const handler = (e: MouseEvent) => {
       if (
-        dropRef.current && !dropRef.current.contains(e.target as Node) &&
-        anchorRef.current && !anchorRef.current.contains(e.target as Node)
+        dropRef.current &&
+        !dropRef.current.contains(e.target as Node) &&
+        anchorRef.current &&
+        !anchorRef.current.contains(e.target as Node)
       ) {
         onClose();
       }
@@ -198,7 +207,15 @@ function SmartDropdown({
 
 // ─── Individual ShiftCell (normal mode — no active shift selected) ─────────
 function ShiftCell({
-  workerId, dayIndex, shift, specialDay, shifts, nonWorkingTypes, onCellChange, onSpecialDayChange, isUnderHoursWeek,
+  workerId,
+  dayIndex,
+  shift,
+  specialDay,
+  shifts,
+  nonWorkingTypes,
+  onCellChange,
+  onSpecialDayChange,
+  isUnderHoursWeek,
 }: {
   workerId: string;
   dayIndex: number;
@@ -214,12 +231,17 @@ function ShiftCell({
   const btnRef = useRef<HTMLButtonElement>(null);
   const isReadonly = useReadonly();
   const warnClass = isUnderHoursWeek ? 'bg-amber-50/70' : '';
-  const warnStyle = isUnderHoursWeek ? { boxShadow: 'inset 0 0 0 1px rgba(245,158,11,0.25)' } : undefined;
+  const warnStyle = isUnderHoursWeek
+    ? { boxShadow: 'inset 0 0 0 1px rgba(245,158,11,0.25)' }
+    : undefined;
 
   if (specialDay) {
-    const nwt = nonWorkingTypes.find(t => t.code === specialDay);
+    const nwt = nonWorkingTypes.find((t) => t.code === specialDay);
     return (
-      <td className={`border-r border-border/50 px-0.5 py-0.5 min-w-[44px] text-center relative ${warnClass}`} style={warnStyle}>
+      <td
+        className={`border-r border-border/50 px-0.5 py-0.5 min-w-[44px] text-center relative ${warnClass}`}
+        style={warnStyle}
+      >
         <button
           ref={btnRef}
           onClick={() => !isReadonly && setOpen(!open)}
@@ -227,32 +249,60 @@ function ShiftCell({
           title={nwt?.label || specialDay}
         >
           <span>{nwt?.icon || '📌'}</span>
-          <span className="font-normal opacity-80 text-[8px]">{nwt?.label?.slice(0, 4).toUpperCase() || specialDay.slice(0, 4)}</span>
+          <span className="font-normal opacity-80 text-[8px]">
+            {nwt?.label?.slice(0, 4).toUpperCase() || specialDay.slice(0, 4)}
+          </span>
         </button>
         {!isReadonly && (
           <SmartDropdown anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
             <button
-              onClick={() => { onSpecialDayChange(workerId, dayIndex, null); setOpen(false); }}
+              onClick={() => {
+                onSpecialDayChange(workerId, dayIndex, null);
+                setOpen(false);
+              }}
               className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/50 transition-colors"
-            >Limpiar</button>
+            >
+              Limpiar
+            </button>
             <div className="border-t border-border/50 my-1" />
-            <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Turnos</p>
+            <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Turnos
+            </p>
             <GroupedShiftOptions
               shifts={shifts}
-              onSelect={(s) => { onSpecialDayChange(workerId, dayIndex, null); onCellChange(workerId, dayIndex, s); setOpen(false); }}
+              onSelect={(s) => {
+                onSpecialDayChange(workerId, dayIndex, null);
+                onCellChange(workerId, dayIndex, s);
+                setOpen(false);
+              }}
             />
             <div className="border-t border-border/50 my-1" />
-            <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Días especiales</p>
-            {nonWorkingTypes.filter(t => t.code !== specialDay).map((nwt) => (
-              <button
-                key={`cell-nwt-${nwt.code}`}
-                onClick={() => { onSpecialDayChange(workerId, dayIndex, nwt.code); setOpen(false); }}
-                className={`w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors flex items-center gap-1.5`}
-              >
-                <span>{nwt.icon}</span>
-                <span className={nwt.colorClass.includes('text-') ? nwt.colorClass.split(' ').find(c => c.startsWith('text-')) || '' : ''}>{nwt.label}</span>
-              </button>
-            ))}
+            <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Días especiales
+            </p>
+            {nonWorkingTypes
+              .filter((t) => t.code !== specialDay)
+              .map((nwt) => (
+                <button
+                  key={`cell-nwt-${nwt.code}`}
+                  onClick={() => {
+                    onSpecialDayChange(workerId, dayIndex, nwt.code);
+                    setOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors flex items-center gap-1.5`}
+                >
+                  <span>{nwt.icon}</span>
+                  <span
+                    className={
+                      nwt.colorClass.includes('text-')
+                        ? nwt.colorClass.split(' ').find((c) => c.startsWith('text-')) || ''
+                        : ''
+                    }
+                  >
+                    {nwt.label}
+                  </span>
+                </button>
+              ))}
           </SmartDropdown>
         )}
       </td>
@@ -261,26 +311,41 @@ function ShiftCell({
 
   if (!shift) {
     return (
-      <td className={`border-r border-border/50 px-0.5 py-0.5 min-w-[44px] text-center relative ${warnClass}`} style={warnStyle}>
+      <td
+        className={`border-r border-border/50 px-0.5 py-0.5 min-w-[44px] text-center relative ${warnClass}`}
+        style={warnStyle}
+      >
         <button
           ref={btnRef}
           onClick={() => !isReadonly && setOpen(!open)}
           className={`w-full h-6 rounded transition-colors text-muted-foreground/40 text-xs ${isReadonly ? 'cursor-default' : 'hover:bg-muted/60 cursor-pointer'}`}
           title={isReadonly ? 'Solo lectura' : 'Asignar turno'}
-        >—</button>
+        >
+          —
+        </button>
         {!isReadonly && (
           <SmartDropdown anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
-            <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Turnos</p>
+            <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Turnos
+            </p>
             <GroupedShiftOptions
               shifts={shifts}
-              onSelect={(s) => { onCellChange(workerId, dayIndex, s); setOpen(false); }}
+              onSelect={(s) => {
+                onCellChange(workerId, dayIndex, s);
+                setOpen(false);
+              }}
             />
             <div className="border-t border-border/50 my-1" />
-            <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Días especiales</p>
+            <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Días especiales
+            </p>
             {nonWorkingTypes.map((nwt) => (
               <button
                 key={`cell-nwt-${nwt.code}`}
-                onClick={() => { onSpecialDayChange(workerId, dayIndex, nwt.code); setOpen(false); }}
+                onClick={() => {
+                  onSpecialDayChange(workerId, dayIndex, nwt.code);
+                  setOpen(false);
+                }}
                 className="w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors flex items-center gap-1.5"
               >
                 <span>{nwt.icon}</span>
@@ -298,7 +363,10 @@ function ShiftCell({
   if (!shiftInfo) return <td className="border-r border-border/50 px-0.5 py-0.5 min-w-[44px]" />;
 
   return (
-    <td className={`border-r border-border/50 px-0.5 py-0.5 min-w-[44px] text-center relative ${warnClass}`} style={warnStyle}>
+    <td
+      className={`border-r border-border/50 px-0.5 py-0.5 min-w-[44px] text-center relative ${warnClass}`}
+      style={warnStyle}
+    >
       <button
         ref={btnRef}
         onClick={() => !isReadonly && setOpen(!open)}
@@ -311,21 +379,37 @@ function ShiftCell({
       {!isReadonly && (
         <SmartDropdown anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
           <button
-            onClick={() => { onCellChange(workerId, dayIndex, null); setOpen(false); }}
+            onClick={() => {
+              onCellChange(workerId, dayIndex, null);
+              setOpen(false);
+            }}
             className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/50 transition-colors"
-          >Limpiar</button>
-          <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Turnos</p>
+          >
+            Limpiar
+          </button>
+          <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Turnos
+          </p>
           <GroupedShiftOptions
             shifts={shifts}
             excludeCode={shift}
-            onSelect={(s) => { onCellChange(workerId, dayIndex, s); setOpen(false); }}
+            onSelect={(s) => {
+              onCellChange(workerId, dayIndex, s);
+              setOpen(false);
+            }}
           />
           <div className="border-t border-border/50 my-1" />
-          <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Días especiales</p>
+          <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Días especiales
+          </p>
           {nonWorkingTypes.map((nwt) => (
             <button
               key={`cell-nwt-${nwt.code}`}
-              onClick={() => { onCellChange(workerId, dayIndex, null); onSpecialDayChange(workerId, dayIndex, nwt.code); setOpen(false); }}
+              onClick={() => {
+                onCellChange(workerId, dayIndex, null);
+                onSpecialDayChange(workerId, dayIndex, nwt.code);
+                setOpen(false);
+              }}
               className="w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors flex items-center gap-1.5"
             >
               <span>{nwt.icon}</span>
@@ -340,7 +424,15 @@ function ShiftCell({
 
 // ─── Block-mode cell: click to toggle selection ────────────────────────────
 function BlockModeCell({
-  workerId, dayIndex, shift, specialDay, shifts, nonWorkingTypes, isSelected, onToggle, isUnderHoursWeek,
+  workerId,
+  dayIndex,
+  shift,
+  specialDay,
+  shifts,
+  nonWorkingTypes,
+  isSelected,
+  onToggle,
+  isUnderHoursWeek,
 }: {
   workerId: string;
   dayIndex: number;
@@ -356,12 +448,14 @@ function BlockModeCell({
   let baseClass = '';
 
   if (specialDay) {
-    const nwt = nonWorkingTypes.find(t => t.code === specialDay);
+    const nwt = nonWorkingTypes.find((t) => t.code === specialDay);
     baseClass = nwt?.colorClass || 'bg-slate-100 text-slate-700';
     content = (
       <>
         <span>{nwt?.icon || '📌'}</span>
-        <span className="font-normal opacity-80 text-[8px]">{nwt?.label?.slice(0, 4).toUpperCase() || specialDay.slice(0, 4)}</span>
+        <span className="font-normal opacity-80 text-[8px]">
+          {nwt?.label?.slice(0, 4).toUpperCase() || specialDay.slice(0, 4)}
+        </span>
       </>
     );
   } else if (shift) {
@@ -378,20 +472,26 @@ function BlockModeCell({
   }
 
   const warnBg = isUnderHoursWeek && !isSelected ? 'bg-amber-50/70' : '';
-  const warnStyle = isUnderHoursWeek && !isSelected ? { boxShadow: 'inset 0 0 0 1px rgba(245,158,11,0.25)' } : undefined;
+  const warnStyle =
+    isUnderHoursWeek && !isSelected
+      ? { boxShadow: 'inset 0 0 0 1px rgba(245,158,11,0.25)' }
+      : undefined;
 
   return (
     <td
       className={`border-r border-border/50 px-0.5 py-1 min-w-[52px] text-center relative cursor-pointer select-none transition-all
-        ${isSelected
-          ? 'ring-2 ring-inset ring-emerald-500 bg-emerald-50/60'
-          : `hover:ring-2 hover:ring-inset hover:ring-emerald-300 hover:bg-emerald-50/20 ${warnBg}`
+        ${
+          isSelected
+            ? 'ring-2 ring-inset ring-emerald-500 bg-emerald-50/60'
+            : `hover:ring-2 hover:ring-inset hover:ring-emerald-300 hover:bg-emerald-50/20 ${warnBg}`
         }`}
       style={warnStyle}
       onClick={() => onToggle(workerId, dayIndex)}
       title={isSelected ? 'Clic para deseleccionar' : 'Clic para seleccionar'}
     >
-      <div className={`inline-flex flex-col items-center px-1 py-0.5 rounded text-[10px] font-bold leading-tight w-full ${isSelected ? 'opacity-70' : ''} ${baseClass}`}>
+      <div
+        className={`inline-flex flex-col items-center px-1 py-0.5 rounded text-[10px] font-bold leading-tight w-full ${isSelected ? 'opacity-70' : ''} ${baseClass}`}
+      >
         {content}
       </div>
       {isSelected && (
@@ -469,10 +569,16 @@ function FloatingShiftPanel({
       const dy = e.clientY - dragStart.current.my;
       setPos(clampPos(dragStart.current.px + dx, dragStart.current.py + dy));
     };
-    const onUp = () => { setDragging(false); dragStart.current = null; };
+    const onUp = () => {
+      setDragging(false);
+      dragStart.current = null;
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
   }, [dragging, clampPos]);
 
   // Touch drag
@@ -491,10 +597,16 @@ function FloatingShiftPanel({
       const dy = t.clientY - dragStart.current.my;
       setPos(clampPos(dragStart.current.px + dx, dragStart.current.py + dy));
     };
-    const onUp = () => { setDragging(false); dragStart.current = null; };
+    const onUp = () => {
+      setDragging(false);
+      dragStart.current = null;
+    };
     window.addEventListener('touchmove', onMove, { passive: false });
     window.addEventListener('touchend', onUp);
-    return () => { window.removeEventListener('touchmove', onMove); window.removeEventListener('touchend', onUp); };
+    return () => {
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
   }, [dragging, clampPos]);
 
   // Build groups: hour label → shift codes
@@ -508,7 +620,8 @@ function FloatingShiftPanel({
       className="fixed z-[9998] select-none"
       style={{ left: pos.x, top: pos.y, touchAction: 'none' }}
     >
-      <div className={`bg-card border-2 shadow-2xl rounded-2xl flex flex-col ${dragging ? 'cursor-grabbing border-emerald-400' : 'border-border'}`}
+      <div
+        className={`bg-card border-2 shadow-2xl rounded-2xl flex flex-col ${dragging ? 'cursor-grabbing border-emerald-400' : 'border-border'}`}
         style={{ minWidth: 320, maxWidth: 520, maxHeight: 'calc(100vh - 24px)' }}
       >
         {/* ── Header ── */}
@@ -523,9 +636,12 @@ function FloatingShiftPanel({
               title="Mover panel"
             >
               <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
-                <circle cx="3" cy="2" r="1.2"/><circle cx="7" cy="2" r="1.2"/>
-                <circle cx="3" cy="7" r="1.2"/><circle cx="7" cy="7" r="1.2"/>
-                <circle cx="3" cy="12" r="1.2"/><circle cx="7" cy="12" r="1.2"/>
+                <circle cx="3" cy="2" r="1.2" />
+                <circle cx="7" cy="2" r="1.2" />
+                <circle cx="3" cy="7" r="1.2" />
+                <circle cx="7" cy="7" r="1.2" />
+                <circle cx="3" cy="12" r="1.2" />
+                <circle cx="7" cy="12" r="1.2" />
               </svg>
             </span>
 
@@ -555,7 +671,9 @@ function FloatingShiftPanel({
             )}
             {activeShift !== undefined && selectedCount === 0 && (
               <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                {activeShift === null ? 'Selecciona celdas a limpiar' : 'Selecciona celdas → Aplicar'}
+                {activeShift === null
+                  ? 'Selecciona celdas a limpiar'
+                  : 'Selecciona celdas → Aplicar'}
               </span>
             )}
             {activeSpecialDay !== undefined && selectedCount > 0 && (
@@ -598,30 +716,38 @@ function FloatingShiftPanel({
           <div className="flex items-center gap-1.5 px-3 pb-2 flex-wrap">
             {/* Clear pill */}
             <button
-              onClick={() => onSelectShift(activeShift === null ? undefined as unknown as ShiftCode : null)}
+              onClick={() =>
+                onSelectShift(activeShift === null ? (undefined as unknown as ShiftCode) : null)
+              }
               title="Modo limpiar celda"
               className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all whitespace-nowrap ${
                 activeShift === null
-                  ? 'border-emerald-500 ring-2 ring-emerald-300 bg-slate-200 text-slate-700' :'border-transparent hover:border-border/60 bg-slate-100 text-slate-500'
+                  ? 'border-emerald-500 ring-2 ring-emerald-300 bg-slate-200 text-slate-700'
+                  : 'border-transparent hover:border-border/60 bg-slate-100 text-slate-500'
               }`}
             >
               ✕ Limpiar
             </button>
 
             {/* Special day pills */}
-            {nonWorkingTypes.filter(nwt => nwt.code !== 'DESC').map(nwt => (
-              <button
-                key={`qp-nwt-${nwt.code}`}
-                onClick={() => onSelectSpecialDay(activeSpecialDay === nwt.code ? undefined : nwt.code)}
-                title={`Modo ${nwt.label}`}
-                className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all whitespace-nowrap ${
-                  activeSpecialDay === nwt.code
-                    ? 'border-purple-500 ring-2 ring-purple-300 bg-purple-100 text-purple-700' :'border-transparent hover:border-border/60 bg-purple-50 text-purple-500'
-                }`}
-              >
-                {nwt.icon} {nwt.label}
-              </button>
-            ))}
+            {nonWorkingTypes
+              .filter((nwt) => nwt.code !== 'DESC')
+              .map((nwt) => (
+                <button
+                  key={`qp-nwt-${nwt.code}`}
+                  onClick={() =>
+                    onSelectSpecialDay(activeSpecialDay === nwt.code ? undefined : nwt.code)
+                  }
+                  title={`Modo ${nwt.label}`}
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all whitespace-nowrap ${
+                    activeSpecialDay === nwt.code
+                      ? 'border-purple-500 ring-2 ring-purple-300 bg-purple-100 text-purple-700'
+                      : 'border-transparent hover:border-border/60 bg-purple-50 text-purple-500'
+                  }`}
+                >
+                  {nwt.icon} {nwt.label}
+                </button>
+              ))}
           </div>
         </div>
 
@@ -632,7 +758,10 @@ function FloatingShiftPanel({
             const hourNum = hourLabel === '—' ? '—' : hourLabel.replace(':00', '');
 
             return (
-              <div key={`fp-grp-${hourLabel}`} className="rounded-xl border border-border/50 overflow-hidden">
+              <div
+                key={`fp-grp-${hourLabel}`}
+                className="rounded-xl border border-border/50 overflow-hidden"
+              >
                 {/* Hour header button */}
                 <button
                   onClick={() => setOpenHour(isOpen ? null : hourLabel)}
@@ -640,51 +769,70 @@ function FloatingShiftPanel({
                     isOpen ? 'bg-secondary/10 border-b border-border/40' : 'hover:bg-muted/40'
                   }`}
                 >
-                  <span className={`text-sm font-bold min-w-[28px] ${isOpen ? 'text-secondary' : 'text-foreground'}`}>
+                  <span
+                    className={`text-sm font-bold min-w-[28px] ${isOpen ? 'text-secondary' : 'text-foreground'}`}
+                  >
                     {hourNum}
                   </span>
                   <span className="text-[10px] text-muted-foreground flex-1">
-                    {hourLabel === '—' ? 'Sin hora' : `${codes.length} turno${codes.length !== 1 ? 's' : ''}`}
+                    {hourLabel === '—'
+                      ? 'Sin hora'
+                      : `${codes.length} turno${codes.length !== 1 ? 's' : ''}`}
                   </span>
                   {/* Preview chips (collapsed) */}
                   {!isOpen && (
                     <div className="flex items-center gap-0.5 flex-wrap max-w-[200px]">
-                      {codes.slice(0, 4).map(c => {
+                      {codes.slice(0, 4).map((c) => {
                         const info = shifts[c];
                         return (
-                          <span key={`prev-${c}`} className={`px-1.5 py-0 rounded-full text-[10px] font-bold border border-transparent ${info?.colorClass || 'bg-slate-100 text-slate-600'}`}>
+                          <span
+                            key={`prev-${c}`}
+                            className={`px-1.5 py-0 rounded-full text-[10px] font-bold border border-transparent ${info?.colorClass || 'bg-slate-100 text-slate-600'}`}
+                          >
                             {c.toUpperCase()}
                           </span>
                         );
                       })}
                       {codes.length > 4 && (
-                        <span className="text-[10px] text-muted-foreground">+{codes.length - 4}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          +{codes.length - 4}
+                        </span>
                       )}
                     </div>
                   )}
-                  <span className="text-[10px] text-muted-foreground ml-1">{isOpen ? '▲' : '▼'}</span>
+                  <span className="text-[10px] text-muted-foreground ml-1">
+                    {isOpen ? '▲' : '▼'}
+                  </span>
                 </button>
 
                 {/* Expanded shift pills */}
                 {isOpen && (
                   <div className="flex flex-wrap gap-1.5 px-3 py-2 bg-muted/10">
-                    {codes.map(c => {
+                    {codes.map((c) => {
                       const info = shifts[c];
                       const isActive = activeShift === c;
                       return (
                         <button
                           key={`fp-shift-${c}`}
-                          onClick={() => onSelectShift(isActive ? undefined as unknown as ShiftCode : c as ShiftCode)}
+                          onClick={() =>
+                            onSelectShift(
+                              isActive ? (undefined as unknown as ShiftCode) : (c as ShiftCode)
+                            )
+                          }
                           title={info?.start ? `${info.start}–${info.end}` : c}
                           className={`flex flex-col items-center px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all ${
                             isActive
-                              ? 'border-emerald-500 ring-2 ring-emerald-300 scale-105 shadow-sm ' + (info?.colorClass || '')
-                              : 'border-transparent hover:border-border/60 hover:scale-105 ' + (info?.colorClass || 'bg-slate-100 text-slate-700')
+                              ? 'border-emerald-500 ring-2 ring-emerald-300 scale-105 shadow-sm ' +
+                                (info?.colorClass || '')
+                              : 'border-transparent hover:border-border/60 hover:scale-105 ' +
+                                (info?.colorClass || 'bg-slate-100 text-slate-700')
                           }`}
                         >
                           <span>{c.toUpperCase()}</span>
                           {info?.start && (
-                            <span className="text-[9px] font-normal opacity-70">{info.start}–{info.end}</span>
+                            <span className="text-[9px] font-normal opacity-70">
+                              {info.start}–{info.end}
+                            </span>
                           )}
                         </button>
                       );
@@ -700,8 +848,32 @@ function FloatingShiftPanel({
   );
 }
 
-export default function MallaGrid({ workers, scheduleData, specialDaysData, shifts, daysOfWeek, daysInMonth, monthLabel, getAlerts, getWeekUnderHours, onCellChange, onSpecialDayChange, contractedHoursOverride, onContractedHoursChange, holidayDayIndices = new Set() }: Props) {
-  const { getAllNonWorkingTypes, setCellShift: ctxSetCellShift, setSpecialDay: ctxSetSpecialDay, scheduleData: fullScheduleData, specialDays: fullSpecialDays, selectedMes, bulkAssign, bulkAssignSpecialDay } = useAppContext();
+export default function MallaGrid({
+  workers,
+  scheduleData,
+  specialDaysData,
+  shifts,
+  daysOfWeek,
+  daysInMonth,
+  monthLabel,
+  getAlerts,
+  getWeekUnderHours,
+  onCellChange,
+  onSpecialDayChange,
+  contractedHoursOverride,
+  onContractedHoursChange,
+  holidayDayIndices = new Set(),
+}: Props) {
+  const {
+    getAllNonWorkingTypes,
+    setCellShift: ctxSetCellShift,
+    setSpecialDay: ctxSetSpecialDay,
+    scheduleData: fullScheduleData,
+    specialDays: fullSpecialDays,
+    selectedMes,
+    bulkAssign,
+    bulkAssignSpecialDay,
+  } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
@@ -732,7 +904,7 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
 
   const handleToggleCell = useCallback((workerId: string, dayIndex: number) => {
     const key = `${workerId}-${dayIndex}`;
-    setSelectedCells(prev => {
+    setSelectedCells((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
         next.delete(key);
@@ -746,7 +918,7 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
   const handleApply = useCallback(() => {
     // Group selected cells by workerId → list of dayIndices
     const workerDayMap = new Map<string, number[]>();
-    selectedCells.forEach(key => {
+    selectedCells.forEach((key) => {
       const lastDash = key.lastIndexOf('-');
       const workerId = key.substring(0, lastDash);
       const dayIndex = parseInt(key.substring(lastDash + 1), 10);
@@ -884,8 +1056,18 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
 
   // ─── Compute leading/trailing days ────────────────────────────────────
   const MONTH_NAMES_MAP: Record<string, number> = {
-    'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-    'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+    Enero: 0,
+    Febrero: 1,
+    Marzo: 2,
+    Abril: 3,
+    Mayo: 4,
+    Junio: 5,
+    Julio: 6,
+    Agosto: 7,
+    Septiembre: 8,
+    Octubre: 9,
+    Noviembre: 10,
+    Diciembre: 11,
   };
   const DOW_LETTERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
   const parts = (monthLabel || '').split(' ');
@@ -924,169 +1106,219 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
   });
 
   // ─── Per-worker summary: weekly hours per week + sunday count ─────────
-  const getWorkerSummary = useCallback((workerId: string): {
-    weeklyHours: { key: number; hours: number; weekNum: number; daysInWeek: number; scheduledDays: number }[];
-    sundayCount: number;
-    totalHours: number;
-    firstWeekKey: number | null;
-    lastWeekKey: number | null;
-    firstWeekPrevHours: number;
-    lastWeekNextHours: number;
-  } => {
-    const sched = scheduleData[workerId] || [];
-    const workerSpecialDays = specialDaysData[workerId] || {};
+  const getWorkerSummary = useCallback(
+    (
+      workerId: string
+    ): {
+      weeklyHours: {
+        key: number;
+        hours: number;
+        weekNum: number;
+        daysInWeek: number;
+        scheduledDays: number;
+      }[];
+      sundayCount: number;
+      totalHours: number;
+      firstWeekKey: number | null;
+      lastWeekKey: number | null;
+      firstWeekPrevHours: number;
+      lastWeekNextHours: number;
+    } => {
+      const sched = scheduleData[workerId] || [];
+      const workerSpecialDays = specialDaysData[workerId] || {};
 
-    const MONTH_NAMES_MAP: Record<string, number> = {
-      'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-      'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
-    };
-    const parts = (monthLabel || '').split(' ');
-    const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 7;
-    const year = parseInt(parts[1] || '2026', 10);
+      const MONTH_NAMES_MAP: Record<string, number> = {
+        Enero: 0,
+        Febrero: 1,
+        Marzo: 2,
+        Abril: 3,
+        Mayo: 4,
+        Junio: 5,
+        Julio: 6,
+        Agosto: 7,
+        Septiembre: 8,
+        Octubre: 9,
+        Noviembre: 10,
+        Diciembre: 11,
+      };
+      const parts = (monthLabel || '').split(' ');
+      const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 7;
+      const year = parseInt(parts[1] || '2026', 10);
 
-    const weekHoursMap: Map<number, number> = new Map();
-    const weekDaysMap: Map<number, number> = new Map();
-    const weekScheduledDaysMap: Map<number, number> = new Map();
-    let sundayCount = 0;
-    let totalHours = 0;
+      const weekHoursMap: Map<number, number> = new Map();
+      const weekDaysMap: Map<number, number> = new Map();
+      const weekScheduledDaysMap: Map<number, number> = new Map();
+      let sundayCount = 0;
+      let totalHours = 0;
 
-    // Build month-clipped weeks: week starts at day 1 (or Monday of the week containing day 1),
-    // clipped to month boundaries. Each week ends on Sunday or end of month.
-    const monthClippedWeeks: { startDay: number; endDay: number; key: number }[] = [];
-    let wd = 1;
-    while (wd <= daysInMonth) {
-      const date = new Date(year, monthIdx, wd);
-      const dow = (date.getDay() + 6) % 7; // 0=Mon, 6=Sun
-      const weekMonday = wd - dow;
-      const weekSunday = weekMonday + 6;
-      const startDay = Math.max(1, weekMonday);
-      const endDay = Math.min(daysInMonth, weekSunday);
-      monthClippedWeeks.push({ startDay, endDay, key: startDay });
-      wd = endDay + 1;
-    }
-
-    // Helper: get the month-clipped week key for a given 1-based day number
-    const getMonthWeekKey = (dayNum: number): number => {
-      const week = monthClippedWeeks.find(w => dayNum >= w.startDay && dayNum <= w.endDay);
-      return week ? week.key : 1;
-    };
-
-    for (let i = 0; i < daysInMonth; i++) {
-      const isSpecial = !!workerSpecialDays[i];
-      const dow = daysOfWeek[i];
-
-      if (dow === 'D' && (isSpecial || !sched[i] || sched[i] === 'DESC')) {
-        sundayCount++;
+      // Build month-clipped weeks: week starts at day 1 (or Monday of the week containing day 1),
+      // clipped to month boundaries. Each week ends on Sunday or end of month.
+      const monthClippedWeeks: { startDay: number; endDay: number; key: number }[] = [];
+      let wd = 1;
+      while (wd <= daysInMonth) {
+        const date = new Date(year, monthIdx, wd);
+        const dow = (date.getDay() + 6) % 7; // 0=Mon, 6=Sun
+        const weekMonday = wd - dow;
+        const weekSunday = weekMonday + 6;
+        const startDay = Math.max(1, weekMonday);
+        const endDay = Math.min(daysInMonth, weekSunday);
+        monthClippedWeeks.push({ startDay, endDay, key: startDay });
+        wd = endDay + 1;
       }
 
-      const dayNum = i + 1;
-      const weekKey = getMonthWeekKey(dayNum);
-      // Track how many calendar days of this month fall in this week
-      weekDaysMap.set(weekKey, (weekDaysMap.get(weekKey) || 0) + 1);
+      // Helper: get the month-clipped week key for a given 1-based day number
+      const getMonthWeekKey = (dayNum: number): number => {
+        const week = monthClippedWeeks.find((w) => dayNum >= w.startDay && dayNum <= w.endDay);
+        return week ? week.key : 1;
+      };
 
-      if (isSpecial || !sched[i] || sched[i] === 'DESC') continue;
-      const shiftInfo = shifts[sched[i] as string];
-      if (!shiftInfo || !shiftInfo.start || !shiftInfo.end) continue;
+      for (let i = 0; i < daysInMonth; i++) {
+        const isSpecial = !!workerSpecialDays[i];
+        const dow = daysOfWeek[i];
 
-      const [sh, sm] = shiftInfo.start.split(':').map(Number);
-      const [eh, em] = shiftInfo.end.split(':').map(Number);
-      let mins = (eh * 60 + em) - (sh * 60 + sm);
-      if (mins < 0) mins += 24 * 60;
-      let hrs = mins / 60;
-      const col = (shiftInfo as { colacion?: number }).colacion;
-      if (col && col > 0) hrs -= col / 60;
+        if (dow === 'D' && (isSpecial || !sched[i] || sched[i] === 'DESC')) {
+          sundayCount++;
+        }
 
-      totalHours += hrs;
+        const dayNum = i + 1;
+        const weekKey = getMonthWeekKey(dayNum);
+        // Track how many calendar days of this month fall in this week
+        weekDaysMap.set(weekKey, (weekDaysMap.get(weekKey) || 0) + 1);
 
-      weekHoursMap.set(weekKey, (weekHoursMap.get(weekKey) || 0) + hrs);
-      // Track actual scheduled (working) days per week
-      weekScheduledDaysMap.set(weekKey, (weekScheduledDaysMap.get(weekKey) || 0) + 1);
-    }
-
-    // Use month-clipped week keys (startDay) for first/last week
-    const firstWeekKey = monthClippedWeeks.length > 0 ? monthClippedWeeks[0].key : null;
-    const lastWeekKey = monthClippedWeeks.length > 1 ? monthClippedWeeks[monthClippedWeeks.length - 1].key : null;
-
-    // Determine if first/last weeks are "incomplete" (don't span a full Mon-Sun)
-    const firstWeekEndDay = monthClippedWeeks.length > 0 ? monthClippedWeeks[0].endDay : 7;
-    const lastWeekStartDay = monthClippedWeeks.length > 1 ? monthClippedWeeks[monthClippedWeeks.length - 1].startDay : 1;
-    const firstWeekDaysCount = monthClippedWeeks.length > 0 ? (monthClippedWeeks[0].endDay - monthClippedWeeks[0].startDay + 1) : 7;
-    const lastWeekDaysCount = monthClippedWeeks.length > 1 ? (monthClippedWeeks[monthClippedWeeks.length - 1].endDay - monthClippedWeeks[monthClippedWeeks.length - 1].startDay + 1) : 7;
-
-    let firstWeekPrevHours = 0;
-    const isFirstWeekIncomplete = leadingCount > 0 && firstWeekDaysCount < 7;
-    if (isFirstWeekIncomplete) {
-      const prevSched = (fullScheduleData[prevMonthKey] || {})[workerId] || [];
-      const prevSpecialDays = (fullSpecialDays[prevMonthKey] || {})[workerId] || {};
-      for (const ld of leadingDays) {
-        const isSpecial = !!prevSpecialDays[ld.dayIndex];
-        if (isSpecial) continue;
-        const shiftCode = prevSched[ld.dayIndex];
-        if (!shiftCode || shiftCode === 'DESC') continue;
-        const shiftInfo = shifts[shiftCode as string];
+        if (isSpecial || !sched[i] || sched[i] === 'DESC') continue;
+        const shiftInfo = shifts[sched[i] as string];
         if (!shiftInfo || !shiftInfo.start || !shiftInfo.end) continue;
+
         const [sh, sm] = shiftInfo.start.split(':').map(Number);
         const [eh, em] = shiftInfo.end.split(':').map(Number);
-        let mins = (eh * 60 + em) - (sh * 60 + sm);
+        let mins = eh * 60 + em - (sh * 60 + sm);
         if (mins < 0) mins += 24 * 60;
         let hrs = mins / 60;
         const col = (shiftInfo as { colacion?: number }).colacion;
         if (col && col > 0) hrs -= col / 60;
-        firstWeekPrevHours += hrs;
+
+        totalHours += hrs;
+
+        weekHoursMap.set(weekKey, (weekHoursMap.get(weekKey) || 0) + hrs);
+        // Track actual scheduled (working) days per week
+        weekScheduledDaysMap.set(weekKey, (weekScheduledDaysMap.get(weekKey) || 0) + 1);
       }
-    }
 
-    let lastWeekNextHours = 0;
-    const isLastWeekIncomplete = trailingCount > 0 && lastWeekDaysCount < 7;
-    if (isLastWeekIncomplete) {
-      const nextSched = (fullScheduleData[nextMonthKey] || {})[workerId] || [];
-      const nextSpecialDays = (fullSpecialDays[nextMonthKey] || {})[workerId] || {};
-      for (const trd of trailingDays) {
-        const isSpecial = !!nextSpecialDays[trd.dayIndex];
-        if (isSpecial) continue;
-        const shiftCode = nextSched[trd.dayIndex];
-        if (!shiftCode || shiftCode === 'DESC') continue;
-        const shiftInfo = shifts[shiftCode as string];
-        if (!shiftInfo || !shiftInfo.start || !shiftInfo.end) continue;
-        const [sh, sm] = shiftInfo.start.split(':').map(Number);
-        const [eh, em] = shiftInfo.end.split(':').map(Number);
-        let mins = (eh * 60 + em) - (sh * 60 + sm);
-        if (mins < 0) mins += 24 * 60;
-        let hrs = mins / 60;
-        const col = (shiftInfo as { colacion?: number }).colacion;
-        if (col && col > 0) hrs -= col / 60;
-        lastWeekNextHours += hrs;
+      // Use month-clipped week keys (startDay) for first/last week
+      const firstWeekKey = monthClippedWeeks.length > 0 ? monthClippedWeeks[0].key : null;
+      const lastWeekKey =
+        monthClippedWeeks.length > 1 ? monthClippedWeeks[monthClippedWeeks.length - 1].key : null;
+
+      // Determine if first/last weeks are "incomplete" (don't span a full Mon-Sun)
+      const firstWeekEndDay = monthClippedWeeks.length > 0 ? monthClippedWeeks[0].endDay : 7;
+      const lastWeekStartDay =
+        monthClippedWeeks.length > 1 ? monthClippedWeeks[monthClippedWeeks.length - 1].startDay : 1;
+      const firstWeekDaysCount =
+        monthClippedWeeks.length > 0
+          ? monthClippedWeeks[0].endDay - monthClippedWeeks[0].startDay + 1
+          : 7;
+      const lastWeekDaysCount =
+        monthClippedWeeks.length > 1
+          ? monthClippedWeeks[monthClippedWeeks.length - 1].endDay -
+            monthClippedWeeks[monthClippedWeeks.length - 1].startDay +
+            1
+          : 7;
+
+      let firstWeekPrevHours = 0;
+      const isFirstWeekIncomplete = leadingCount > 0 && firstWeekDaysCount < 7;
+      if (isFirstWeekIncomplete) {
+        const prevSched = (fullScheduleData[prevMonthKey] || {})[workerId] || [];
+        const prevSpecialDays = (fullSpecialDays[prevMonthKey] || {})[workerId] || {};
+        for (const ld of leadingDays) {
+          const isSpecial = !!prevSpecialDays[ld.dayIndex];
+          if (isSpecial) continue;
+          const shiftCode = prevSched[ld.dayIndex];
+          if (!shiftCode || shiftCode === 'DESC') continue;
+          const shiftInfo = shifts[shiftCode as string];
+          if (!shiftInfo || !shiftInfo.start || !shiftInfo.end) continue;
+          const [sh, sm] = shiftInfo.start.split(':').map(Number);
+          const [eh, em] = shiftInfo.end.split(':').map(Number);
+          let mins = eh * 60 + em - (sh * 60 + sm);
+          if (mins < 0) mins += 24 * 60;
+          let hrs = mins / 60;
+          const col = (shiftInfo as { colacion?: number }).colacion;
+          if (col && col > 0) hrs -= col / 60;
+          firstWeekPrevHours += hrs;
+        }
       }
-    }
 
-    // Build sorted weekly hours with week number
-    const sortedWeeks = [...weekHoursMap.entries()].sort((a, b) => a[0] - b[0]);
-    const weeklyHours = sortedWeeks.map(([key, hours], idx) => ({
-      key,
-      hours: Math.round(hours * 10) / 10,
-      weekNum: idx + 1,
-      daysInWeek: weekDaysMap.get(key) ?? 7,
-      scheduledDays: weekScheduledDaysMap.get(key) ?? 0,
-    }));
+      let lastWeekNextHours = 0;
+      const isLastWeekIncomplete = trailingCount > 0 && lastWeekDaysCount < 7;
+      if (isLastWeekIncomplete) {
+        const nextSched = (fullScheduleData[nextMonthKey] || {})[workerId] || [];
+        const nextSpecialDays = (fullSpecialDays[nextMonthKey] || {})[workerId] || {};
+        for (const trd of trailingDays) {
+          const isSpecial = !!nextSpecialDays[trd.dayIndex];
+          if (isSpecial) continue;
+          const shiftCode = nextSched[trd.dayIndex];
+          if (!shiftCode || shiftCode === 'DESC') continue;
+          const shiftInfo = shifts[shiftCode as string];
+          if (!shiftInfo || !shiftInfo.start || !shiftInfo.end) continue;
+          const [sh, sm] = shiftInfo.start.split(':').map(Number);
+          const [eh, em] = shiftInfo.end.split(':').map(Number);
+          let mins = eh * 60 + em - (sh * 60 + sm);
+          if (mins < 0) mins += 24 * 60;
+          let hrs = mins / 60;
+          const col = (shiftInfo as { colacion?: number }).colacion;
+          if (col && col > 0) hrs -= col / 60;
+          lastWeekNextHours += hrs;
+        }
+      }
 
-    return {
-      weeklyHours,
-      sundayCount,
-      totalHours: Math.round(totalHours * 10) / 10,
-      firstWeekKey: isFirstWeekIncomplete ? firstWeekKey : null,
-      lastWeekKey: isLastWeekIncomplete ? lastWeekKey : null,
-      firstWeekPrevHours: Math.round(firstWeekPrevHours * 10) / 10,
-      lastWeekNextHours: Math.round(lastWeekNextHours * 10) / 10,
-    };
-  }, [scheduleData, specialDaysData, shifts, daysOfWeek, daysInMonth, monthLabel, leadingDays, trailingDays, leadingCount, trailingCount, fullScheduleData, fullSpecialDays, prevMonthKey, nextMonthKey]);
+      // Build sorted weekly hours with week number
+      const sortedWeeks = [...weekHoursMap.entries()].sort((a, b) => a[0] - b[0]);
+      const weeklyHours = sortedWeeks.map(([key, hours], idx) => ({
+        key,
+        hours: Math.round(hours * 10) / 10,
+        weekNum: idx + 1,
+        daysInWeek: weekDaysMap.get(key) ?? 7,
+        scheduledDays: weekScheduledDaysMap.get(key) ?? 0,
+      }));
+
+      return {
+        weeklyHours,
+        sundayCount,
+        totalHours: Math.round(totalHours * 10) / 10,
+        firstWeekKey: isFirstWeekIncomplete ? firstWeekKey : null,
+        lastWeekKey: isLastWeekIncomplete ? lastWeekKey : null,
+        firstWeekPrevHours: Math.round(firstWeekPrevHours * 10) / 10,
+        lastWeekNextHours: Math.round(lastWeekNextHours * 10) / 10,
+      };
+    },
+    [
+      scheduleData,
+      specialDaysData,
+      shifts,
+      daysOfWeek,
+      daysInMonth,
+      monthLabel,
+      leadingDays,
+      trailingDays,
+      leadingCount,
+      trailingCount,
+      fullScheduleData,
+      fullSpecialDays,
+      prevMonthKey,
+      nextMonthKey,
+    ]
+  );
 
   // ─── Early return AFTER all hooks ─────────────────────────────────────
   if (workers.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <User size={48} className="text-muted-foreground/30 mb-3" />
-        <p className="text-base font-semibold text-muted-foreground">Sin trabajadoras para este filtro</p>
-        <p className="text-sm text-muted-foreground/70 mt-1">Ajusta los filtros de sucursal o área</p>
+        <p className="text-base font-semibold text-muted-foreground">
+          Sin trabajadoras para este filtro
+        </p>
+        <p className="text-sm text-muted-foreground/70 mt-1">
+          Ajusta los filtros de sucursal o área
+        </p>
       </div>
     );
   }
@@ -1100,20 +1332,33 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/50 bg-muted/20">
         {panelOpen ? (
           <p className="text-xs text-muted-foreground">
-            {isBlockMode
-              ? <>
-                  <strong>
-                    {activeSpecialDay !== undefined
-                      ? nonWorkingTypes.find(t => t.code === activeSpecialDay)?.label ?? activeSpecialDay
-                      : activeShift === null ? '✕ Limpiar' : activeShift}
-                  </strong> activo — haz clic en las celdas para seleccionarlas, luego toca <strong>Aplicar</strong>.
-                  {selectedCells.size > 0 && <span className="ml-1 text-emerald-600 font-semibold">{selectedCells.size} celda{selectedCells.size !== 1 ? 's' : ''} seleccionada{selectedCells.size !== 1 ? 's' : ''}.</span>}
-                </>
-              : 'Selecciona un turno o día especial en el panel flotante para activar el modo bloque.'
-            }
+            {isBlockMode ? (
+              <>
+                <strong>
+                  {activeSpecialDay !== undefined
+                    ? (nonWorkingTypes.find((t) => t.code === activeSpecialDay)?.label ??
+                      activeSpecialDay)
+                    : activeShift === null
+                      ? '✕ Limpiar'
+                      : activeShift}
+                </strong>{' '}
+                activo — haz clic en las celdas para seleccionarlas, luego toca{' '}
+                <strong>Aplicar</strong>.
+                {selectedCells.size > 0 && (
+                  <span className="ml-1 text-emerald-600 font-semibold">
+                    {selectedCells.size} celda{selectedCells.size !== 1 ? 's' : ''} seleccionada
+                    {selectedCells.size !== 1 ? 's' : ''}.
+                  </span>
+                )}
+              </>
+            ) : (
+              'Selecciona un turno o día especial en el panel flotante para activar el modo bloque.'
+            )}
           </p>
         ) : (
-          <p className="text-xs text-muted-foreground">Haz clic en cada celda para asignar turnos, o usa el panel de asignación rápida.</p>
+          <p className="text-xs text-muted-foreground">
+            Haz clic en cada celda para asignar turnos, o usa el panel de asignación rápida.
+          </p>
         )}
         {!panelOpen && (
           <button
@@ -1136,13 +1381,21 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
         <table className="border-collapse text-xs" style={{ minWidth: 1000, width: 'max-content' }}>
           <thead ref={theadRef} className="sticky top-0 z-20">
             <tr className="bg-muted/30 border-b border-border">
-              <th className="text-left px-3 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] sticky left-0 w-[140px] min-w-[140px] max-w-[140px] border-r border-border" style={{ zIndex: 13, backgroundColor: '#f1f5f9' }}>
+              <th
+                className="text-left px-3 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] sticky left-0 w-[140px] min-w-[140px] max-w-[140px] border-r border-border"
+                style={{ zIndex: 13, backgroundColor: '#f1f5f9' }}
+              >
                 COLABORADORAS
               </th>
               {/* Summary column header — sticky */}
-              <th className="text-center px-1 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] border-r border-border min-w-[90px] w-[90px] sticky" style={{ left: 140, zIndex: 13, backgroundColor: '#f1f5f9' }}>
+              <th
+                className="text-center px-1 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] border-r border-border min-w-[90px] w-[90px] sticky"
+                style={{ left: 140, zIndex: 13, backgroundColor: '#f1f5f9' }}
+              >
                 <div>Resumen</div>
-                <div className="text-[9px] font-normal normal-case tracking-normal text-muted-foreground/70">horas · sem. · dom.</div>
+                <div className="text-[9px] font-normal normal-case tracking-normal text-muted-foreground/70">
+                  horas · sem. · dom.
+                </div>
               </th>
               {leadingDays.map((ld) => (
                 <th
@@ -1162,10 +1415,16 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
                   <th
                     key={`day-${d}`}
                     className={`text-center px-0 py-1.5 w-[44px] min-w-[44px] max-w-[44px] font-medium border-r border-border/50 ${isSunday ? 'text-red-500' : isHoliday ? 'text-amber-700' : 'text-muted-foreground'}`}
-                    style={{ backgroundColor: isSunday ? '#fee2e2' : isHoliday ? '#fef3c7' : '#f1f5f9' }}
+                    style={{
+                      backgroundColor: isSunday ? '#fee2e2' : isHoliday ? '#fef3c7' : '#f1f5f9',
+                    }}
                   >
                     <div className="font-bold text-xs">{d}</div>
-                    <div className={`text-[10px] ${isSunday ? 'text-red-400' : isHoliday ? 'text-amber-500' : 'text-muted-foreground/60'}`}>{dow}</div>
+                    <div
+                      className={`text-[10px] ${isSunday ? 'text-red-400' : isHoliday ? 'text-amber-500' : 'text-muted-foreground/60'}`}
+                    >
+                      {dow}
+                    </div>
                   </th>
                 );
               })}
@@ -1199,20 +1458,30 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
                   className={`border-b border-border/50 transition-colors hover:bg-muted/20 ${hasAlert ? 'row-alert-bg' : rowIdx % 2 === 0 ? '' : 'bg-muted/5'}`}
                 >
                   {/* Sticky worker name cell */}
-                  <td className="px-2 py-0.5 sticky left-0 border-r border-border w-[140px] min-w-[140px] max-w-[140px]" style={{ zIndex: 2, backgroundColor: stickyBgColor }}>
+                  <td
+                    className="px-2 py-0.5 sticky left-0 border-r border-border w-[140px] min-w-[140px] max-w-[140px]"
+                    style={{ zIndex: 2, backgroundColor: stickyBgColor }}
+                  >
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] font-bold text-muted-foreground shrink-0 w-4 text-right">{rowIdx + 1}.</span>
+                      <span className="text-[9px] font-bold text-muted-foreground shrink-0 w-4 text-right">
+                        {rowIdx + 1}.
+                      </span>
                       <div className="w-6 h-6 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-[9px] font-bold shrink-0">
                         {worker.initials}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1">
-                          <p className="font-semibold text-foreground text-xs truncate">{worker.name}</p>
+                          <p className="font-semibold text-foreground text-xs truncate">
+                            {worker.name}
+                          </p>
                         </div>
                         <div className="flex items-center gap-1">
-                          <p className="text-[10px] text-muted-foreground truncate">{worker.role || worker.cargo}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {worker.role || worker.cargo}
+                          </p>
                           {(() => {
-                            const effectiveHoras = contractedHoursOverride[worker.id] ?? worker.horasContratadas ?? 42;
+                            const effectiveHoras =
+                              contractedHoursOverride[worker.id] ?? worker.horasContratadas ?? 42;
                             return (
                               <span className="text-[9px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded px-1 py-0 shrink-0 whitespace-nowrap">
                                 {effectiveHoras}h
@@ -1226,29 +1495,50 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
 
                   {/* Summary cell — sticky, pinned next to worker name */}
                   {(() => {
-                    const { weeklyHours, sundayCount, totalHours, firstWeekKey, lastWeekKey, firstWeekPrevHours, lastWeekNextHours } = getWorkerSummary(worker.id);
-                    const effectiveHorasContratadas = contractedHoursOverride[worker.id] ?? worker.horasContratadas ?? 42;
-                    const maxWeekHours = weeklyHours.length > 0 ? Math.max(...weeklyHours.map(w => w.hours)) : 0;
+                    const {
+                      weeklyHours,
+                      sundayCount,
+                      totalHours,
+                      firstWeekKey,
+                      lastWeekKey,
+                      firstWeekPrevHours,
+                      lastWeekNextHours,
+                    } = getWorkerSummary(worker.id);
+                    const effectiveHorasContratadas =
+                      contractedHoursOverride[worker.id] ?? worker.horasContratadas ?? 42;
+                    const maxWeekHours =
+                      weeklyHours.length > 0 ? Math.max(...weeklyHours.map((w) => w.hours)) : 0;
                     const horasLimite = effectiveHorasContratadas;
                     const hoursOver = maxWeekHours > horasLimite;
                     const underHoursWeeks = getWeekUnderHours(worker.id);
                     const hasUnderHoursWeek = underHoursWeeks.size > 0;
                     const sundaysOver = sundayCount < 2;
 
-                    const firstWeekCurrentHours = firstWeekKey !== null
-                      ? Math.round(((weeklyHours.find(w => w.key === firstWeekKey)?.hours ?? 0)) * 10) / 10
-                      : 0;
-                    const lastWeekCurrentHours = lastWeekKey !== null
-                      ? Math.round(((weeklyHours.find(w => w.key === lastWeekKey)?.hours ?? 0)) * 10) / 10
-                      : 0;
+                    const firstWeekCurrentHours =
+                      firstWeekKey !== null
+                        ? Math.round(
+                            (weeklyHours.find((w) => w.key === firstWeekKey)?.hours ?? 0) * 10
+                          ) / 10
+                        : 0;
+                    const lastWeekCurrentHours =
+                      lastWeekKey !== null
+                        ? Math.round(
+                            (weeklyHours.find((w) => w.key === lastWeekKey)?.hours ?? 0) * 10
+                          ) / 10
+                        : 0;
 
-                    const sameWeek = firstWeekKey !== null && lastWeekKey !== null && firstWeekKey === lastWeekKey;
+                    const sameWeek =
+                      firstWeekKey !== null && lastWeekKey !== null && firstWeekKey === lastWeekKey;
 
                     return (
-                      <td className="border-r border-border px-1 py-0.5 min-w-[90px] w-[90px] text-center align-middle sticky" style={{ left: 140, zIndex: 2, backgroundColor: stickyBgColor }}>
-
+                      <td
+                        className="border-r border-border px-1 py-0.5 min-w-[90px] w-[90px] text-center align-middle sticky"
+                        style={{ left: 140, zIndex: 2, backgroundColor: stickyBgColor }}
+                      >
                         {/* Monthly total hours */}
-                        <div className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded-md text-[10px] font-semibold mb-0.5 ${hoursOver ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
+                        <div
+                          className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded-md text-[10px] font-semibold mb-0.5 ${hoursOver ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}
+                        >
                           <span>⏱</span>
                           <span>{totalHours}h mes</span>
                           {hoursOver && <span className="text-[9px]">⚠</span>}
@@ -1258,12 +1548,14 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
                         {weeklyHours.length > 0 && (
                           <div className="mt-0.5 mb-0.5">
                             <button
-                              onClick={() => setExpandedWeeklyHours(prev => {
-                                const next = new Set(prev);
-                                if (next.has(worker.id)) next.delete(worker.id);
-                                else next.add(worker.id);
-                                return next;
-                              })}
+                              onClick={() =>
+                                setExpandedWeeklyHours((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(worker.id)) next.delete(worker.id);
+                                  else next.add(worker.id);
+                                  return next;
+                                })
+                              }
                               className="w-full flex items-center justify-between gap-1 px-1 py-0.5 rounded text-[9px] font-semibold border bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 transition-colors"
                             >
                               <span>Horas x sem.</span>
@@ -1273,9 +1565,13 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
                               <div className="mt-0.5 space-y-0.5">
                                 {weeklyHours.map((wk) => {
                                   // Use actual scheduled days for proportional required hours
-                                  const requiredHours = horasLimite * ((wk.scheduledDays || wk.daysInWeek) / 7);
-                                  const tolerance = 0.10;
-                                  const isUnder = wk.hours > 0 && wk.scheduledDays > 0 && wk.hours < requiredHours * (1 - tolerance);
+                                  const requiredHours =
+                                    horasLimite * ((wk.scheduledDays || wk.daysInWeek) / 7);
+                                  const tolerance = 0.1;
+                                  const isUnder =
+                                    wk.hours > 0 &&
+                                    wk.scheduledDays > 0 &&
+                                    wk.hours < requiredHours * (1 - tolerance);
                                   const isOver = wk.hours > horasLimite;
                                   return (
                                     <div
@@ -1284,7 +1580,8 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
                                         isOver
                                           ? 'bg-orange-50 border-orange-200 text-orange-700'
                                           : isUnder
-                                            ? 'bg-amber-50 border-amber-200 text-amber-700' :'bg-green-50 border-green-200 text-green-700'
+                                            ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                            : 'bg-green-50 border-green-200 text-green-700'
                                       }`}
                                     >
                                       <span>S{wk.weekNum}</span>
@@ -1300,90 +1597,166 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
                         )}
 
                         {/* Incomplete week breakdown: collapsible toggle */}
-                        {(firstWeekKey !== null || lastWeekKey !== null) && !sameWeek && (() => {
-                          const hasFirstWeek = firstWeekKey !== null;
-                          const hasLastWeek = lastWeekKey !== null;
-                          // Use proportional required hours based on days in this month for each partial week
-                          const firstWeekDaysInMonth = weeklyHours[0]?.daysInWeek ?? 7;
-                          const lastWeekDaysInMonth = weeklyHours[weeklyHours.length - 1]?.daysInWeek ?? 7;
-                          const tolerance = 0.10;
-                          // First week: total = current month + prev month portion
-                          const firstWeekTotal = Math.round((firstWeekCurrentHours + firstWeekPrevHours) * 10) / 10;
-                          // Last week: total = current month + next month portion
-                          const lastWeekTotal = Math.round((lastWeekCurrentHours + lastWeekNextHours) * 10) / 10;
-                          // Flag based on full week total vs contracted hours
-                          const firstHasDiff = hasFirstWeek && firstWeekTotal > 0 && firstWeekTotal < horasLimite * (1 - tolerance);
-                          const lastHasDiff = hasLastWeek && lastWeekTotal > 0 && lastWeekTotal < horasLimite * (1 - tolerance);
-                          const hasDiff = firstHasDiff || lastHasDiff;
-                          const isExpanded = expandedWeekBreakdown.has(worker.id);
-                          return (
-                            <div className="mt-1 mb-1">
-                              <button
-                                onClick={() => setExpandedWeekBreakdown(prev => {
-                                  const next = new Set(prev);
-                                  if (next.has(worker.id)) next.delete(worker.id);
-                                  else next.add(worker.id);
-                                  return next;
-                                })}
-                                className={`w-full flex items-center justify-between gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-semibold border transition-colors ${
-                                  hasDiff
-                                    ? 'bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100' :'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
-                                }`}
-                              >
-                                <span className="flex items-center gap-1">
-                                  {hasDiff && <span>⚠</span>}
-                                  <span>Sems. incompletas</span>
-                                </span>
-                                <span>{isExpanded ? '▲' : '▼'}</span>
-                              </button>
-                              {isExpanded && (
-                                <div className="mt-0.5 space-y-0.5">
-                                  {hasFirstWeek && (
-                                    <div className={`rounded-md border px-1.5 py-1 text-left ${firstHasDiff ? 'border-orange-300 bg-orange-50' : 'border-violet-200 bg-violet-50'}`}>
-                                      <div className={`text-[9px] font-bold uppercase tracking-wide mb-0.5 ${firstHasDiff ? 'text-orange-600' : 'text-violet-600'}`}>
-                                        Sem. 1 {firstHasDiff && '⚠'}
+                        {(firstWeekKey !== null || lastWeekKey !== null) &&
+                          !sameWeek &&
+                          (() => {
+                            const hasFirstWeek = firstWeekKey !== null;
+                            const hasLastWeek = lastWeekKey !== null;
+                            // Use proportional required hours based on days in this month for each partial week
+                            const firstWeekDaysInMonth = weeklyHours[0]?.daysInWeek ?? 7;
+                            const lastWeekDaysInMonth =
+                              weeklyHours[weeklyHours.length - 1]?.daysInWeek ?? 7;
+                            const tolerance = 0.1;
+                            // First week: total = current month + prev month portion
+                            const firstWeekTotal =
+                              Math.round((firstWeekCurrentHours + firstWeekPrevHours) * 10) / 10;
+                            // Last week: total = current month + next month portion
+                            const lastWeekTotal =
+                              Math.round((lastWeekCurrentHours + lastWeekNextHours) * 10) / 10;
+                            // Flag based on full week total vs contracted hours
+                            const firstHasDiff =
+                              hasFirstWeek &&
+                              firstWeekTotal > 0 &&
+                              firstWeekTotal < horasLimite * (1 - tolerance);
+                            const lastHasDiff =
+                              hasLastWeek &&
+                              lastWeekTotal > 0 &&
+                              lastWeekTotal < horasLimite * (1 - tolerance);
+                            const hasDiff = firstHasDiff || lastHasDiff;
+                            const isExpanded = expandedWeekBreakdown.has(worker.id);
+                            return (
+                              <div className="mt-1 mb-1">
+                                <button
+                                  onClick={() =>
+                                    setExpandedWeekBreakdown((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(worker.id)) next.delete(worker.id);
+                                      else next.add(worker.id);
+                                      return next;
+                                    })
+                                  }
+                                  className={`w-full flex items-center justify-between gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-semibold border transition-colors ${
+                                    hasDiff
+                                      ? 'bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100'
+                                      : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-1">
+                                    {hasDiff && <span>⚠</span>}
+                                    <span>Sems. incompletas</span>
+                                  </span>
+                                  <span>{isExpanded ? '▲' : '▼'}</span>
+                                </button>
+                                {isExpanded && (
+                                  <div className="mt-0.5 space-y-0.5">
+                                    {hasFirstWeek && (
+                                      <div
+                                        className={`rounded-md border px-1.5 py-1 text-left ${firstHasDiff ? 'border-orange-300 bg-orange-50' : 'border-violet-200 bg-violet-50'}`}
+                                      >
+                                        <div
+                                          className={`text-[9px] font-bold uppercase tracking-wide mb-0.5 ${firstHasDiff ? 'text-orange-600' : 'text-violet-600'}`}
+                                        >
+                                          Sem. 1 {firstHasDiff && '⚠'}
+                                        </div>
+                                        <div className="flex items-center justify-between gap-1">
+                                          <span
+                                            className={`text-[9px] ${firstHasDiff ? 'text-orange-500' : 'text-violet-500'}`}
+                                          >
+                                            Mes ant.
+                                          </span>
+                                          <span
+                                            className={`text-[9px] font-bold ${firstHasDiff ? 'text-orange-700' : 'text-violet-700'}`}
+                                          >
+                                            {firstWeekPrevHours}h
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-1">
+                                          <span
+                                            className={`text-[9px] ${firstHasDiff ? 'text-orange-500' : 'text-violet-500'}`}
+                                          >
+                                            Este mes
+                                          </span>
+                                          <span
+                                            className={`text-[9px] font-bold ${firstHasDiff ? 'text-orange-700' : 'text-violet-700'}`}
+                                          >
+                                            {firstWeekCurrentHours}h
+                                          </span>
+                                        </div>
+                                        <div
+                                          className={`flex items-center justify-between gap-1 mt-0.5 pt-0.5 border-t ${firstHasDiff ? 'border-orange-200' : 'border-violet-200'}`}
+                                        >
+                                          <span
+                                            className={`text-[9px] font-semibold ${firstHasDiff ? 'text-orange-600' : 'text-violet-600'}`}
+                                          >
+                                            Total sem.
+                                          </span>
+                                          <span
+                                            className={`text-[9px] font-bold ${firstHasDiff ? 'text-orange-800' : 'text-violet-800'}`}
+                                          >
+                                            {firstWeekTotal}h
+                                          </span>
+                                        </div>
                                       </div>
-                                      <div className="flex items-center justify-between gap-1">
-                                        <span className={`text-[9px] ${firstHasDiff ? 'text-orange-500' : 'text-violet-500'}`}>Mes ant.</span>
-                                        <span className={`text-[9px] font-bold ${firstHasDiff ? 'text-orange-700' : 'text-violet-700'}`}>{firstWeekPrevHours}h</span>
+                                    )}
+                                    {hasLastWeek && (
+                                      <div
+                                        className={`rounded-md border px-1.5 py-1 text-left ${lastHasDiff ? 'border-orange-300 bg-orange-50' : 'border-teal-200 bg-teal-50'}`}
+                                      >
+                                        <div
+                                          className={`text-[9px] font-bold uppercase tracking-wide mb-0.5 ${lastHasDiff ? 'text-orange-600' : 'text-teal-600'}`}
+                                        >
+                                          Últ. sem. {lastHasDiff && '⚠'}
+                                        </div>
+                                        <div className="flex items-center justify-between gap-1">
+                                          <span
+                                            className={`text-[9px] ${lastHasDiff ? 'text-orange-500' : 'text-teal-500'}`}
+                                          >
+                                            Este mes
+                                          </span>
+                                          <span
+                                            className={`text-[9px] font-bold ${lastHasDiff ? 'text-orange-700' : 'text-teal-700'}`}
+                                          >
+                                            {lastWeekCurrentHours}h
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-1">
+                                          <span
+                                            className={`text-[9px] ${lastHasDiff ? 'text-orange-500' : 'text-teal-500'}`}
+                                          >
+                                            Mes sig.
+                                          </span>
+                                          <span
+                                            className={`text-[9px] font-bold ${lastHasDiff ? 'text-orange-700' : 'text-teal-700'}`}
+                                          >
+                                            {lastWeekNextHours}h
+                                          </span>
+                                        </div>
+                                        <div
+                                          className={`flex items-center justify-between gap-1 mt-0.5 pt-0.5 border-t ${lastHasDiff ? 'border-orange-200' : 'border-teal-200'}`}
+                                        >
+                                          <span
+                                            className={`text-[9px] font-semibold ${lastHasDiff ? 'text-orange-600' : 'text-teal-600'}`}
+                                          >
+                                            Total sem.
+                                          </span>
+                                          <span
+                                            className={`text-[9px] font-bold ${lastHasDiff ? 'text-orange-800' : 'text-teal-800'}`}
+                                          >
+                                            {lastWeekTotal}h
+                                          </span>
+                                        </div>
                                       </div>
-                                      <div className="flex items-center justify-between gap-1">
-                                        <span className={`text-[9px] ${firstHasDiff ? 'text-orange-500' : 'text-violet-500'}`}>Este mes</span>
-                                        <span className={`text-[9px] font-bold ${firstHasDiff ? 'text-orange-700' : 'text-violet-700'}`}>{firstWeekCurrentHours}h</span>
-                                      </div>
-                                      <div className={`flex items-center justify-between gap-1 mt-0.5 pt-0.5 border-t ${firstHasDiff ? 'border-orange-200' : 'border-violet-200'}`}>
-                                        <span className={`text-[9px] font-semibold ${firstHasDiff ? 'text-orange-600' : 'text-violet-600'}`}>Total sem.</span>
-                                        <span className={`text-[9px] font-bold ${firstHasDiff ? 'text-orange-800' : 'text-violet-800'}`}>{firstWeekTotal}h</span>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {hasLastWeek && (
-                                    <div className={`rounded-md border px-1.5 py-1 text-left ${lastHasDiff ? 'border-orange-300 bg-orange-50' : 'border-teal-200 bg-teal-50'}`}>
-                                      <div className={`text-[9px] font-bold uppercase tracking-wide mb-0.5 ${lastHasDiff ? 'text-orange-600' : 'text-teal-600'}`}>
-                                        Últ. sem. {lastHasDiff && '⚠'}
-                                      </div>
-                                      <div className="flex items-center justify-between gap-1">
-                                        <span className={`text-[9px] ${lastHasDiff ? 'text-orange-500' : 'text-teal-500'}`}>Este mes</span>
-                                        <span className={`text-[9px] font-bold ${lastHasDiff ? 'text-orange-700' : 'text-teal-700'}`}>{lastWeekCurrentHours}h</span>
-                                      </div>
-                                      <div className="flex items-center justify-between gap-1">
-                                        <span className={`text-[9px] ${lastHasDiff ? 'text-orange-500' : 'text-teal-500'}`}>Mes sig.</span>
-                                        <span className={`text-[9px] font-bold ${lastHasDiff ? 'text-orange-700' : 'text-teal-700'}`}>{lastWeekNextHours}h</span>
-                                      </div>
-                                      <div className={`flex items-center justify-between gap-1 mt-0.5 pt-0.5 border-t ${lastHasDiff ? 'border-orange-200' : 'border-teal-200'}`}>
-                                        <span className={`text-[9px] font-semibold ${lastHasDiff ? 'text-orange-600' : 'text-teal-600'}`}>Total sem.</span>
-                                        <span className={`text-[9px] font-bold ${lastHasDiff ? 'text-orange-800' : 'text-teal-800'}`}>{lastWeekTotal}h</span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                         {/* Sunday count */}
-                        <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold ${sundaysOver ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                        <div
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold ${sundaysOver ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}
+                        >
                           <span>☀</span>
                           <span>{sundayCount} dom. desc.</span>
                           {sundaysOver && <span className="text-[9px]">⚠</span>}
@@ -1406,7 +1779,9 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
                         shifts={shifts}
                         nonWorkingTypes={nonWorkingTypes}
                         onCellChange={(wid, di, s) => ctxSetCellShift(wid, di, s, prevMonthKey)}
-                        onSpecialDayChange={(wid, di, tc) => ctxSetSpecialDay(wid, di, tc, prevMonthKey)}
+                        onSpecialDayChange={(wid, di, tc) =>
+                          ctxSetSpecialDay(wid, di, tc, prevMonthKey)
+                        }
                       />
                     );
                   })}
@@ -1416,18 +1791,33 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
                     // Compute underHoursWeeks once per worker, not per cell
                     const underHoursWeeks = getWeekUnderHours(worker.id);
                     return days.map((d, i) => {
-                    // Compute month-clipped week key for this day (matches getWeekUnderHours logic)
-                    const dayNum = i + 1;
-                    const date = new Date(year, monthIdx, dayNum);
-                    const dayOfWeekNum = (date.getDay() + 6) % 7; // 0=Mon, 6=Sun
-                    const weekMondayDay = dayNum - dayOfWeekNum;
-                    const weekKey = Math.max(1, weekMondayDay); // startDay of the month-clipped week
-                    const isUnderHoursWeek = underHoursWeeks.has(weekKey);
+                      // Compute month-clipped week key for this day (matches getWeekUnderHours logic)
+                      const dayNum = i + 1;
+                      const date = new Date(year, monthIdx, dayNum);
+                      const dayOfWeekNum = (date.getDay() + 6) % 7; // 0=Mon, 6=Sun
+                      const weekMondayDay = dayNum - dayOfWeekNum;
+                      const weekKey = Math.max(1, weekMondayDay); // startDay of the month-clipped week
+                      const isUnderHoursWeek = underHoursWeeks.has(weekKey);
 
-                    if (isBlockMode) {
-                      const cellKey = `${worker.id}-${i}`;
+                      if (isBlockMode) {
+                        const cellKey = `${worker.id}-${i}`;
+                        return (
+                          <BlockModeCell
+                            key={`${worker.id}-day-${i}`}
+                            workerId={worker.id}
+                            dayIndex={i}
+                            shift={sched[i] ?? null}
+                            specialDay={workerSpecialDays[i]}
+                            shifts={shifts}
+                            nonWorkingTypes={nonWorkingTypes}
+                            isSelected={selectedCells.has(cellKey)}
+                            onToggle={handleToggleCell}
+                            isUnderHoursWeek={isUnderHoursWeek}
+                          />
+                        );
+                      }
                       return (
-                        <BlockModeCell
+                        <ShiftCell
                           key={`${worker.id}-day-${i}`}
                           workerId={worker.id}
                           dayIndex={i}
@@ -1435,27 +1825,12 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
                           specialDay={workerSpecialDays[i]}
                           shifts={shifts}
                           nonWorkingTypes={nonWorkingTypes}
-                          isSelected={selectedCells.has(cellKey)}
-                          onToggle={handleToggleCell}
+                          onCellChange={onCellChange}
+                          onSpecialDayChange={onSpecialDayChange}
                           isUnderHoursWeek={isUnderHoursWeek}
                         />
                       );
-                    }
-                    return (
-                      <ShiftCell
-                        key={`${worker.id}-day-${i}`}
-                        workerId={worker.id}
-                        dayIndex={i}
-                        shift={sched[i] ?? null}
-                        specialDay={workerSpecialDays[i]}
-                        shifts={shifts}
-                        nonWorkingTypes={nonWorkingTypes}
-                        onCellChange={onCellChange}
-                        onSpecialDayChange={onSpecialDayChange}
-                        isUnderHoursWeek={isUnderHoursWeek}
-                      />
-                    );
-                  });
+                    });
                   })()}
 
                   {/* Trailing locked cells */}
@@ -1472,7 +1847,9 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
                         shifts={shifts}
                         nonWorkingTypes={nonWorkingTypes}
                         onCellChange={(wid, di, s) => ctxSetCellShift(wid, di, s, nextMonthKey)}
-                        onSpecialDayChange={(wid, di, tc) => ctxSetSpecialDay(wid, di, tc, nextMonthKey)}
+                        onSpecialDayChange={(wid, di, tc) =>
+                          ctxSetSpecialDay(wid, di, tc, nextMonthKey)
+                        }
                       />
                     );
                   })}
@@ -1503,10 +1880,17 @@ export default function MallaGrid({ workers, scheduleData, specialDaysData, shif
       {tooltip && (
         <div
           className="fixed z-[9999] bg-orange-50 border border-orange-200 rounded-lg shadow-lg p-2 text-[10px] text-orange-700 font-medium pointer-events-none"
-          style={{ left: tooltip.x, top: tooltip.y, transform: 'translateY(-50%)', minWidth: '220px' }}
+          style={{
+            left: tooltip.x,
+            top: tooltip.y,
+            transform: 'translateY(-50%)',
+            minWidth: '220px',
+          }}
         >
           {tooltip.alerts.map((a, ai) => (
-            <p key={ai} className="mb-0.5 whitespace-normal">⚠ {a}</p>
+            <p key={ai} className="mb-0.5 whitespace-normal">
+              ⚠ {a}
+            </p>
           ))}
         </div>
       )}

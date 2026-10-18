@@ -44,9 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <PwaSetup />
         <AuthProvider>
           <AuthGate>
-            <AppProvider>
-              {children}
-            </AppProvider>
+            <AppProvider>{children}</AppProvider>
           </AuthGate>
         </AuthProvider>
         <Toaster position="bottom-right" richColors />

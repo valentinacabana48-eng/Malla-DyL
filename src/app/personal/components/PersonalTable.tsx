@@ -14,7 +14,20 @@ function formatBirthday(birthday: string): string {
   if (!birthday) return '—';
   try {
     const [, m, d] = birthday.split('-').map(Number);
-    const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const MONTHS = [
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic',
+    ];
     return `${d} ${MONTHS[m - 1]}`;
   } catch {
     return '—';
@@ -29,19 +42,34 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
 
   const handleSort = (field: keyof Worker) => {
     if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortField(field); setSortDir('asc'); }
+    else {
+      setSortField(field);
+      setSortDir('asc');
+    }
   };
 
   const sorted = [...workers].sort((a, b) => {
     const av = a[sortField] as string;
     const bv = b[sortField] as string;
-    return sortDir === 'asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+    return sortDir === 'asc'
+      ? String(av).localeCompare(String(bv))
+      : String(bv).localeCompare(String(av));
   });
 
   const SortIcon = ({ field }: { field: keyof Worker }) => (
     <span className="inline-flex flex-col ml-1">
-      <ChevronUp size={10} className={sortField === field && sortDir === 'asc' ? 'text-secondary' : 'text-muted-foreground/40'} />
-      <ChevronDown size={10} className={sortField === field && sortDir === 'desc' ? 'text-secondary' : 'text-muted-foreground/40'} />
+      <ChevronUp
+        size={10}
+        className={
+          sortField === field && sortDir === 'asc' ? 'text-secondary' : 'text-muted-foreground/40'
+        }
+      />
+      <ChevronDown
+        size={10}
+        className={
+          sortField === field && sortDir === 'desc' ? 'text-secondary' : 'text-muted-foreground/40'
+        }
+      />
     </span>
   );
 
@@ -49,8 +77,12 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
     return (
       <div className="bg-card rounded-xl border border-border shadow-sm flex flex-col items-center justify-center py-16 text-center">
         <Users size={40} className="text-muted-foreground/30 mb-3" />
-        <p className="text-base font-semibold text-muted-foreground">Sin trabajadores para este filtro</p>
-        <p className="text-sm text-muted-foreground/60 mt-1">Ajusta los filtros o agrega una nueva trabajadora</p>
+        <p className="text-base font-semibold text-muted-foreground">
+          Sin trabajadores para este filtro
+        </p>
+        <p className="text-sm text-muted-foreground/60 mt-1">
+          Ajusta los filtros o agrega una nueva trabajadora
+        </p>
       </div>
     );
   }
@@ -58,7 +90,9 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
   return (
     <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
       <div className="px-5 py-3 border-b border-border">
-        <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Listado de Trabajadores</h2>
+        <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+          Listado de Trabajadores
+        </h2>
       </div>
       <div className="overflow-x-auto scrollbar-thin">
         <table className="w-full" style={{ minWidth: 780 }}>
@@ -82,7 +116,9 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
                   <SortIcon field={col.key as keyof Worker} />
                 </th>
               ))}
-              <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Acciones</th>
+              <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -93,12 +129,18 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
               >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-8 h-8 rounded-full ${worker.avatarColor} flex items-center justify-center text-xs font-bold shrink-0`}>
+                    <div
+                      className={`w-8 h-8 rounded-full ${worker.avatarColor} flex items-center justify-center text-xs font-bold shrink-0`}
+                    >
                       {worker.initials}
                     </div>
                     <div>
-                      <span className="text-sm font-semibold text-foreground block">{worker.name}</span>
-                      <span className="text-xs text-muted-foreground">{worker.horasContratadas}h contratadas</span>
+                      <span className="text-sm font-semibold text-foreground block">
+                        {worker.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {worker.horasContratadas}h contratadas
+                      </span>
                     </div>
                   </div>
                 </td>
@@ -117,10 +159,16 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    worker.estado === 'Activo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-                  }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${worker.estado === 'Activo' ? 'bg-green-500' : 'bg-red-400'}`} />
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      worker.estado === 'Activo'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-600'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${worker.estado === 'Activo' ? 'bg-green-500' : 'bg-red-400'}`}
+                    />
                     {worker.estado}
                   </span>
                 </td>
@@ -137,13 +185,20 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
                     {deleteConfirm === worker.id ? (
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => { onDelete(worker.id); setDeleteConfirm(null); }}
+                          onClick={() => {
+                            onDelete(worker.id);
+                            setDeleteConfirm(null);
+                          }}
                           className="px-2 py-1 bg-red-500 text-white text-xs rounded-md font-medium hover:bg-red-600 transition-colors"
-                        >Sí</button>
+                        >
+                          Sí
+                        </button>
                         <button
                           onClick={() => setDeleteConfirm(null)}
                           className="px-2 py-1 bg-muted text-foreground text-xs rounded-md font-medium hover:bg-muted/80 transition-colors"
-                        >No</button>
+                        >
+                          No
+                        </button>
                       </div>
                     ) : (
                       <button

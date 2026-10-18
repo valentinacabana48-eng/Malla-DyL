@@ -1,7 +1,13 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { X, PenLine, CheckSquare, Square, ChevronDown, ChevronRight, Search } from 'lucide-react';
-import { type ShiftCode, type Shift, type Worker, useAppContext, monthLabelToKey } from '@/context/AppContext';
+import {
+  type ShiftCode,
+  type Shift,
+  type Worker,
+  useAppContext,
+  monthLabelToKey,
+} from '@/context/AppContext';
 
 // ─── Helper: group shift codes by start hour ───────────────────────────────
 function groupShiftsByHour(shifts: Record<string, Shift>): Map<string, string[]> {
@@ -20,9 +26,7 @@ function groupShiftsByHour(shifts: Record<string, Shift>): Map<string, string[]>
     groups.get(label)!.push(code);
   });
 
-  const sorted = new Map(
-    [...groups.entries()].sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
-  );
+  const sorted = new Map([...groups.entries()].sort((a, b) => parseInt(a[0]) - parseInt(b[0])));
   if (noHour.length > 0) sorted.set('—', noHour);
   return sorted;
 }
@@ -37,7 +41,7 @@ function WorkerShiftPreview({
 }: {
   worker: Worker;
   shifts: Record<string, Shift>;
-  scheduleForWorker: (ShiftCode)[];
+  scheduleForWorker: ShiftCode[];
   daysInMonth: number;
   daysOfWeek: string[];
 }) {
@@ -95,16 +99,25 @@ interface Props {
 
 type AssignMode = 'turno' | 'especial';
 
-export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onAssignSpecialDay, onClose }: Props) {
+export default function AssignModal({
+  workers,
+  shifts,
+  daysOfWeek,
+  onAssign,
+  onAssignSpecialDay,
+  onClose,
+}: Props) {
   const { getAllNonWorkingTypes, scheduleData, selectedMes, areas } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
 
-  const daysInMonth = daysOfWeek.filter(d => d !== '').length || 31;
+  const daysInMonth = daysOfWeek.filter((d) => d !== '').length || 31;
   const DAYS = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const shiftCodes = Object.keys(shifts) as string[];
   const [mode, setMode] = useState<AssignMode>('turno');
   const [selectedShift, setSelectedShift] = useState<ShiftCode>(shiftCodes[0] || null);
-  const [selectedSpecialType, setSelectedSpecialType] = useState<string>(nonWorkingTypes[0]?.code || '');
+  const [selectedSpecialType, setSelectedSpecialType] = useState<string>(
+    nonWorkingTypes[0]?.code || ''
+  );
   // Start with NO days selected (not day 1)
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>([]);
@@ -117,7 +130,7 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
   const areaOptions = useMemo(() => ['Todas', ...areas], [areas]);
 
   const filteredWorkers = useMemo(() => {
-    return workers.filter(w => {
+    return workers.filter((w) => {
       if (workerAreaFilter !== 'Todas' && w.area !== workerAreaFilter) return false;
       if (workerSearch.trim()) {
         const q = workerSearch.trim().toLowerCase();
@@ -142,18 +155,18 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
   };
 
   const toggleAllWorkers = () => {
-    const visibleIds = filteredWorkers.map(w => w.id);
-    const allVisibleSelected = visibleIds.every(id => selectedWorkers.includes(id));
+    const visibleIds = filteredWorkers.map((w) => w.id);
+    const allVisibleSelected = visibleIds.every((id) => selectedWorkers.includes(id));
     if (allVisibleSelected) {
-      setSelectedWorkers(prev => prev.filter(id => !visibleIds.includes(id)));
+      setSelectedWorkers((prev) => prev.filter((id) => !visibleIds.includes(id)));
     } else {
-      setSelectedWorkers(prev => [...new Set([...prev, ...visibleIds])]);
+      setSelectedWorkers((prev) => [...new Set([...prev, ...visibleIds])]);
     }
   };
 
   const toggleDay = (dayIdx: number) => {
-    setSelectedDays(prev =>
-      prev.includes(dayIdx) ? prev.filter(d => d !== dayIdx) : [...prev, dayIdx]
+    setSelectedDays((prev) =>
+      prev.includes(dayIdx) ? prev.filter((d) => d !== dayIdx) : [...prev, dayIdx]
     );
   };
 
@@ -167,9 +180,13 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
     }
   };
 
-  const visibleIds = filteredWorkers.map(w => w.id);
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedWorkers.includes(id));
-  const canSubmit = selectedWorkers.length > 0 && selectedDays.length > 0 && (mode === 'turno' ? !!selectedShift : !!selectedSpecialType);
+  const visibleIds = filteredWorkers.map((w) => w.id);
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedWorkers.includes(id));
+  const canSubmit =
+    selectedWorkers.length > 0 &&
+    selectedDays.length > 0 &&
+    (mode === 'turno' ? !!selectedShift : !!selectedSpecialType);
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 animate-fade-in">
@@ -187,7 +204,9 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
         <div className="p-6 space-y-5 overflow-y-auto flex-1">
           {/* Mode toggle */}
           <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tipo de asignación</label>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Tipo de asignación
+            </label>
             <div className="flex gap-2">
               <button
                 onClick={() => setMode('turno')}
@@ -207,9 +226,13 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
           {/* Shift or special type selector */}
           {mode === 'turno' ? (
             <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Turno a asignar</label>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Turno a asignar
+              </label>
               {shiftCodes.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic">No hay turnos configurados. Ve a Ajustes para agregar turnos.</p>
+                <p className="text-sm text-muted-foreground italic">
+                  No hay turnos configurados. Ve a Ajustes para agregar turnos.
+                </p>
               ) : (
                 <div className="space-y-1">
                   {[...shiftGroups.entries()].map(([hourLabel, codes]) => {
@@ -228,19 +251,29 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
                               : 'border-border text-muted-foreground hover:bg-muted/50'
                           }`}
                         >
-                          {s === 'DESC' ? 'DESCANSO' : `${info.label.toUpperCase()} (${info.start}–${info.end})`}
+                          {s === 'DESC'
+                            ? 'DESCANSO'
+                            : `${info.label.toUpperCase()} (${info.start}–${info.end})`}
                         </button>
                       );
                     }
 
-                    const anySelected = codes.some(c => c === selectedShift);
+                    const anySelected = codes.some((c) => c === selectedShift);
                     return (
-                      <div key={`modal-grp-${hourLabel}`} className="border border-border rounded-lg overflow-hidden">
+                      <div
+                        key={`modal-grp-${hourLabel}`}
+                        className="border border-border rounded-lg overflow-hidden"
+                      >
                         <button
                           onClick={() => setExpandedHour(isExpanded ? null : hourLabel)}
                           className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors ${anySelected ? 'bg-secondary/10 text-secondary' : 'hover:bg-muted/40 text-muted-foreground'}`}
                         >
-                          <span>🕐 Turno {hourLabel} <span className="font-normal opacity-70">({codes.length} opciones)</span></span>
+                          <span>
+                            🕐 Turno {hourLabel}{' '}
+                            <span className="font-normal opacity-70">
+                              ({codes.length} opciones)
+                            </span>
+                          </span>
                           {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                         </button>
                         {isExpanded && (
@@ -257,7 +290,9 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
                                       : 'border-border text-muted-foreground hover:bg-muted/50'
                                   }`}
                                 >
-                                  {s === 'DESC' ? 'DESCANSO' : `${info.label.toUpperCase()} (${info.start}–${info.end})`}
+                                  {s === 'DESC'
+                                    ? 'DESCANSO'
+                                    : `${info.label.toUpperCase()} (${info.start}–${info.end})`}
                                 </button>
                               );
                             })}
@@ -271,7 +306,9 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
             </div>
           ) : (
             <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tipo de día especial</label>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Tipo de día especial
+              </label>
               <div className="flex flex-wrap gap-2">
                 {nonWorkingTypes.map((nwt) => (
                   <button
@@ -286,7 +323,9 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
                     <span>{nwt.icon}</span>
                     {nwt.label.toUpperCase()}
                     {nwt.maxDaysPerMonth !== null && (
-                      <span className="opacity-60 font-normal">(máx. {nwt.maxDaysPerMonth}/mes)</span>
+                      <span className="opacity-60 font-normal">
+                        (máx. {nwt.maxDaysPerMonth}/mes)
+                      </span>
                     )}
                   </button>
                 ))}
@@ -326,7 +365,8 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
                       isSelected
                         ? 'bg-secondary text-white border-secondary'
                         : isSunday
-                        ? 'border-red-200 text-red-500 hover:bg-red-50' :'border-border text-foreground hover:bg-muted/50'
+                          ? 'border-red-200 text-red-500 hover:bg-red-50'
+                          : 'border-border text-foreground hover:bg-muted/50'
                     }`}
                     title={`Día ${d} (${dow})`}
                   >
@@ -356,32 +396,44 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
             {/* Search + area filter */}
             <div className="flex gap-2 mb-2">
               <div className="relative flex-1">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <Search
+                  size={13}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                />
                 <input
                   type="text"
                   placeholder="Buscar por nombre..."
                   value={workerSearch}
-                  onChange={e => setWorkerSearch(e.target.value)}
+                  onChange={(e) => setWorkerSearch(e.target.value)}
                   className="w-full pl-8 pr-3 py-1.5 bg-input border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
               <div className="relative min-w-[130px]">
                 <select
                   value={workerAreaFilter}
-                  onChange={e => setWorkerAreaFilter(e.target.value)}
+                  onChange={(e) => setWorkerAreaFilter(e.target.value)}
                   className="w-full pl-2 pr-7 py-1.5 bg-input border border-border rounded-lg text-xs text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  {areaOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                  {areaOptions.map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
                 </select>
-                <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <ChevronDown
+                  size={12}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                />
               </div>
             </div>
 
             <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
               {filteredWorkers.length === 0 && (
-                <p className="text-xs text-muted-foreground italic py-2 text-center">No se encontraron colaboradoras</p>
+                <p className="text-xs text-muted-foreground italic py-2 text-center">
+                  No se encontraron colaboradoras
+                </p>
               )}
-              {filteredWorkers.map(w => {
+              {filteredWorkers.map((w) => {
                 const isSelected = selectedWorkers.includes(w.id);
                 const workerSched = currentMonthSchedule[w.id] || Array(31).fill(null);
                 return (
@@ -389,7 +441,9 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
                     key={`modal-worker-${w.id}`}
                     onClick={() => toggleWorker(w.id)}
                     className={`flex flex-col w-full px-3 py-2 rounded-lg text-xs border transition-all ${
-                      isSelected ? 'bg-secondary/10 border-secondary text-secondary' : 'border-border text-foreground hover:bg-muted/50'
+                      isSelected
+                        ? 'bg-secondary/10 border-secondary text-secondary'
+                        : 'border-border text-foreground hover:bg-muted/50'
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -414,7 +468,8 @@ export default function AssignModal({ workers, shifts, daysOfWeek, onAssign, onA
 
         <div className="px-6 py-4 border-t border-border shrink-0 flex items-center justify-between gap-4">
           <p className="text-xs text-muted-foreground">
-            {selectedWorkers.length} colaboradora{selectedWorkers.length !== 1 ? 's' : ''} · {selectedDays.length} día{selectedDays.length !== 1 ? 's' : ''}
+            {selectedWorkers.length} colaboradora{selectedWorkers.length !== 1 ? 's' : ''} ·{' '}
+            {selectedDays.length} día{selectedDays.length !== 1 ? 's' : ''}
           </p>
           <div className="flex gap-3">
             <button

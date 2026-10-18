@@ -18,7 +18,6 @@ import {
 import Icon from '@/components/ui/AppIcon';
 import { useAuth } from '@/context/AuthContext';
 
-
 const navItems: { label: string; icon: React.ElementType; href: string; adminOnly?: boolean }[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
   { label: 'Malla', icon: CalendarDays, href: '/malla-de-turnos' },
@@ -38,7 +37,7 @@ interface SidebarProps {
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { isAdmin } = useAuth();
-  const visibleItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <aside
@@ -54,7 +53,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="flex items-center gap-3 px-4 py-5 border-b border-white/[0.07]">
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, rgba(29,91,212,0.6) 0%, rgba(96,165,250,0.3) 100%)', border: '1px solid rgba(255,255,255,0.12)' }}
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(29,91,212,0.6) 0%, rgba(96,165,250,0.3) 100%)',
+            border: '1px solid rgba(255,255,255,0.12)',
+          }}
         >
           <AppLogo size={32} variant="mayorista" />
         </div>
@@ -71,7 +74,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Nav */}
       <nav className="flex-1 py-5 px-2.5 flex flex-col gap-0.5">
         {visibleItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+          const isActive =
+            pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           const Icon = item.icon;
           return (
             <Link
@@ -79,13 +83,14 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               href={item.href}
               title={collapsed ? item.label : undefined}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group relative ${
-                isActive
-                  ? 'sidebar-nav-active' :'sidebar-nav-hover text-white/55 hover:text-white'
+                isActive ? 'sidebar-nav-active' : 'sidebar-nav-hover text-white/55 hover:text-white'
               }`}
             >
               <Icon size={18} className={`shrink-0 ${isActive ? 'text-blue-300' : ''}`} />
               {!collapsed && (
-                <span className={`text-sm whitespace-nowrap ${isActive ? 'font-semibold text-white' : 'font-medium'}`}>
+                <span
+                  className={`text-sm whitespace-nowrap ${isActive ? 'font-semibold text-white' : 'font-medium'}`}
+                >
                   {item.label}
                 </span>
               )}
@@ -103,7 +108,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="px-2.5 pb-5 flex flex-col gap-3 border-t border-white/[0.07] pt-4">
         {!collapsed && (
           <div className="flex items-center justify-center py-1">
-            <span className="text-white/25 text-[10px] tracking-widest uppercase text-center">© 2026 VCG — Todos los derechos reservados</span>
+            <span className="text-white/25 text-[10px] tracking-widest uppercase text-center">
+              © 2026 VCG — Todos los derechos reservados
+            </span>
           </div>
         )}
         <button

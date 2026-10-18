@@ -1,9 +1,21 @@
 'use client';
 import React, { useState, useRef, useCallback } from 'react';
 import {
-  Upload, Download, FileSpreadsheet, CheckCircle, XCircle,
-  AlertTriangle, Eye, ChevronDown, ChevronUp, Users, Clock,
-  MapPin, Tag, Loader2, Check
+  Upload,
+  Download,
+  FileSpreadsheet,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Eye,
+  ChevronDown,
+  ChevronUp,
+  Users,
+  Clock,
+  MapPin,
+  Tag,
+  Loader2,
+  Check,
 } from 'lucide-react';
 import { useAppContext, SHIFT_COLOR_OPTIONS } from '@/context/AppContext';
 import type { Worker, Shift, Sucursal } from '@/context/AppContext';
@@ -45,10 +57,40 @@ interface ParseResult {
 
 const TEMPLATES: Record<ImportType, { headers: string[]; example: (string | number)[][] }> = {
   workers: {
-    headers: ['Nombre', 'RUT', 'Cargo', 'Rol', 'Sucursal', 'Área', 'HorasContratadas', 'Estado', 'Cumpleaños'],
+    headers: [
+      'Nombre',
+      'RUT',
+      'Cargo',
+      'Rol',
+      'Sucursal',
+      'Área',
+      'HorasContratadas',
+      'Estado',
+      'Cumpleaños',
+    ],
     example: [
-      ['María González', '12.345.678-9', 'Cajera', 'Cajera', 'Mayorista Talca', 'Cajas', 42, 'Activo', '1990-05-15'],
-      ['Ana Pérez', '9.876.543-2', 'Supervisora', 'Supervisor', 'Mayorista Curicó', 'Tesorería', 30, 'Activo', '1985-11-20'],
+      [
+        'María González',
+        '12.345.678-9',
+        'Cajera',
+        'Cajera',
+        'Mayorista Talca',
+        'Cajas',
+        42,
+        'Activo',
+        '1990-05-15',
+      ],
+      [
+        'Ana Pérez',
+        '9.876.543-2',
+        'Supervisora',
+        'Supervisor',
+        'Mayorista Curicó',
+        'Tesorería',
+        30,
+        'Activo',
+        '1985-11-20',
+      ],
     ],
   },
   shifts: {
@@ -83,16 +125,34 @@ function generateId(): string {
 }
 
 function generateCode(label: string): string {
-  return label.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 20) || `turno-${Date.now()}`;
+  return (
+    label
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .slice(0, 20) || `turno-${Date.now()}`
+  );
 }
 
 function getInitials(name: string): string {
-  return name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2);
+  return name
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 }
 
 const AVATAR_COLORS = [
-  'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500',
-  'bg-pink-500', 'bg-teal-500', 'bg-red-500', 'bg-yellow-500',
+  'bg-blue-500',
+  'bg-green-500',
+  'bg-purple-500',
+  'bg-orange-500',
+  'bg-pink-500',
+  'bg-teal-500',
+  'bg-red-500',
+  'bg-yellow-500',
 ];
 
 function parseSheetData(data: unknown[][]): ParseResult {
@@ -102,8 +162,14 @@ function parseSheetData(data: unknown[][]): ParseResult {
     return result;
   }
 
-  const headers = (data[0] as string[]).map(h => String(h || '').trim().toLowerCase());
-  const rows = data.slice(1).filter(row => row.some(cell => cell !== null && cell !== undefined && cell !== ''));
+  const headers = (data[0] as string[]).map((h) =>
+    String(h || '')
+      .trim()
+      .toLowerCase()
+  );
+  const rows = data
+    .slice(1)
+    .filter((row) => row.some((cell) => cell !== null && cell !== undefined && cell !== ''));
 
   // Detect type by headers
   if (headers.includes('nombre') && headers.includes('rut')) {
@@ -114,7 +180,10 @@ function parseSheetData(data: unknown[][]): ParseResult {
         return idx >= 0 ? String(row[idx] || '').trim() : '';
       };
       const name = get('nombre');
-      if (!name) { result.errors.push(`Fila ${i + 2}: Nombre vacío, se omite.`); return; }
+      if (!name) {
+        result.errors.push(`Fila ${i + 2}: Nombre vacío, se omite.`);
+        return;
+      }
       const horas = parseInt(get('horascontratadas') || get('horas contratadas') || '42', 10);
       const estadoRaw = get('estado').toLowerCase();
       result.workers.push({
@@ -129,7 +198,10 @@ function parseSheetData(data: unknown[][]): ParseResult {
         birthday: get('cumpleaños') || get('cumpleanos') || get('birthday') || '',
       });
     });
-  } else if (headers.includes('nombre') && (headers.includes('horaentrada') || headers.includes('hora entrada'))) {
+  } else if (
+    headers.includes('nombre') &&
+    (headers.includes('horaentrada') || headers.includes('hora entrada'))
+  ) {
     // Shifts
     rows.forEach((row, i) => {
       const get = (key: string) => {
@@ -137,9 +209,18 @@ function parseSheetData(data: unknown[][]): ParseResult {
         return idx >= 0 ? String(row[idx] || '').trim() : '';
       };
       const label = get('nombre');
-      if (!label) { result.errors.push(`Fila ${i + 2}: Nombre vacío, se omite.`); return; }
-      const colacion = parseInt(get('colacionminutos') || get('colacion minutos') || get('colacion') || '0', 10);
-      const colorIdx = parseInt(get('colorindice') || get('color indice') || get('color') || '0', 10);
+      if (!label) {
+        result.errors.push(`Fila ${i + 2}: Nombre vacío, se omite.`);
+        return;
+      }
+      const colacion = parseInt(
+        get('colacionminutos') || get('colacion minutos') || get('colacion') || '0',
+        10
+      );
+      const colorIdx = parseInt(
+        get('colorindice') || get('color indice') || get('color') || '0',
+        10
+      );
       result.shifts.push({
         label,
         start: get('horaentrada') || get('hora entrada'),
@@ -150,7 +231,7 @@ function parseSheetData(data: unknown[][]): ParseResult {
     });
   } else if (headers.length === 1 && headers[0] === 'nombre') {
     // Could be sucursales or areas — we'll return both and let user pick
-    rows.forEach(row => {
+    rows.forEach((row) => {
       const val = String(row[0] || '').trim();
       if (val) {
         result.sucursales.push(val);
@@ -168,7 +249,10 @@ function parseSheetData(data: unknown[][]): ParseResult {
 
 function downloadTemplate(type: ImportType) {
   const tpl = TEMPLATES[type];
-  downloadSimpleWorkbook([{ name: 'Plantilla', rows: [tpl.headers, ...tpl.example] }], `plantilla_${type}.xlsx`);
+  downloadSimpleWorkbook(
+    [{ name: 'Plantilla', rows: [tpl.headers, ...tpl.example] }],
+    `plantilla_${type}.xlsx`
+  );
 }
 
 // ─── Preview Table ────────────────────────────────────────────────────────────
@@ -177,26 +261,32 @@ function PreviewTable({ type, data }: { type: ImportType; data: ParseResult }) {
   const [expanded, setExpanded] = useState(true);
 
   const items =
-    type === 'workers' ? data.workers :
-    type === 'shifts' ? data.shifts :
-    type === 'sucursales' ? data.sucursales :
-    data.areas;
+    type === 'workers'
+      ? data.workers
+      : type === 'shifts'
+        ? data.shifts
+        : type === 'sucursales'
+          ? data.sucursales
+          : data.areas;
 
   if (items.length === 0) return null;
 
   return (
     <div className="border border-border rounded-xl overflow-hidden">
       <button
-        onClick={() => setExpanded(e => !e)}
+        onClick={() => setExpanded((e) => !e)}
         className="w-full flex items-center justify-between px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors"
       >
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Eye size={14} className="text-secondary" />
-          Vista previa — {items.length} {
-            type === 'workers' ? 'trabajadora(s)' :
-            type === 'shifts' ? 'turno(s)' :
-            type === 'sucursales' ? 'sucursal(es)' : 'área(s)'
-          }
+          Vista previa — {items.length}{' '}
+          {type === 'workers'
+            ? 'trabajadora(s)'
+            : type === 'shifts'
+              ? 'turno(s)'
+              : type === 'sucursales'
+                ? 'sucursal(es)'
+                : 'área(s)'}
         </div>
         {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
@@ -206,49 +296,59 @@ function PreviewTable({ type, data }: { type: ImportType; data: ParseResult }) {
           <table className="w-full text-xs">
             <thead className="bg-muted/20 sticky top-0">
               <tr>
-                {TEMPLATES[type].headers.map(h => (
-                  <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                {TEMPLATES[type].headers.map((h) => (
+                  <th
+                    key={h}
+                    className="px-3 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap"
+                  >
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {type === 'workers' && data.workers.map((w, i) => (
-                <tr key={i} className="hover:bg-muted/10">
-                  <td className="px-3 py-2 font-medium text-foreground">{w.name}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{w.rut}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{w.cargo}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{w.role}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{w.sucursal}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{w.area}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{w.horasContratadas}</td>
-                  <td className="px-3 py-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${w.estado === 'Activo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {w.estado}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">{w.birthday}</td>
-                </tr>
-              ))}
-              {type === 'shifts' && data.shifts.map((s, i) => (
-                <tr key={i} className="hover:bg-muted/10">
-                  <td className="px-3 py-2 font-medium text-foreground">{s.label}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{s.start}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{s.end}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{s.colacion}</td>
-                  <td className="px-3 py-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${SHIFT_COLOR_OPTIONS[s.colorIndex]?.colorClass}`}>
-                      {SHIFT_COLOR_OPTIONS[s.colorIndex]?.label}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {(type === 'sucursales' || type === 'areas') && (type === 'sucursales' ? data.sucursales : data.areas).map((item, i) => (
-                <tr key={i} className="hover:bg-muted/10">
-                  <td className="px-3 py-2 font-medium text-foreground">{item}</td>
-                </tr>
-              ))}
+              {type === 'workers' &&
+                data.workers.map((w, i) => (
+                  <tr key={i} className="hover:bg-muted/10">
+                    <td className="px-3 py-2 font-medium text-foreground">{w.name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{w.rut}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{w.cargo}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{w.role}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{w.sucursal}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{w.area}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{w.horasContratadas}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-semibold ${w.estado === 'Activo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                      >
+                        {w.estado}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{w.birthday}</td>
+                  </tr>
+                ))}
+              {type === 'shifts' &&
+                data.shifts.map((s, i) => (
+                  <tr key={i} className="hover:bg-muted/10">
+                    <td className="px-3 py-2 font-medium text-foreground">{s.label}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{s.start}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{s.end}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{s.colacion}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-semibold ${SHIFT_COLOR_OPTIONS[s.colorIndex]?.colorClass}`}
+                      >
+                        {SHIFT_COLOR_OPTIONS[s.colorIndex]?.label}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              {(type === 'sucursales' || type === 'areas') &&
+                (type === 'sucursales' ? data.sucursales : data.areas).map((item, i) => (
+                  <tr key={i} className="hover:bg-muted/10">
+                    <td className="px-3 py-2 font-medium text-foreground">{item}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
@@ -260,7 +360,8 @@ function PreviewTable({ type, data }: { type: ImportType; data: ParseResult }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ExcelImportPanel() {
-  const { workers, shifts, sucursales, areas, addWorker, addShift, addSucursal, addArea } = useAppContext();
+  const { workers, shifts, sucursales, areas, addWorker, addShift, addSucursal, addArea } =
+    useAppContext();
 
   const [activeType, setActiveType] = useState<ImportType>('workers');
   const [isDragging, setIsDragging] = useState(false);
@@ -271,35 +372,40 @@ export default function ExcelImportPanel() {
   const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const processFile = useCallback((file: File) => {
-    setIsLoading(true);
-    setParseResult(null);
-    setImportSuccess(null);
-    setFileName(file.name);
+  const processFile = useCallback(
+    (file: File) => {
+      setIsLoading(true);
+      setParseResult(null);
+      setImportSuccess(null);
+      setFileName(file.name);
 
-    (async () => {
-      try {
-        const rows = await readFirstSheetRows(file, '');
-        const result = parseSheetData(rows);
-        setParseResult(result);
+      (async () => {
+        try {
+          const rows = await readFirstSheetRows(file, '');
+          const result = parseSheetData(rows);
+          setParseResult(result);
 
-        // Auto-select detected types
-        const detected = new Set<ImportType>();
-        if (result.workers.length > 0) detected.add('workers');
-        if (result.shifts.length > 0) detected.add('shifts');
-        if (result.sucursales.length > 0 && activeType === 'sucursales') detected.add('sucursales');
-        if (result.areas.length > 0 && activeType === 'areas') detected.add('areas');
-        setSelectedTypes(detected);
-      } catch (err) {
-        const message = err instanceof Error && err.message.includes('.xls')
-          ? err.message
-          : 'Error al leer el archivo. Asegúrate de que sea un .xlsx o .csv válido.';
-        setParseResult({ workers: [], shifts: [], sucursales: [], areas: [], errors: [message] });
-      } finally {
-        setIsLoading(false);
-      }
-    })();
-  }, [activeType]);
+          // Auto-select detected types
+          const detected = new Set<ImportType>();
+          if (result.workers.length > 0) detected.add('workers');
+          if (result.shifts.length > 0) detected.add('shifts');
+          if (result.sucursales.length > 0 && activeType === 'sucursales')
+            detected.add('sucursales');
+          if (result.areas.length > 0 && activeType === 'areas') detected.add('areas');
+          setSelectedTypes(detected);
+        } catch (err) {
+          const message =
+            err instanceof Error && err.message.includes('.xls')
+              ? err.message
+              : 'Error al leer el archivo. Asegúrate de que sea un .xlsx o .csv válido.';
+          setParseResult({ workers: [], shifts: [], sucursales: [], areas: [], errors: [message] });
+        } finally {
+          setIsLoading(false);
+        }
+      })();
+    },
+    [activeType]
+  );
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -315,7 +421,7 @@ export default function ExcelImportPanel() {
   }
 
   function toggleType(type: ImportType) {
-    setSelectedTypes(prev => {
+    setSelectedTypes((prev) => {
       const next = new Set(prev);
       if (next.has(type)) next.delete(type);
       else next.add(type);
@@ -349,7 +455,7 @@ export default function ExcelImportPanel() {
     }
 
     if (selectedTypes.has('shifts')) {
-      parseResult.shifts.forEach(s => {
+      parseResult.shifts.forEach((s) => {
         const code = generateCode(s.label);
         if (shifts[code]) return; // skip duplicates
         const colorOpt = SHIFT_COLOR_OPTIONS[s.colorIndex] || SHIFT_COLOR_OPTIONS[0];
@@ -368,14 +474,20 @@ export default function ExcelImportPanel() {
     }
 
     if (selectedTypes.has('sucursales')) {
-      parseResult.sucursales.forEach(name => {
-        if (!sucursales.some(s => s.name === name)) { addSucursal(name); count++; }
+      parseResult.sucursales.forEach((name) => {
+        if (!sucursales.some((s) => s.name === name)) {
+          addSucursal(name);
+          count++;
+        }
       });
     }
 
     if (selectedTypes.has('areas')) {
-      parseResult.areas.forEach(name => {
-        if (!areas.includes(name)) { addArea(name); count++; }
+      parseResult.areas.forEach((name) => {
+        if (!areas.includes(name)) {
+          addArea(name);
+          count++;
+        }
       });
     }
 
@@ -385,12 +497,12 @@ export default function ExcelImportPanel() {
     setSelectedTypes(new Set());
   }
 
-  const hasData = parseResult && (
-    parseResult.workers.length > 0 ||
-    parseResult.shifts.length > 0 ||
-    parseResult.sucursales.length > 0 ||
-    parseResult.areas.length > 0
-  );
+  const hasData =
+    parseResult &&
+    (parseResult.workers.length > 0 ||
+      parseResult.shifts.length > 0 ||
+      parseResult.sucursales.length > 0 ||
+      parseResult.areas.length > 0);
 
   const canImport = hasData && selectedTypes.size > 0;
 
@@ -411,14 +523,20 @@ export default function ExcelImportPanel() {
           Descargar plantilla
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {IMPORT_TABS.map(tab => (
+          {IMPORT_TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => downloadTemplate(tab.id)}
               className="flex items-center gap-2 px-3 py-2.5 bg-card border border-border rounded-lg text-xs font-semibold text-foreground hover:border-secondary hover:text-secondary transition-all group"
             >
-              <Download size={13} className="text-muted-foreground group-hover:text-secondary transition-colors" />
-              <tab.icon size={13} className="text-muted-foreground group-hover:text-secondary transition-colors" />
+              <Download
+                size={13}
+                className="text-muted-foreground group-hover:text-secondary transition-colors"
+              />
+              <tab.icon
+                size={13}
+                className="text-muted-foreground group-hover:text-secondary transition-colors"
+              />
               {tab.label}
             </button>
           ))}
@@ -427,13 +545,17 @@ export default function ExcelImportPanel() {
 
       {/* Upload zone */}
       <div
-        onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
         className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
           isDragging
-            ? 'border-secondary bg-secondary/5' :'border-border hover:border-secondary/50 hover:bg-muted/20'
+            ? 'border-secondary bg-secondary/5'
+            : 'border-border hover:border-secondary/50 hover:bg-muted/20'
         }`}
       >
         <input
@@ -450,14 +572,23 @@ export default function ExcelImportPanel() {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${isDragging ? 'bg-secondary/20' : 'bg-muted/40'}`}>
-              <Upload size={24} className={isDragging ? 'text-secondary' : 'text-muted-foreground'} />
+            <div
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${isDragging ? 'bg-secondary/20' : 'bg-muted/40'}`}
+            >
+              <Upload
+                size={24}
+                className={isDragging ? 'text-secondary' : 'text-muted-foreground'}
+              />
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">
-                {fileName ? `Archivo: ${fileName}` : 'Arrastra tu archivo aquí o haz clic para seleccionar'}
+                {fileName
+                  ? `Archivo: ${fileName}`
+                  : 'Arrastra tu archivo aquí o haz clic para seleccionar'}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">Formatos aceptados: .xlsx, .xls, .csv</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Formatos aceptados: .xlsx, .xls, .csv
+              </p>
             </div>
           </div>
         )}
@@ -479,7 +610,9 @@ export default function ExcelImportPanel() {
             Advertencias al procesar el archivo
           </div>
           {parseResult.errors.map((err, i) => (
-            <p key={i} className="text-xs text-red-600 pl-5">• {err}</p>
+            <p key={i} className="text-xs text-red-600 pl-5">
+              • {err}
+            </p>
           ))}
         </div>
       )}
@@ -493,12 +626,15 @@ export default function ExcelImportPanel() {
               ¿Qué deseas importar?
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {IMPORT_TABS.map(tab => {
-                let count =
-                  tab.id === 'workers' ? parseResult!.workers.length :
-                  tab.id === 'shifts' ? parseResult!.shifts.length :
-                  tab.id === 'sucursales' ? parseResult!.sucursales.length :
-                  parseResult!.areas.length;
+              {IMPORT_TABS.map((tab) => {
+                const count =
+                  tab.id === 'workers'
+                    ? parseResult!.workers.length
+                    : tab.id === 'shifts'
+                      ? parseResult!.shifts.length
+                      : tab.id === 'sucursales'
+                        ? parseResult!.sucursales.length
+                        : parseResult!.areas.length;
                 const isSelected = selectedTypes.has(tab.id);
                 const hasItems = count > 0;
                 return (
@@ -510,12 +646,17 @@ export default function ExcelImportPanel() {
                       !hasItems
                         ? 'border-border text-muted-foreground/40 cursor-not-allowed bg-muted/10'
                         : isSelected
-                        ? 'border-secondary bg-secondary/10 text-secondary' :'border-border text-foreground hover:border-secondary/50'
+                          ? 'border-secondary bg-secondary/10 text-secondary'
+                          : 'border-border text-foreground hover:border-secondary/50'
                     }`}
                   >
                     {isSelected ? <Check size={13} /> : <tab.icon size={13} />}
                     {tab.label}
-                    {hasItems && <span className="ml-auto bg-secondary/20 text-secondary px-1.5 py-0.5 rounded-full text-[10px] font-bold">{count}</span>}
+                    {hasItems && (
+                      <span className="ml-auto bg-secondary/20 text-secondary px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                        {count}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -543,14 +684,19 @@ export default function ExcelImportPanel() {
               disabled={!canImport}
               className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm ${
                 canImport
-                  ? 'bg-secondary text-white hover:bg-blue-700' :'bg-muted text-muted-foreground cursor-not-allowed'
+                  ? 'bg-secondary text-white hover:bg-blue-700'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed'
               }`}
             >
               <CheckCircle size={15} />
               Confirmar importación
             </button>
             <button
-              onClick={() => { setParseResult(null); setFileName(null); setSelectedTypes(new Set()); }}
+              onClick={() => {
+                setParseResult(null);
+                setFileName(null);
+                setSelectedTypes(new Set());
+              }}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold bg-muted text-foreground hover:bg-muted/80 transition-all"
             >
               <XCircle size={15} />

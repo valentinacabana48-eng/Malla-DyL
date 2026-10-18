@@ -1,6 +1,18 @@
 'use client';
 import React, { useState } from 'react';
-import { Lock, Eye, EyeOff, ArrowRight, Mail, CheckCircle, AlertTriangle, ChevronLeft, Clock, LogOut, RefreshCw } from 'lucide-react';
+import {
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Mail,
+  CheckCircle,
+  AlertTriangle,
+  ChevronLeft,
+  Clock,
+  LogOut,
+  RefreshCw,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import AppImage from '@/components/ui/AppImage';
 
@@ -29,11 +41,23 @@ function Shell({ subtitle, children }: { subtitle: string; children: React.React
         className="bg-card rounded-2xl border border-border w-full max-w-sm overflow-hidden"
         style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.25)' }}
       >
-        <div className="px-8 pt-8 pb-6 text-center" style={{ background: 'linear-gradient(135deg, #0a1e3d 0%, #0f2744 100%)' }}>
+        <div
+          className="px-8 pt-8 pb-6 text-center"
+          style={{ background: 'linear-gradient(135deg, #0a1e3d 0%, #0f2744 100%)' }}
+        >
           <div className="flex items-center justify-center gap-3 mb-5">
             {BRANCH_LOGOS.map((logo) => (
-              <div key={logo.alt} className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-white/10 border border-white/20 p-1">
-                <AppImage src={logo.src} alt={logo.alt} width={40} height={40} className="object-contain w-full h-full" />
+              <div
+                key={logo.alt}
+                className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-white/10 border border-white/20 p-1"
+              >
+                <AppImage
+                  src={logo.src}
+                  alt={logo.alt}
+                  width={40}
+                  height={40}
+                  className="object-contain w-full h-full"
+                />
               </div>
             ))}
           </div>
@@ -58,8 +82,18 @@ function ErrorText({ children }: { children: React.ReactNode }) {
   );
 }
 
-function PasswordInput({ value, onChange, placeholder, autoComplete, autoFocus }: {
-  value: string; onChange: (v: string) => void; placeholder: string; autoComplete: string; autoFocus?: boolean;
+function PasswordInput({
+  value,
+  onChange,
+  placeholder,
+  autoComplete,
+  autoFocus,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  autoComplete: string;
+  autoFocus?: boolean;
 }) {
   const [show, setShow] = useState(false);
   return (
@@ -67,7 +101,7 @@ function PasswordInput({ value, onChange, placeholder, autoComplete, autoFocus }
       <input
         type={show ? 'text' : 'password'}
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         autoComplete={autoComplete}
         autoFocus={autoFocus}
@@ -76,7 +110,7 @@ function PasswordInput({ value, onChange, placeholder, autoComplete, autoFocus }
       />
       <button
         type="button"
-        onClick={() => setShow(v => !v)}
+        onClick={() => setShow((v) => !v)}
         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
         aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
       >
@@ -87,7 +121,11 @@ function PasswordInput({ value, onChange, placeholder, autoComplete, autoFocus }
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{children}</label>;
+  return (
+    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      {children}
+    </label>
+  );
 }
 
 function NewPasswordForm() {
@@ -99,8 +137,14 @@ function NewPasswordForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < MIN_PASSWORD) { setError(`La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`); return; }
-    if (password !== confirm) { setError('Las contraseñas no coinciden.'); return; }
+    if (password.length < MIN_PASSWORD) {
+      setError(`La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`);
+      return;
+    }
+    if (password !== confirm) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
     setLoading(true);
     const err = await updatePassword(password);
     setLoading(false);
@@ -112,14 +156,36 @@ function NewPasswordForm() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Label>Nueva contraseña</Label>
-          <PasswordInput value={password} onChange={v => { setPassword(v); setError(''); }} placeholder={`Mínimo ${MIN_PASSWORD} caracteres`} autoComplete="new-password" autoFocus />
+          <PasswordInput
+            value={password}
+            onChange={(v) => {
+              setPassword(v);
+              setError('');
+            }}
+            placeholder={`Mínimo ${MIN_PASSWORD} caracteres`}
+            autoComplete="new-password"
+            autoFocus
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Confirmar contraseña</Label>
-          <PasswordInput value={confirm} onChange={v => { setConfirm(v); setError(''); }} placeholder="Repite la contraseña" autoComplete="new-password" />
+          <PasswordInput
+            value={confirm}
+            onChange={(v) => {
+              setConfirm(v);
+              setError('');
+            }}
+            placeholder="Repite la contraseña"
+            autoComplete="new-password"
+          />
         </div>
         {error && <ErrorText>{error}</ErrorText>}
-        <button type="submit" disabled={loading} className={primaryButtonClass} style={primaryButtonStyle}>
+        <button
+          type="submit"
+          disabled={loading}
+          className={primaryButtonClass}
+          style={primaryButtonStyle}
+        >
           {loading ? 'Guardando...' : 'Guardar contraseña'}
         </button>
       </form>
@@ -137,13 +203,18 @@ function PendingApproval() {
           <Clock size={22} className="text-amber-600" />
         </div>
         <p className="text-sm text-foreground">
-          Tu cuenta <span className="font-semibold">{user?.email}</span> fue creada, pero un administrador debe darte acceso.
+          Tu cuenta <span className="font-semibold">{user?.email}</span> fue creada, pero un
+          administrador debe darte acceso.
         </p>
         <p className="text-xs text-muted-foreground">
           Pídele que te asigne un rol en <span className="font-semibold">Ajustes → Usuarios</span>.
         </p>
         <button
-          onClick={async () => { setChecking(true); await refreshRole(); setChecking(false); }}
+          onClick={async () => {
+            setChecking(true);
+            await refreshRole();
+            setChecking(false);
+          }}
           disabled={checking}
           className={primaryButtonClass}
           style={primaryButtonStyle}
@@ -151,7 +222,10 @@ function PendingApproval() {
           <RefreshCw size={14} className={checking ? 'animate-spin' : ''} />
           Ya me dieron acceso
         </button>
-        <button onClick={signOut} className="text-xs text-muted-foreground hover:text-red-600 flex items-center justify-center gap-1">
+        <button
+          onClick={signOut}
+          className="text-xs text-muted-foreground hover:text-red-600 flex items-center justify-center gap-1"
+        >
           <LogOut size={12} /> Cerrar sesión
         </button>
       </div>
@@ -168,7 +242,12 @@ function LoginScreen() {
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const go = (s: Step) => { setStep(s); setError(''); setInfo(''); setPassword(''); };
+  const go = (s: Step) => {
+    setStep(s);
+    setError('');
+    setInfo('');
+    setPassword('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,19 +268,32 @@ function LoginScreen() {
     } else {
       const err = await sendPasswordReset(email);
       if (err) setError(err);
-      else setInfo('Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.');
+      else
+        setInfo(
+          'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.'
+        );
     }
     setLoading(false);
   };
 
-  const subtitle = step === 'login' ? 'Inicia sesión para continuar' : step === 'signup' ? 'Crear cuenta' : 'Recuperar contraseña';
-  const buttonText = step === 'login' ? 'Ingresar' : step === 'signup' ? 'Crear cuenta' : 'Enviar enlace';
+  const subtitle =
+    step === 'login'
+      ? 'Inicia sesión para continuar'
+      : step === 'signup'
+        ? 'Crear cuenta'
+        : 'Recuperar contraseña';
+  const buttonText =
+    step === 'login' ? 'Ingresar' : step === 'signup' ? 'Crear cuenta' : 'Enviar enlace';
 
   return (
     <Shell subtitle={subtitle}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {step !== 'login' && (
-          <button type="button" onClick={() => go('login')} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors -mb-1">
+          <button
+            type="button"
+            onClick={() => go('login')}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors -mb-1"
+          >
             <ChevronLeft size={14} /> Volver
           </button>
         )}
@@ -212,14 +304,20 @@ function LoginScreen() {
             <input
               type="email"
               value={email}
-              onChange={e => { setEmail(e.target.value); setError(''); }}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError('');
+              }}
               placeholder="nombre@empresa.cl"
               autoComplete="email"
               autoFocus
               required
               className={inputClass}
             />
-            <Mail size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Mail
+              size={16}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
           </div>
         </div>
 
@@ -228,7 +326,10 @@ function LoginScreen() {
             <Label>Contraseña</Label>
             <PasswordInput
               value={password}
-              onChange={v => { setPassword(v); setError(''); }}
+              onChange={(v) => {
+                setPassword(v);
+                setError('');
+              }}
               placeholder={step === 'signup' ? `Mínimo ${MIN_PASSWORD} caracteres` : '••••••••'}
               autoComplete={step === 'signup' ? 'new-password' : 'current-password'}
             />
@@ -243,17 +344,30 @@ function LoginScreen() {
           </div>
         )}
 
-        <button type="submit" disabled={loading} className={primaryButtonClass} style={primaryButtonStyle}>
+        <button
+          type="submit"
+          disabled={loading}
+          className={primaryButtonClass}
+          style={primaryButtonStyle}
+        >
           {loading ? 'Procesando...' : buttonText}
           {!loading && <ArrowRight size={16} />}
         </button>
 
         {step === 'login' && (
           <div className="flex items-center justify-between text-xs mt-1">
-            <button type="button" onClick={() => go('forgot')} className="text-muted-foreground hover:text-secondary transition-colors">
+            <button
+              type="button"
+              onClick={() => go('forgot')}
+              className="text-muted-foreground hover:text-secondary transition-colors"
+            >
               ¿Olvidaste tu contraseña?
             </button>
-            <button type="button" onClick={() => go('signup')} className="text-secondary font-semibold hover:underline">
+            <button
+              type="button"
+              onClick={() => go('signup')}
+              className="text-secondary font-semibold hover:underline"
+            >
               Crear cuenta
             </button>
           </div>

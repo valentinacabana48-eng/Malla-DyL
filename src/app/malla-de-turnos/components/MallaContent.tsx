@@ -2,7 +2,14 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { CalendarDays, PenLine, FileSpreadsheet } from 'lucide-react';
-import { useAppContext, getDaysOfWeekForMonth, getDaysInMonth, monthLabelToKey, getChileanHolidays, type ShiftCode } from '@/context/AppContext';
+import {
+  useAppContext,
+  getDaysOfWeekForMonth,
+  getDaysInMonth,
+  monthLabelToKey,
+  getChileanHolidays,
+  type ShiftCode,
+} from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import MallaFilters from './MallaFilters';
 import MallaGrid from './MallaGrid';
@@ -33,14 +40,26 @@ function saveDeletedBirthdays(set: Set<string>) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(DELETED_BIRTHDAYS_KEY, JSON.stringify([...set]));
-  } catch {}
+  } catch {
+    // localStorage puede no estar disponible (modo privado); no es crítico
+  }
 }
 
 export default function MallaContent() {
   const {
-    workers, shifts, scheduleData, specialDays,
-    setCellShift, bulkAssign, setSpecialDay, bulkAssignSpecialDay,
-    selectedMes, setSelectedMes, getSucursalCajas, globalSucursal, globalArea,
+    workers,
+    shifts,
+    scheduleData,
+    specialDays,
+    setCellShift,
+    bulkAssign,
+    setSpecialDay,
+    bulkAssignSpecialDay,
+    selectedMes,
+    setSelectedMes,
+    getSucursalCajas,
+    globalSucursal,
+    globalArea,
   } = useAppContext();
   const isReadonly = useReadonly();
 
@@ -54,7 +73,9 @@ export default function MallaContent() {
   const [showBulkShiftModal, setShowBulkShiftModal] = useState(false);
   const [showExcelPanel, setShowExcelPanel] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
-  const [contractedHoursOverride, setContractedHoursOverride] = useState<Record<string, number>>({});
+  const [contractedHoursOverride, setContractedHoursOverride] = useState<Record<string, number>>(
+    {}
+  );
 
   // ─── Lock state (compartido entre dispositivos, solo admin lo cambia) ──────
   const { isLocked, setLocked } = useSharedLock('malla_locked');
@@ -78,9 +99,13 @@ export default function MallaContent() {
 
   // ─── Refs for latest specialDays / scheduleData (avoid stale closure in effects) ─
   const specialDaysRef = React.useRef(specialDays);
-  React.useEffect(() => { specialDaysRef.current = specialDays; }, [specialDays]);
+  React.useEffect(() => {
+    specialDaysRef.current = specialDays;
+  }, [specialDays]);
   const scheduleDataRef = React.useRef(scheduleData);
-  React.useEffect(() => { scheduleDataRef.current = scheduleData; }, [scheduleData]);
+  React.useEffect(() => {
+    scheduleDataRef.current = scheduleData;
+  }, [scheduleData]);
 
   // Track which month the birthday effect last ran so it only fires on month changes
   const birthdayEffectMonthRef = React.useRef<string | null>(null);
@@ -95,8 +120,18 @@ export default function MallaContent() {
     birthdayEffectMonthRef.current = selectedMes;
 
     const MONTH_NAMES_MAP: Record<string, number> = {
-      'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-      'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+      Enero: 0,
+      Febrero: 1,
+      Marzo: 2,
+      Abril: 3,
+      Mayo: 4,
+      Junio: 5,
+      Julio: 6,
+      Agosto: 7,
+      Septiembre: 8,
+      Octubre: 9,
+      Noviembre: 10,
+      Diciembre: 11,
     };
     const parts = (selectedMes || '').split(' ');
     const monthIdx = MONTH_NAMES_MAP[parts[0]];
@@ -107,7 +142,7 @@ export default function MallaContent() {
     const currentSpecialDays = specialDaysRef.current[monthKey] || {};
     const currentSchedule = scheduleDataRef.current[monthKey] || {};
 
-    workers.forEach(worker => {
+    workers.forEach((worker) => {
       if (!worker.birthday) return;
       // birthday stored as YYYY-MM-DD
       const bDate = new Date(worker.birthday + 'T00:00:00');
@@ -127,14 +162,24 @@ export default function MallaContent() {
         setSpecialDay(worker.id, dayIndex, 'CUMPLEANOS');
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMes, workers]);
 
   // ─── Compute holiday day indices for the current month (for header highlight) ─
   const holidayDayIndices = useMemo<Set<number>>(() => {
     const MONTH_NAMES_MAP: Record<string, number> = {
-      'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-      'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+      Enero: 0,
+      Febrero: 1,
+      Marzo: 2,
+      Abril: 3,
+      Mayo: 4,
+      Junio: 5,
+      Julio: 6,
+      Agosto: 7,
+      Septiembre: 8,
+      Octubre: 9,
+      Noviembre: 10,
+      Diciembre: 11,
     };
     const parts = (selectedMes || '').split(' ');
     const monthIdx = MONTH_NAMES_MAP[parts[0]];
@@ -165,7 +210,7 @@ export default function MallaContent() {
       // Contracted hours multi-select filter
       if (selectedHoras.length > 0) {
         const workerHrs = contractedHoursOverride[w.id] ?? w.horasContratadas ?? 42;
-        const matchesAny = selectedHoras.some(h => parseInt(h, 10) === workerHrs);
+        const matchesAny = selectedHoras.some((h) => parseInt(h, 10) === workerHrs);
         if (!matchesAny) return false;
       }
       // Name search filter
@@ -176,7 +221,7 @@ export default function MallaContent() {
       if (selectedTurno !== 'Todos') {
         const monthKey = monthLabelToKey(selectedMes);
         const sched = (scheduleData[monthKey] || {})[w.id] || [];
-        const hasShift = sched.some(s => {
+        const hasShift = sched.some((s) => {
           if (!s || s === 'DESC') return false;
           const shiftInfo = shifts[s];
           if (!shiftInfo) return false;
@@ -187,17 +232,31 @@ export default function MallaContent() {
       }
       return true;
     });
-  }, [workers, selectedArea, selectedSucursal, selectedCargo, selectedTurno, selectedHoras, nameSearch, contractedHoursOverride, scheduleData, shifts, selectedMes]);
+  }, [
+    workers,
+    selectedArea,
+    selectedSucursal,
+    selectedCargo,
+    selectedTurno,
+    selectedHoras,
+    nameSearch,
+    contractedHoursOverride,
+    scheduleData,
+    shifts,
+    selectedMes,
+  ]);
 
   const getAlerts = (workerId: string): string[] => {
     const sched = currentMonthSchedule[workerId] || [];
     const workerSpecialDays = currentMonthSpecialDays[workerId] || {};
     const alerts: string[] = [];
-    const worker = workers.find(w => w.id === workerId);
+    const worker = workers.find((w) => w.id === workerId);
     const horasLimite = contractedHoursOverride[workerId] ?? worker?.horasContratadas ?? 42;
 
     // Count actual shifts assigned (non-null, non-DESC, non-special)
-    const assignedShifts = sched.filter((s, i) => s && s !== 'DESC' && !workerSpecialDays[i]).length;
+    const assignedShifts = sched.filter(
+      (s, i) => s && s !== 'DESC' && !workerSpecialDays[i]
+    ).length;
     // Only run alerts if the worker has at least some shifts assigned this month
     if (assignedShifts === 0) return alerts;
 
@@ -215,7 +274,7 @@ export default function MallaContent() {
     if (maxConsec >= 7) alerts.push(`${maxConsec} días consecutivos trabajados (máx. 6)`);
 
     // Count total Sundays in this month
-    const totalSundaysInMonth = daysOfWeek.slice(0, daysInMonth).filter(d => d === 'D').length;
+    const totalSundaysInMonth = daysOfWeek.slice(0, daysInMonth).filter((d) => d === 'D').length;
 
     let sundaysWorked = 0;
     let sundaysOff = 0;
@@ -233,7 +292,9 @@ export default function MallaContent() {
     // Only require minimum 2 Sundays off if the month actually has 2+ Sundays
     const minSundaysOff = Math.min(2, totalSundaysInMonth);
     if (totalSundaysInMonth >= 2 && sundaysOff < minSundaysOff) {
-      alerts.push(`Solo ${sundaysOff} domingo(s) de descanso en el mes (mínimo ${minSundaysOff} requeridos)`);
+      alerts.push(
+        `Solo ${sundaysOff} domingo(s) de descanso en el mes (mínimo ${minSundaysOff} requeridos)`
+      );
     }
     // Weekly hours check: group days into ISO weeks (Mon–Sun) and sum hours
     const weekHours: Record<number, number> = {};
@@ -245,8 +306,18 @@ export default function MallaContent() {
       // Determine ISO week number for this day
       const parts = (selectedMes || '').split(' ');
       const MONTH_NAMES_MAP: Record<string, number> = {
-        'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-        'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+        Enero: 0,
+        Febrero: 1,
+        Marzo: 2,
+        Abril: 3,
+        Mayo: 4,
+        Junio: 5,
+        Julio: 6,
+        Agosto: 7,
+        Septiembre: 8,
+        Octubre: 9,
+        Noviembre: 10,
+        Diciembre: 11,
       };
       const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 7;
       const year = parseInt(parts[1] || '2026', 10);
@@ -256,14 +327,17 @@ export default function MallaContent() {
       const weekStart = new Date(date);
       weekStart.setDate(date.getDate() - dayOfWeek);
       const weekKey = weekStart.getTime();
-      let hrs = (() => {
+      const hrs = (() => {
         if (!shiftInfo.start || !shiftInfo.end) return 0;
         const [sh, sm] = shiftInfo.start.split(':').map(Number);
         const [eh, em] = shiftInfo.end.split(':').map(Number);
-        let mins = (eh * 60 + em) - (sh * 60 + sm);
+        let mins = eh * 60 + em - (sh * 60 + sm);
         if (mins < 0) mins += 24 * 60;
         const gross = mins / 60;
-        if ((shiftInfo as { colacion?: number }).colacion && (shiftInfo as { colacion?: number }).colacion! > 0) {
+        if (
+          (shiftInfo as { colacion?: number }).colacion &&
+          (shiftInfo as { colacion?: number }).colacion! > 0
+        ) {
           return gross - (shiftInfo as { colacion?: number }).colacion! / 60;
         }
         return gross;
@@ -272,7 +346,10 @@ export default function MallaContent() {
     }
     const maxWeekHours = Math.max(0, ...Object.values(weekHours));
     // Only alert if hours exceed the limit by more than 0.5h (avoid rounding false positives)
-    if (maxWeekHours > horasLimite + 0.5) alerts.push(`Semana con ${Math.round(maxWeekHours * 10) / 10}h (límite ${horasLimite}h/semana)`);
+    if (maxWeekHours > horasLimite + 0.5)
+      alerts.push(
+        `Semana con ${Math.round(maxWeekHours * 10) / 10}h (límite ${horasLimite}h/semana)`
+      );
     return alerts;
   };
 
@@ -281,12 +358,22 @@ export default function MallaContent() {
   const getWeekUnderHours = (workerId: string): Set<number> => {
     const sched = currentMonthSchedule[workerId] || [];
     const workerSpecialDays = currentMonthSpecialDays[workerId] || {};
-    const worker = workers.find(w => w.id === workerId);
+    const worker = workers.find((w) => w.id === workerId);
     const horasLimite = contractedHoursOverride[workerId] ?? worker?.horasContratadas ?? 42;
 
     const MONTH_NAMES_MAP: Record<string, number> = {
-      'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-      'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+      Enero: 0,
+      Febrero: 1,
+      Marzo: 2,
+      Abril: 3,
+      Mayo: 4,
+      Junio: 5,
+      Julio: 6,
+      Agosto: 7,
+      Septiembre: 8,
+      Octubre: 9,
+      Noviembre: 10,
+      Diciembre: 11,
     };
     const parts = (selectedMes || '').split(' ');
     const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 7;
@@ -324,14 +411,14 @@ export default function MallaContent() {
 
       const [sh, sm] = shiftInfo.start.split(':').map(Number);
       const [eh, em] = shiftInfo.end.split(':').map(Number);
-      let mins = (eh * 60 + em) - (sh * 60 + sm);
+      let mins = eh * 60 + em - (sh * 60 + sm);
       if (mins < 0) mins += 24 * 60;
       let hrs = mins / 60;
       const col = (shiftInfo as { colacion?: number }).colacion;
       if (col && col > 0) hrs -= col / 60;
 
       // Find which month-clipped week this day belongs to
-      const wk = monthClippedWeeks.find(w => dayNum >= w.startDay && dayNum <= w.endDay);
+      const wk = monthClippedWeeks.find((w) => dayNum >= w.startDay && dayNum <= w.endDay);
       if (wk) {
         weekData[wk.key].hours += hrs;
       }
@@ -346,7 +433,7 @@ export default function MallaContent() {
       const dayNum = i + 1;
       const isSpecial = !!workerSpecialDays[i];
       if (isSpecial || !sched[i] || sched[i] === 'DESC') continue;
-      const wk = monthClippedWeeks.find(w => dayNum >= w.startDay && dayNum <= w.endDay);
+      const wk = monthClippedWeeks.find((w) => dayNum >= w.startDay && dayNum <= w.endDay);
       if (wk) weekScheduledDays[wk.key]++;
     }
 
@@ -365,7 +452,7 @@ export default function MallaContent() {
       const requiredHours = isPartialWeek
         ? horasLimite * (calendarDaysInMonth / 7)
         : horasLimite * (scheduledDays / 7);
-      const tolerance = 0.10; // 10% tolerance
+      const tolerance = 0.1; // 10% tolerance
       if (data.hours < requiredHours * (1 - tolerance)) {
         underWeeks.add(wk.key);
       }
@@ -405,34 +492,51 @@ export default function MallaContent() {
   const handleAssign = async (workerIds: string[], dayIndices: number[], shift: ShiftCode) => {
     if (isLocked) return;
     const ok = await bulkAssign(workerIds, dayIndices, shift);
-    if (ok) toast.success(`✓ Turno ${shift} guardado para ${workerIds.length} trabajadora(s) en ${dayIndices.length} día(s)`, { duration: 2500 });
+    if (ok)
+      toast.success(
+        `✓ Turno ${shift} guardado para ${workerIds.length} trabajadora(s) en ${dayIndices.length} día(s)`,
+        { duration: 2500 }
+      );
     else toast.error('Error al guardar algunos turnos. Intenta de nuevo.');
     setShowAssignModal(false);
   };
 
-  const handleAssignSpecialDay = (workerIds: string[], dayIndices: number[], typeCode: string | null) => {
+  const handleAssignSpecialDay = (
+    workerIds: string[],
+    dayIndices: number[],
+    typeCode: string | null
+  ) => {
     if (isLocked) return;
     bulkAssignSpecialDay(workerIds, dayIndices, typeCode);
     const label = typeCode || 'vacío';
-    toast.success(`Día especial "${label}" asignado a ${workerIds.length} trabajadora(s) en ${dayIndices.length} día(s)`);
+    toast.success(
+      `Día especial "${label}" asignado a ${workerIds.length} trabajadora(s) en ${dayIndices.length} día(s)`
+    );
     setShowAssignModal(false);
   };
 
   const handleContractedHoursChange = (workerId: string, hours: number) => {
-    setContractedHoursOverride(prev => ({ ...prev, [workerId]: hours }));
+    setContractedHoursOverride((prev) => ({ ...prev, [workerId]: hours }));
   };
 
-  const handleBulkShiftAssign = async (workerIds: string[], dayIndices: number[], shift: ShiftCode) => {
+  const handleBulkShiftAssign = async (
+    workerIds: string[],
+    dayIndices: number[],
+    shift: ShiftCode
+  ) => {
     if (isLocked) return;
     const ok = await bulkAssign(workerIds, dayIndices, shift);
-    if (ok) toast.success(`✓ Turno ${shift} asignado a ${workerIds.length} trabajadora(s)`, { duration: 2500 });
+    if (ok)
+      toast.success(`✓ Turno ${shift} asignado a ${workerIds.length} trabajadora(s)`, {
+        duration: 2500,
+      });
     else toast.error('Error al guardar algunos turnos. Intenta de nuevo.');
     setShowBulkShiftModal(false);
   };
 
   const turnoOptions = useMemo(() => {
     const opts = ['Todos'];
-    Object.values(shifts).forEach(s => {
+    Object.values(shifts).forEach((s) => {
       if (s.code !== 'DESC' && s.start) {
         opts.push(`${s.label} (${s.start} - ${s.end})`);
       }
@@ -448,7 +552,9 @@ export default function MallaContent() {
             <CalendarDays size={20} className="text-secondary" />
             Malla de Turnos
           </h1>
-          <p className="text-muted-foreground text-sm mt-1 ml-3">Asignación de turnos por colaborador/a</p>
+          <p className="text-muted-foreground text-sm mt-1 ml-3">
+            Asignación de turnos por colaborador/a
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <LockToggle isLocked={isLocked} subject="la malla" onToggle={handleToggleLock} />
@@ -476,7 +582,19 @@ export default function MallaContent() {
                 className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
                 Turno masivo
               </button>
               <button
@@ -496,7 +614,10 @@ export default function MallaContent() {
       {isLocked && (
         <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-medium">
           <span>🔒</span>
-          <span>La malla está bloqueada. Solo puedes visualizar los turnos. Haz clic en <strong>Bloqueada</strong> para ingresar tu PIN y editar.</span>
+          <span>
+            La malla está bloqueada. Solo puedes visualizar los turnos. Haz clic en{' '}
+            <strong>Bloqueada</strong> para ingresar tu PIN y editar.
+          </span>
         </div>
       )}
 

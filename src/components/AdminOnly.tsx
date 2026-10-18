@@ -14,7 +14,10 @@ export default function AdminOnly({ children }: { children: React.ReactNode }) {
           <ShieldAlert size={22} className="text-amber-600" />
         </div>
         <h2 className="text-lg font-bold text-foreground">Solo administradores</h2>
-        <p className="text-sm text-muted-foreground">Tu cuenta tiene acceso de solo lectura. Pide a un administrador que cambie tu rol si necesitas entrar a esta sección.</p>
+        <p className="text-sm text-muted-foreground">
+          Tu cuenta tiene acceso de solo lectura. Pide a un administrador que cambie tu rol si
+          necesitas entrar a esta sección.
+        </p>
       </div>
     </div>
   );

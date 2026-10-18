@@ -5,15 +5,38 @@ import { fetchAll } from '@/lib/supabase/fetchAll';
 import { useAppContext } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import {
-  getDatesInRange, getDefaultStartDate, getDefaultEndDate, formatPeriodLabel,
-  formatDateLabel, getStatusStyle, getStatusLabel, ATTENDANCE_STATUSES,
+  getDatesInRange,
+  getDefaultStartDate,
+  getDefaultEndDate,
+  formatPeriodLabel,
+  formatDateLabel,
+  getStatusStyle,
+  getStatusLabel,
+  ATTENDANCE_STATUSES,
 } from './asistenciaUtils';
 import DailyAlertModal from './DailyAlertModal';
 import OvertimeModal from './OvertimeModal';
 import LockToggle from '@/components/LockToggle';
 import { useSharedLock } from '@/hooks/useSharedLock';
 import { useAuth } from '@/context/AuthContext';
-import { CalendarCheck, Download, Clock, ChevronDown, AlertCircle, RefreshCw, Users, CheckCheck, Calendar, Sun, Sunset, Lock, Unlock, X, Eye, EyeOff } from 'lucide-react';
+import {
+  CalendarCheck,
+  Download,
+  Clock,
+  ChevronDown,
+  AlertCircle,
+  RefreshCw,
+  Users,
+  CheckCheck,
+  Calendar,
+  Sun,
+  Sunset,
+  Lock,
+  Unlock,
+  X,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 
 // ─── Stable Supabase client (module-level singleton) ─────────────────────────
 // CRITICAL: Must NOT be inside the component or useMemo — recreating the client
@@ -40,7 +63,13 @@ interface OvertimeRecord {
 interface DailyAlertState {
   date: string;
   dateLabel: string;
-  workers: { id: string; name: string; initials: string; avatarColor: string; scheduledShift: string | null }[];
+  workers: {
+    id: string;
+    name: string;
+    initials: string;
+    avatarColor: string;
+    scheduledShift: string | null;
+  }[];
 }
 
 interface OvertimeModalState {
@@ -70,26 +99,44 @@ function LockModal({ mode, dateLabel, onConfirm, onClose, error }: LockModalProp
   };
 
   const title = mode === 'lock' ? 'Guardar y bloquear día' : 'Desbloquear día';
-  const desc = mode === 'lock'
-    ? `Una vez bloqueado el ${dateLabel}, nadie podrá modificar ni eliminar sus registros hasta que un administrador lo desbloquee.`
-    : `Se podrán volver a editar los registros del ${dateLabel}.`;
+  const desc =
+    mode === 'lock'
+      ? `Una vez bloqueado el ${dateLabel}, nadie podrá modificar ni eliminar sus registros hasta que un administrador lo desbloquee.`
+      : `Se podrán volver a editar los registros del ${dateLabel}.`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl border border-gray-200 p-6 w-full max-w-sm shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${mode === 'unlock' ? 'bg-green-50' : 'bg-red-50'}`}>
-              {mode === 'unlock' ? <Unlock size={18} className="text-green-600" /> : <Lock size={18} className="text-red-500" />}
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center ${mode === 'unlock' ? 'bg-green-50' : 'bg-red-50'}`}
+            >
+              {mode === 'unlock' ? (
+                <Unlock size={18} className="text-green-600" />
+              ) : (
+                <Lock size={18} className="text-red-500" />
+              )}
             </div>
             <h2 className="text-base font-bold text-gray-900">{title}</h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar"><X size={18} /></button>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+            aria-label="Cerrar"
+          >
+            <X size={18} />
+          </button>
         </div>
         <p className="text-sm text-gray-500 mb-4">{desc}</p>
         {error && <p className="text-red-500 text-xs mb-3 text-center">{error}</p>}
         <div className="flex gap-2 mt-4">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Cancelar
+          </button>
           <button
             onClick={handleSubmit}
             disabled={saving}
@@ -124,29 +171,33 @@ function SucursalMultiSelect({ options, selected, onChange }: SucursalMultiSelec
 
   function toggle(name: string) {
     if (selected.includes(name)) {
-      onChange(selected.filter(s => s !== name));
+      onChange(selected.filter((s) => s !== name));
     } else {
       onChange([...selected, name]);
     }
   }
 
-  const label = selected.length === 0
-    ? 'Todas las sucursales'
-    : selected.length === 1
-    ? selected[0]
-    : `${selected.length} sucursales`;
+  const label =
+    selected.length === 0
+      ? 'Todas las sucursales'
+      : selected.length === 1
+        ? selected[0]
+        : `${selected.length} sucursales`;
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 pl-3 pr-2 py-2 text-xs border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer min-w-[140px] max-w-[200px]"
       >
         <span className="flex-1 text-left truncate">{label}</span>
         {selected.length > 0 && (
           <span
-            onClick={e => { e.stopPropagation(); onChange([]); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange([]);
+            }}
             className="text-gray-400 hover:text-gray-600 shrink-0 cursor-pointer"
           >
             <X size={11} />
@@ -159,7 +210,7 @@ function SucursalMultiSelect({ options, selected, onChange }: SucursalMultiSelec
           {options.length === 0 && (
             <p className="px-3 py-2 text-xs text-gray-400">Sin sucursales</p>
           )}
-          {options.map(opt => {
+          {options.map((opt) => {
             const checked = selected.includes(opt);
             return (
               <button
@@ -168,9 +219,19 @@ function SucursalMultiSelect({ options, selected, onChange }: SucursalMultiSelec
                 onClick={() => toggle(opt)}
                 className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-gray-50 transition-colors ${checked ? 'text-blue-700 font-medium' : 'text-gray-700'}`}
               >
-                <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                <span
+                  className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}
+                >
                   {checked && (
-                    <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                      <path
+                        d="M1.5 4.5L3.5 6.5L7.5 2.5"
+                        stroke="white"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   )}
                 </span>
                 {opt}
@@ -184,7 +245,16 @@ function SucursalMultiSelect({ options, selected, onChange }: SucursalMultiSelec
 }
 
 export default function AsistenciaContent() {
-  const { workers, sucursales, areas, shifts, scheduleData, specialDays, globalSucursal, globalArea } = useAppContext();
+  const {
+    workers,
+    sucursales,
+    areas,
+    shifts,
+    scheduleData,
+    specialDays,
+    globalSucursal,
+    globalArea,
+  } = useAppContext();
   const isReadonly = useReadonly();
 
   const defaultStart = getDefaultStartDate();
@@ -200,7 +270,9 @@ export default function AsistenciaContent() {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [searchName, setSearchName] = useState<string>('');
 
-  const [attendance, setAttendance] = useState<Record<string, Record<string, AttendanceRecord>>>({});
+  const [attendance, setAttendance] = useState<Record<string, Record<string, AttendanceRecord>>>(
+    {}
+  );
   const [overtime, setOvertime] = useState<Record<string, Record<string, OvertimeRecord>>>({});
   const [loading, setLoading] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
@@ -217,7 +289,11 @@ export default function AsistenciaContent() {
   // ── Per-day lock state ────────────────────────────────────────────────────
   // lockedDates: set of date strings "YYYY-MM-DD" that are locked
   const [lockedDates, setLockedDates] = useState<Set<string>>(new Set());
-  const [lockModal, setLockModal] = useState<{ date: string; dateLabel: string; mode: 'lock' | 'unlock' } | null>(null);
+  const [lockModal, setLockModal] = useState<{
+    date: string;
+    dateLabel: string;
+    mode: 'lock' | 'unlock';
+  } | null>(null);
   const [lockError, setLockError] = useState('');
 
   // ── Global panel lock (compartido entre dispositivos, solo admin) ─────────
@@ -257,15 +333,14 @@ export default function AsistenciaContent() {
   }
 
   // Derive dates from range
-  const dates = startDate && endDate && startDate <= endDate
-    ? getDatesInRange(startDate, endDate)
-    : [];
+  const dates =
+    startDate && endDate && startDate <= endDate ? getDatesInRange(startDate, endDate) : [];
 
   // Period key for DB queries — use actual date range, not fixed month
   const periodKey = `${startDate}_${endDate}`;
 
   // Filter workers
-  const filteredWorkers = workers.filter(w => {
+  const filteredWorkers = workers.filter((w) => {
     if (w.estado !== 'Activo') return false;
     if (filterSucursal.length > 0 && !filterSucursal.includes(w.sucursal)) return false;
     if (filterArea !== 'Todas' && w.area !== filterArea) return false;
@@ -275,9 +350,9 @@ export default function AsistenciaContent() {
       if (!w.name.toLowerCase().includes(q)) return false;
     }
     if (filterTurno !== 'Todos') {
-      const datesForFilter = selectedDate ? [selectedDate] : (dates.length > 0 ? dates : []);
+      const datesForFilter = selectedDate ? [selectedDate] : dates.length > 0 ? dates : [];
       if (datesForFilter.length === 0) return true;
-      const hasMatchingTurno = datesForFilter.some(dt => {
+      const hasMatchingTurno = datesForFilter.some((dt) => {
         const shiftCode = getShiftForDate(w.id, dt);
         if (!shiftCode || shiftCode === 'DESC') return false;
         const shift = shifts[shiftCode];
@@ -290,9 +365,9 @@ export default function AsistenciaContent() {
       return hasMatchingTurno;
     }
     if (filterTurnoEspecifico !== 'Todos') {
-      const datesForFilter = selectedDate ? [selectedDate] : (dates.length > 0 ? dates : []);
+      const datesForFilter = selectedDate ? [selectedDate] : dates.length > 0 ? dates : [];
       if (datesForFilter.length === 0) return true;
-      const hasShift = datesForFilter.some(dt => {
+      const hasShift = datesForFilter.some((dt) => {
         const shiftCode = getShiftForDate(w.id, dt);
         return shiftCode === filterTurnoEspecifico;
       });
@@ -307,17 +382,27 @@ export default function AsistenciaContent() {
     setLoading(true);
     try {
       const [attRows, otRows, lockRes] = await Promise.all([
-        fetchAll((from, to) => supabase.from('attendance_records').select('*')
-          .gte('record_date', startDate)
-          .lte('record_date', endDate)
-          .order('id')
-          .range(from, to)),
-        fetchAll((from, to) => supabase.from('overtime_hours').select('*')
-          .gte('record_date', startDate)
-          .lte('record_date', endDate)
-          .order('id')
-          .range(from, to)),
-        supabase.from('attendance_locked_dates').select('record_date')
+        fetchAll((from, to) =>
+          supabase
+            .from('attendance_records')
+            .select('*')
+            .gte('record_date', startDate)
+            .lte('record_date', endDate)
+            .order('id')
+            .range(from, to)
+        ),
+        fetchAll((from, to) =>
+          supabase
+            .from('overtime_hours')
+            .select('*')
+            .gte('record_date', startDate)
+            .lte('record_date', endDate)
+            .order('id')
+            .range(from, to)
+        ),
+        supabase
+          .from('attendance_locked_dates')
+          .select('record_date')
           .gte('record_date', startDate)
           .lte('record_date', endDate),
       ]);
@@ -365,7 +450,9 @@ export default function AsistenciaContent() {
 
       // Load locked dates (ignore errors — table may not exist yet)
       if (!lockRes.error && lockRes.data) {
-        setLockedDates(new Set(lockRes.data.map((r: Record<string, unknown>) => r.record_date as string)));
+        setLockedDates(
+          new Set(lockRes.data.map((r: Record<string, unknown>) => r.record_date as string))
+        );
       }
     } catch (err) {
       console.error('Error loading attendance:', err);
@@ -374,21 +461,25 @@ export default function AsistenciaContent() {
     }
   }, [startDate, endDate]); // removed `supabase` dep — it's now a stable module-level singleton
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Get workers with scheduled shift on a date (excludes descanso and special days)
   function getWorkersForDate(dateStr: string) {
-    return filteredWorkers.filter(w => {
-      const shiftCode = getShiftForDate(w.id, dateStr);
-      const special = getSpecialForDate(w.id, dateStr);
-      return shiftCode && shiftCode !== 'DESC' && !special;
-    }).map(w => ({
-      id: w.id,
-      name: w.name,
-      initials: w.initials,
-      avatarColor: w.avatarColor,
-      scheduledShift: getShiftForDate(w.id, dateStr),
-    }));
+    return filteredWorkers
+      .filter((w) => {
+        const shiftCode = getShiftForDate(w.id, dateStr);
+        const special = getSpecialForDate(w.id, dateStr);
+        return shiftCode && shiftCode !== 'DESC' && !special;
+      })
+      .map((w) => ({
+        id: w.id,
+        name: w.name,
+        initials: w.initials,
+        avatarColor: w.avatarColor,
+        scheduledShift: getShiftForDate(w.id, dateStr),
+      }));
   }
 
   // Determine auto-status from schedule/special days for a given date
@@ -399,7 +490,7 @@ export default function AsistenciaContent() {
       // NT in special days = "No trabajaba" — absolute, never overrideable
       if (special === 'NT') return 'NT';
       if (special === 'FERIADO') return 'DESCANSO';
-      const knownAttendanceCodes = ATTENDANCE_STATUSES.map(s => s.code);
+      const knownAttendanceCodes = ATTENDANCE_STATUSES.map((s) => s.code);
       // If the special day type is a known attendance status, use it directly
       if (knownAttendanceCodes.includes(special)) return special;
       // Unknown/custom special day type → treat as NT (worker is not working)
@@ -423,7 +514,7 @@ export default function AsistenciaContent() {
       if (special === 'NT') return true;
       // Any special day type that is NOT a known attendance status and NOT FERIADO/DESCANSO
       // means the worker is "not working" — treat as NT
-      const knownAttendanceCodes = ATTENDANCE_STATUSES.map(s => s.code);
+      const knownAttendanceCodes = ATTENDANCE_STATUSES.map((s) => s.code);
       const isKnownStatus = knownAttendanceCodes.includes(special);
       const isKnownNonWorking = special === 'FERIADO' || special === 'DESCANSO';
       if (!isKnownStatus && !isKnownNonWorking) return true;
@@ -467,7 +558,11 @@ export default function AsistenciaContent() {
     const label = `${dow} ${day} ${monthShort}`;
     setLockError('');
     if (!isAdmin) return;
-    setLockModal({ date: dateStr, dateLabel: label, mode: lockedDates.has(dateStr) ? 'unlock' : 'lock' });
+    setLockModal({
+      date: dateStr,
+      dateLabel: label,
+      mode: lockedDates.has(dateStr) ? 'unlock' : 'lock',
+    });
   }
 
   async function handleLockConfirm() {
@@ -483,32 +578,36 @@ export default function AsistenciaContent() {
   }
 
   async function lockDate(dateStr: string): Promise<boolean> {
-    const { error } = await supabase.from('attendance_locked_dates').upsert(
-      { record_date: dateStr, locked_at: new Date().toISOString() },
-      { onConflict: 'record_date' }
-    );
+    const { error } = await supabase
+      .from('attendance_locked_dates')
+      .upsert(
+        { record_date: dateStr, locked_at: new Date().toISOString() },
+        { onConflict: 'record_date' }
+      );
     if (error) {
       console.error('Error locking date:', error);
       return false;
     }
-    setLockedDates(prev => new Set([...prev, dateStr]));
+    setLockedDates((prev) => new Set([...prev, dateStr]));
     return true;
   }
 
   async function unlockDate(dateStr: string): Promise<boolean> {
-    const { error } = await supabase.from('attendance_locked_dates').delete().eq('record_date', dateStr);
+    const { error } = await supabase
+      .from('attendance_locked_dates')
+      .delete()
+      .eq('record_date', dateStr);
     if (error) {
       console.error('Error unlocking date:', error);
       return false;
     }
-    setLockedDates(prev => {
+    setLockedDates((prev) => {
       const next = new Set(prev);
       next.delete(dateStr);
       return next;
     });
     return true;
   }
-
 
   // Bulk mark ALL SCHEDULED workers as present for a date (descansos auto-marked)
   // Overwrites ALL workers (including those with existing records) to ensure "Todas asistieron" is absolute
@@ -520,25 +619,25 @@ export default function AsistenciaContent() {
     const now = new Date().toISOString();
 
     // Upsert ALL workers (overwrite existing records too)
-    const allUpserts = filteredWorkers
-      .map(w => {
-        const autoStatus = getAutoStatus(w.id, dateStr);
-        const status = autoStatus !== null ? (autoStatus === 'NT_SOFT' ? 'NT' : autoStatus) : 'PRESENTE';
-        return {
-          worker_id: w.id,
-          record_date: dateStr,
-          period_key: periodKey,
-          status,
-          absence_reason: '',
-          notes: '',
-          updated_at: now,
-        };
-      });
+    const allUpserts = filteredWorkers.map((w) => {
+      const autoStatus = getAutoStatus(w.id, dateStr);
+      const status =
+        autoStatus !== null ? (autoStatus === 'NT_SOFT' ? 'NT' : autoStatus) : 'PRESENTE';
+      return {
+        worker_id: w.id,
+        record_date: dateStr,
+        period_key: periodKey,
+        status,
+        absence_reason: '',
+        notes: '',
+        updated_at: now,
+      };
+    });
 
     // Optimistic update
-    setAttendance(prev => {
+    setAttendance((prev) => {
       const next = { ...prev };
-      allUpserts.forEach(u => {
+      allUpserts.forEach((u) => {
         if (!next[u.worker_id]) next[u.worker_id] = {};
         const record: AttendanceRecord = {
           workerId: u.worker_id,
@@ -557,7 +656,9 @@ export default function AsistenciaContent() {
 
     try {
       if (allUpserts.length > 0) {
-        const { error } = await supabase.from('attendance_records').upsert(allUpserts, { onConflict: 'worker_id,record_date' });
+        const { error } = await supabase
+          .from('attendance_records')
+          .upsert(allUpserts, { onConflict: 'worker_id,record_date' });
         if (error) {
           console.error('Error marking all present:', error);
         }
@@ -571,30 +672,36 @@ export default function AsistenciaContent() {
   }
 
   // Handle daily alert confirm
-  async function handleDailyAlertConfirm(allPresent: boolean, absences: { workerId: string; reason: string }[]) {
+  async function handleDailyAlertConfirm(
+    allPresent: boolean,
+    absences: { workerId: string; reason: string }[]
+  ) {
     if (!dailyAlert) return;
     const { date } = dailyAlert;
-    if (isPanelLocked || lockedDates.has(date)) { setDailyAlert(null); return; }
+    if (isPanelLocked || lockedDates.has(date)) {
+      setDailyAlert(null);
+      return;
+    }
     setSavingDate(date);
     setDailyAlert(null);
 
     const workersForDate = getWorkersForDate(date);
-    const absentSet = new Set(absences.map(a => a.workerId));
-    const absenceReasonMap = Object.fromEntries(absences.map(a => [a.workerId, a.reason]));
+    const absentSet = new Set(absences.map((a) => a.workerId));
+    const absenceReasonMap = Object.fromEntries(absences.map((a) => [a.workerId, a.reason]));
 
-    const upserts = workersForDate.map(w => ({
+    const upserts = workersForDate.map((w) => ({
       worker_id: w.id,
       record_date: date,
       period_key: periodKey,
       status: absentSet.has(w.id) ? 'AUSENTE' : 'PRESENTE',
-      absence_reason: absentSet.has(w.id) ? (absenceReasonMap[w.id] || 'Falta injustificada') : '',
+      absence_reason: absentSet.has(w.id) ? absenceReasonMap[w.id] || 'Falta injustificada' : '',
       notes: '',
       updated_at: new Date().toISOString(),
     }));
 
     const autoUpserts = filteredWorkers
-      .filter(w => !workersForDate.find(wf => wf.id === w.id))
-      .map(w => {
+      .filter((w) => !workersForDate.find((wf) => wf.id === w.id))
+      .map((w) => {
         const autoStatus = getAutoStatus(w.id, date);
         if (!autoStatus) return null;
         return {
@@ -613,9 +720,9 @@ export default function AsistenciaContent() {
 
     // Apply optimistic update immediately — do NOT call loadData() after save
     // (loadData can race with DB commit and overwrite the just-saved state)
-    setAttendance(prev => {
+    setAttendance((prev) => {
       const next = { ...prev };
-      allUpserts.forEach(u => {
+      allUpserts.forEach((u) => {
         if (!u) return;
         if (!next[u.worker_id]) next[u.worker_id] = {};
         const record: AttendanceRecord = {
@@ -635,7 +742,9 @@ export default function AsistenciaContent() {
     });
 
     try {
-      const { error } = await supabase.from('attendance_records').upsert(allUpserts, { onConflict: 'worker_id,record_date' });
+      const { error } = await supabase
+        .from('attendance_records')
+        .upsert(allUpserts, { onConflict: 'worker_id,record_date' });
       if (error) {
         console.error('Error saving attendance:', error);
         setSaveError(`Error al guardar: ${error.message}`);
@@ -663,7 +772,7 @@ export default function AsistenciaContent() {
     const prevRecord = attendance[workerId]?.[dateStr];
 
     // Apply optimistic update immediately
-    setAttendance(prev => {
+    setAttendance((prev) => {
       const next = { ...prev };
       if (!next[workerId]) next[workerId] = {};
       const now = new Date().toISOString();
@@ -682,30 +791,28 @@ export default function AsistenciaContent() {
       return next;
     });
 
-    setSavingCells(prev => new Set([...prev, cellKey]));
+    setSavingCells((prev) => new Set([...prev, cellKey]));
 
     try {
-      const { error } = await supabase
-        .from('attendance_records')
-        .upsert(
-          {
-            worker_id: workerId,
-            record_date: dateStr,
-            period_key: periodKey,
-            status: newStatus,
-            absence_reason: newStatus === 'AUSENTE' ? 'Falta injustificada' : '',
-            notes: '',
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'worker_id,record_date' }
-        );
+      const { error } = await supabase.from('attendance_records').upsert(
+        {
+          worker_id: workerId,
+          record_date: dateStr,
+          period_key: periodKey,
+          status: newStatus,
+          absence_reason: newStatus === 'AUSENTE' ? 'Falta injustificada' : '',
+          notes: '',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'worker_id,record_date' }
+      );
 
       if (error) {
         console.error('Error saving status:', error);
         setSaveError(`Error al guardar: ${error.message}`);
         setTimeout(() => setSaveError(null), 5000);
         // Revert optimistic update
-        setAttendance(prev => {
+        setAttendance((prev) => {
           const next = { ...prev };
           if (prevRecord) {
             if (!next[workerId]) next[workerId] = {};
@@ -721,7 +828,7 @@ export default function AsistenciaContent() {
       setSaveError('Error al guardar el estado. Intenta de nuevo.');
       setTimeout(() => setSaveError(null), 5000);
       // Revert optimistic update
-      setAttendance(prev => {
+      setAttendance((prev) => {
         const next = { ...prev };
         if (prevRecord) {
           if (!next[workerId]) next[workerId] = {};
@@ -732,7 +839,7 @@ export default function AsistenciaContent() {
         return next;
       });
     } finally {
-      setSavingCells(prev => {
+      setSavingCells((prev) => {
         const next = new Set(prev);
         next.delete(cellKey);
         return next;
@@ -752,14 +859,16 @@ export default function AsistenciaContent() {
       notes,
       updated_at: new Date().toISOString(),
     };
-    setOvertime(prev => {
+    setOvertime((prev) => {
       const next = { ...prev };
       if (!next[workerId]) next[workerId] = {};
       next[workerId][dateStr] = { workerId, recordDate: dateStr, hours, notes };
       return next;
     });
     setOvertimeModal(null);
-    const { error } = await supabase.from('overtime_hours').upsert(upsert, { onConflict: 'worker_id,record_date' });
+    const { error } = await supabase
+      .from('overtime_hours')
+      .upsert(upsert, { onConflict: 'worker_id,record_date' });
     if (error) {
       console.error('Error saving overtime:', error);
       setSaveError(`No se pudieron guardar las horas extra: ${error.message}`);
@@ -790,7 +899,9 @@ export default function AsistenciaContent() {
       }
     }
     if (upserts.length === 0) return;
-    const { error } = await supabase.from('attendance_records').upsert(upserts, { onConflict: 'worker_id,record_date' });
+    const { error } = await supabase
+      .from('attendance_records')
+      .upsert(upserts, { onConflict: 'worker_id,record_date' });
     if (error) {
       console.error('Error saving report:', error);
       setSaveError(`Error al guardar: ${error.message}`);
@@ -802,9 +913,20 @@ export default function AsistenciaContent() {
   function isChileanHoliday(dateStr: string): boolean {
     const [year, month, day] = dateStr.split('-').map(Number);
     const fixed: [number, number][] = [
-      [1, 1], [5, 1], [5, 21], [6, 29], [7, 16], [8, 15],
-      [9, 18], [9, 19], [10, 12], [10, 31], [11, 1], [11, 2],
-      [12, 8], [12, 25],
+      [1, 1],
+      [5, 1],
+      [5, 21],
+      [6, 29],
+      [7, 16],
+      [8, 15],
+      [9, 18],
+      [9, 19],
+      [10, 12],
+      [10, 31],
+      [11, 1],
+      [11, 2],
+      [12, 8],
+      [12, 25],
     ];
     if (fixed.some(([m, d]) => m === month && d === day)) return true;
     const a = year % 19;
@@ -822,8 +944,10 @@ export default function AsistenciaContent() {
     const easterMonth = Math.floor((h + l - 7 * m2 + 114) / 31);
     const easterDay = ((h + l - 7 * m2 + 114) % 31) + 1;
     const easter = new Date(year, easterMonth - 1, easterDay);
-    const goodFriday = new Date(easter); goodFriday.setDate(easter.getDate() - 2);
-    const holySaturday = new Date(easter); holySaturday.setDate(easter.getDate() - 1);
+    const goodFriday = new Date(easter);
+    goodFriday.setDate(easter.getDate() - 2);
+    const holySaturday = new Date(easter);
+    holySaturday.setDate(easter.getDate() - 1);
     if (goodFriday.getMonth() + 1 === month && goodFriday.getDate() === day) return true;
     if (holySaturday.getMonth() + 1 === month && holySaturday.getDate() === day) return true;
     return false;
@@ -834,26 +958,28 @@ export default function AsistenciaContent() {
     const ExcelJS = (await import('exceljs')).default;
 
     // Fresh DB fetch
-    let freshAttendance: Record<string, Record<string, AttendanceRecord>> = {};
+    const freshAttendance: Record<string, Record<string, AttendanceRecord>> = {};
     try {
-      const attRows = await fetchAll((from, to) => supabase
-        .from('attendance_records')
-        .select('*')
-        .gte('record_date', startDate)
-        .lte('record_date', endDate)
-        .order('id')
-        .range(from, to));
+      const attRows = await fetchAll((from, to) =>
+        supabase
+          .from('attendance_records')
+          .select('*')
+          .gte('record_date', startDate)
+          .lte('record_date', endDate)
+          .order('id')
+          .range(from, to)
+      );
 
       attRows.forEach((r: Record<string, unknown>) => {
         const wid = r.worker_id as string;
-        const dt  = r.record_date as string;
+        const dt = r.record_date as string;
         if (!freshAttendance[wid]) freshAttendance[wid] = {};
         freshAttendance[wid][dt] = {
-          workerId:      wid,
-          recordDate:    dt,
-          status:        r.status as string,
+          workerId: wid,
+          recordDate: dt,
+          status: r.status as string,
           absenceReason: (r.absence_reason as string) || '',
-          notes:         (r.notes as string) || '',
+          notes: (r.notes as string) || '',
         };
       });
     } catch (err) {
@@ -871,14 +997,14 @@ export default function AsistenciaContent() {
     });
 
     const STATUS_LABEL_MAP: Record<string, string> = {
-      PRESENTE:   'Presente',
-      AUSENTE:    'Ausente',
+      PRESENTE: 'Presente',
+      AUSENTE: 'Ausente',
       VACACIONES: 'Vacaciones',
-      DESCANSO:   'Descanso',
-      PERMISO:    'Permiso',
-      LICENCIA:   'Licencia',
+      DESCANSO: 'Descanso',
+      PERMISO: 'Permiso',
+      LICENCIA: 'Licencia',
       CUMPLEANOS: 'Cumpleaños',
-      NT:         'No trabajaba',
+      NT: 'No trabajaba',
     };
 
     // Report status: DB record first, then effective status (malla-derived)
@@ -903,20 +1029,20 @@ export default function AsistenciaContent() {
 
     const argb = (hex: string) => `FF${hex.toUpperCase()}`;
     const thinBorder = {
-      top:    { style: 'thin' as const, color: { argb: 'FFBFBFBF' } },
+      top: { style: 'thin' as const, color: { argb: 'FFBFBFBF' } },
       bottom: { style: 'thin' as const, color: { argb: 'FFBFBFBF' } },
-      left:   { style: 'thin' as const, color: { argb: 'FFBFBFBF' } },
-      right:  { style: 'thin' as const, color: { argb: 'FFBFBFBF' } },
+      left: { style: 'thin' as const, color: { argb: 'FFBFBFBF' } },
+      right: { style: 'thin' as const, color: { argb: 'FFBFBFBF' } },
     };
 
     const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
-      PRESENTE:   { bg: 'E2EFDA', fg: '375623' },
-      AUSENTE:    { bg: 'FCE4D6', fg: '843C0C' },
-      DESCANSO:   { bg: 'DDEBF7', fg: '1F4E79' },
-      NT:         { bg: 'F2F2F2', fg: '808080' },
+      PRESENTE: { bg: 'E2EFDA', fg: '375623' },
+      AUSENTE: { bg: 'FCE4D6', fg: '843C0C' },
+      DESCANSO: { bg: 'DDEBF7', fg: '1F4E79' },
+      NT: { bg: 'F2F2F2', fg: '808080' },
       VACACIONES: { bg: 'FFF2CC', fg: '7F6000' },
-      PERMISO:    { bg: 'EDE7F6', fg: '4A148C' },
-      LICENCIA:   { bg: 'FBE9E7', fg: 'BF360C' },
+      PERMISO: { bg: 'EDE7F6', fg: '4A148C' },
+      LICENCIA: { bg: 'FBE9E7', fg: 'BF360C' },
       CUMPLEANOS: { bg: 'FCE4EC', fg: '880E4F' },
     };
 
@@ -930,15 +1056,26 @@ export default function AsistenciaContent() {
 
     const reportWorkers = filteredWorkers;
     const FIXED_COLS = 3;
-    const TOTAL_LABELS = ['Presentes', 'Ausentes', 'Descansos', 'Vacaciones', 'Permisos', 'Licencias'];
-    const TOTAL_KEYS   = ['PRESENTE', 'AUSENTE', 'DESCANSO', 'VACACIONES', 'PERMISO', 'LICENCIA'];
+    const TOTAL_LABELS = [
+      'Presentes',
+      'Ausentes',
+      'Descansos',
+      'Vacaciones',
+      'Permisos',
+      'Licencias',
+    ];
+    const TOTAL_KEYS = ['PRESENTE', 'AUSENTE', 'DESCANSO', 'VACACIONES', 'PERMISO', 'LICENCIA'];
     const totalCols = FIXED_COLS + dates.length + TOTAL_LABELS.length;
 
     ws.getColumn(1).width = 32;
     ws.getColumn(2).width = 18;
     ws.getColumn(3).width = 18;
-    dates.forEach((_, i) => { ws.getColumn(FIXED_COLS + 1 + i).width = 5.5; });
-    TOTAL_LABELS.forEach((_, i) => { ws.getColumn(FIXED_COLS + dates.length + 1 + i).width = 11; });
+    dates.forEach((_, i) => {
+      ws.getColumn(FIXED_COLS + 1 + i).width = 5.5;
+    });
+    TOTAL_LABELS.forEach((_, i) => {
+      ws.getColumn(FIXED_COLS + dates.length + 1 + i).width = 11;
+    });
 
     ws.getRow(1).height = 36;
     ws.mergeCells(1, 1, 1, totalCols);
@@ -954,9 +1091,13 @@ export default function AsistenciaContent() {
     const sucStr = filterSucursal.length > 0 ? filterSucursal.join(', ') : 'Todas';
     const areaStr = filterArea !== 'Todas' ? filterArea : 'Todas';
     const now2 = new Date();
-    const genStr = `${String(now2.getDate()).padStart(2,'0')}-${String(now2.getMonth()+1).padStart(2,'0')}-${now2.getFullYear()}`;
+    const genStr = `${String(now2.getDate()).padStart(2, '0')}-${String(now2.getMonth() + 1).padStart(2, '0')}-${now2.getFullYear()}`;
 
-    const infoFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: argb('D6E4F0') } };
+    const infoFill = {
+      type: 'pattern' as const,
+      pattern: 'solid' as const,
+      fgColor: { argb: argb('D6E4F0') },
+    };
     const infoLabelFont = { bold: true, color: { argb: argb('1F4E79') } };
 
     ws.getRow(3).height = 18;
@@ -1012,7 +1153,8 @@ export default function AsistenciaContent() {
       cell.value = `${d}/${m}`;
       cell.font = { bold: true, size: 9, color: { argb: argb('FFFFFF') } };
       cell.fill = {
-        type: 'pattern', pattern: 'solid',
+        type: 'pattern',
+        pattern: 'solid',
         fgColor: { argb: isHoliday ? argb('C00000') : isSunday ? argb('E36C09') : argb('2E75B6') },
       };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -1036,19 +1178,33 @@ export default function AsistenciaContent() {
       const rowBgHex = isAlt ? 'F7FBFF' : 'FFFFFF';
 
       const fixedStyle = {
-        fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: argb(rowBgHex) } },
+        fill: {
+          type: 'pattern' as const,
+          pattern: 'solid' as const,
+          fgColor: { argb: argb(rowBgHex) },
+        },
         alignment: { horizontal: 'left' as const, vertical: 'middle' as const },
         border: thinBorder,
         font: { size: 10 },
       };
       const nameCell = ws.getCell(excelRow, 1);
-      nameCell.value = w.name; Object.assign(nameCell, fixedStyle);
+      nameCell.value = w.name;
+      Object.assign(nameCell, fixedStyle);
       const areaCell = ws.getCell(excelRow, 2);
-      areaCell.value = w.area; Object.assign(areaCell, fixedStyle);
+      areaCell.value = w.area;
+      Object.assign(areaCell, fixedStyle);
       const sucCell = ws.getCell(excelRow, 3);
-      sucCell.value = w.sucursal; Object.assign(sucCell, fixedStyle);
+      sucCell.value = w.sucursal;
+      Object.assign(sucCell, fixedStyle);
 
-      const counts: Record<string, number> = { PRESENTE: 0, AUSENTE: 0, DESCANSO: 0, VACACIONES: 0, PERMISO: 0, LICENCIA: 0 };
+      const counts: Record<string, number> = {
+        PRESENTE: 0,
+        AUSENTE: 0,
+        DESCANSO: 0,
+        VACACIONES: 0,
+        PERMISO: 0,
+        LICENCIA: 0,
+      };
 
       dates.forEach((dt, i) => {
         const status = getReportStatus(w.id, dt);
@@ -1066,7 +1222,11 @@ export default function AsistenciaContent() {
 
         const cell = ws.getCell(excelRow, colNum);
         cell.value = displayVal;
-        cell.font = { bold: status === 'PRESENTE', size: status === 'PRESENTE' ? 11 : 9, color: { argb: argb(colors.fg) } };
+        cell.font = {
+          bold: status === 'PRESENTE',
+          size: status === 'PRESENTE' ? 11 : 9,
+          color: { argb: argb(colors.fg) },
+        };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(cellBg) } };
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         cell.border = thinBorder;
@@ -1120,7 +1280,7 @@ export default function AsistenciaContent() {
       const excelRow = ri + 2;
       wsL.getRow(excelRow).height = 20;
       if (row.isHeader) {
-        [1,2,3].forEach((col, ci) => {
+        [1, 2, 3].forEach((col, ci) => {
           const cell = wsL.getCell(excelRow, col);
           cell.value = [row.sym, row.label, row.note][ci];
           cell.font = { bold: true, color: { argb: argb('FFFFFF') } };
@@ -1130,10 +1290,21 @@ export default function AsistenciaContent() {
         });
       } else {
         const colors = STATUS_COLORS[
-          row.sym === '✓' ? 'PRESENTE' : row.sym === 'X' ? 'AUSENTE' :
-          row.sym === 'V' ? 'VACACIONES' : row.sym === 'D' ? 'DESCANSO' :
-          row.sym === 'P' ? 'PERMISO' : row.sym === 'L' ? 'LICENCIA' :
-          row.sym === 'C' ? 'CUMPLEANOS' : ''
+          row.sym === '✓'
+            ? 'PRESENTE'
+            : row.sym === 'X'
+              ? 'AUSENTE'
+              : row.sym === 'V'
+                ? 'VACACIONES'
+                : row.sym === 'D'
+                  ? 'DESCANSO'
+                  : row.sym === 'P'
+                    ? 'PERMISO'
+                    : row.sym === 'L'
+                      ? 'LICENCIA'
+                      : row.sym === 'C'
+                        ? 'CUMPLEANOS'
+                        : ''
         ] ?? { bg: 'F5F5F5', fg: '000000' };
         const symCell = wsL.getCell(excelRow, 1);
         symCell.value = row.sym;
@@ -1155,11 +1326,16 @@ export default function AsistenciaContent() {
     });
 
     const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const areaLabel = filterArea !== 'Todas' ? `_${filterArea.replace(/\s+/g, '_')}` : '';
-    const sucLabel = filterSucursal.length > 0 ? `_${filterSucursal.map(s => s.replace(/\s+/g, '_')).join('-')}` : '';
+    const sucLabel =
+      filterSucursal.length > 0
+        ? `_${filterSucursal.map((s) => s.replace(/\s+/g, '_')).join('-')}`
+        : '';
     a.href = url;
     a.download = `Asistencia_${startDate}_${endDate}${areaLabel}${sucLabel}.xlsx`;
     a.click();
@@ -1167,12 +1343,25 @@ export default function AsistenciaContent() {
   }
 
   const selectedDateWorkers = selectedDate ? getWorkersForDate(selectedDate) : [];
-  const dateRecorded = selectedDate ? filteredWorkers.filter(w => attendance[w.id]?.[selectedDate]).length : 0;
+  const dateRecorded = selectedDate
+    ? filteredWorkers.filter((w) => attendance[w.id]?.[selectedDate]).length
+    : 0;
 
-  const sucursalesList = sucursales.map(s => s.name);
-  const areasList = ['Todas', ...Array.from(new Set(workers.filter(w => w.estado === 'Activo' && w.area).map(w => w.area))).sort()];
-  const cargosList = ['Todas', ...Array.from(new Set(workers.filter(w => w.estado === 'Activo' && w.cargo).map(w => w.cargo))).sort()];
-  const periodLabel = startDate && endDate ? formatPeriodLabel(startDate, endDate) : 'Selecciona fechas';
+  const sucursalesList = sucursales.map((s) => s.name);
+  const areasList = [
+    'Todas',
+    ...Array.from(
+      new Set(workers.filter((w) => w.estado === 'Activo' && w.area).map((w) => w.area))
+    ).sort(),
+  ];
+  const cargosList = [
+    'Todas',
+    ...Array.from(
+      new Set(workers.filter((w) => w.estado === 'Activo' && w.cargo).map((w) => w.cargo))
+    ).sort(),
+  ];
+  const periodLabel =
+    startDate && endDate ? formatPeriodLabel(startDate, endDate) : 'Selecciona fechas';
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-gray-50">
@@ -1190,7 +1379,11 @@ export default function AsistenciaContent() {
           </div>
           <div className="flex items-center gap-2">
             {/* Global panel lock */}
-            <LockToggle isLocked={isPanelLocked} subject="la asistencia" onToggle={setPanelLocked} />
+            <LockToggle
+              isLocked={isPanelLocked}
+              subject="la asistencia"
+              onToggle={setPanelLocked}
+            />
             <button
               onClick={loadData}
               disabled={loading}
@@ -1225,7 +1418,10 @@ export default function AsistenciaContent() {
             <input
               type="date"
               value={startDate}
-              onChange={e => { setStartDate(e.target.value); setSelectedDate(''); }}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                setSelectedDate('');
+              }}
               className="text-xs text-gray-700 bg-transparent border-none outline-none cursor-pointer"
             />
           </div>
@@ -1236,23 +1432,56 @@ export default function AsistenciaContent() {
               type="date"
               value={endDate}
               min={startDate}
-              onChange={e => { setEndDate(e.target.value); setSelectedDate(''); }}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                setSelectedDate('');
+              }}
               className="text-xs text-gray-700 bg-transparent border-none outline-none cursor-pointer"
             />
           </div>
 
           <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 shrink-0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-gray-400 shrink-0"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
             <input
               type="text"
               value={searchName}
-              onChange={e => setSearchName(e.target.value)}
+              onChange={(e) => setSearchName(e.target.value)}
               placeholder="Buscar nombre..."
               className="text-xs text-gray-700 bg-transparent border-none outline-none w-32"
             />
             {searchName && (
-              <button onClick={() => setSearchName('')} className="text-gray-400 hover:text-gray-600 shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              <button
+                onClick={() => setSearchName('')}
+                className="text-gray-400 hover:text-gray-600 shrink-0"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
               </button>
             )}
           </div>
@@ -1268,38 +1497,60 @@ export default function AsistenciaContent() {
           <div className="relative">
             <select
               value={filterArea}
-              onChange={e => setFilterArea(e.target.value)}
+              onChange={(e) => setFilterArea(e.target.value)}
               className="appearance-none pl-3 pr-8 py-2 text-xs border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
             >
-              {areasList.map(a => <option key={a} value={a}>{a}</option>)}
+              {areasList.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
             </select>
-            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <ChevronDown
+              size={12}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            />
           </div>
 
           <div className="relative">
             <select
               value={filterCargo}
-              onChange={e => setFilterCargo(e.target.value)}
+              onChange={(e) => setFilterCargo(e.target.value)}
               className="appearance-none pl-3 pr-8 py-2 text-xs border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
             >
-              {cargosList.map(c => <option key={c} value={c}>{c}</option>)}
+              {cargosList.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
-            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <ChevronDown
+              size={12}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            />
           </div>
 
           <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl p-1">
             <button
               onClick={() => setFilterTurno('Todos')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterTurno === 'Todos' ? 'bg-white text-gray-800 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
-            >Todos</button>
+            >
+              Todos
+            </button>
             <button
               onClick={() => setFilterTurno('AM')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterTurno === 'AM' ? 'bg-amber-100 text-amber-800 shadow-sm border border-amber-200' : 'text-gray-500 hover:text-gray-700'}`}
-            ><Sun size={11} />Mañana</button>
+            >
+              <Sun size={11} />
+              Mañana
+            </button>
             <button
               onClick={() => setFilterTurno('Tarde')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterTurno === 'Tarde' ? 'bg-indigo-100 text-indigo-800 shadow-sm border border-indigo-200' : 'text-gray-500 hover:text-gray-700'}`}
-            ><Sunset size={11} />Tarde</button>
+            >
+              <Sunset size={11} />
+              Tarde
+            </button>
           </div>
 
           {/* Specific shift filter */}
@@ -1307,21 +1558,30 @@ export default function AsistenciaContent() {
             <div className="relative">
               <select
                 value={filterTurnoEspecifico}
-                onChange={e => setFilterTurnoEspecifico(e.target.value)}
+                onChange={(e) => setFilterTurnoEspecifico(e.target.value)}
                 className="appearance-none pl-3 pr-8 py-2 text-xs border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
               >
                 <option value="Todos">Todos los turnos</option>
-                {Object.values(shifts).filter(s => s.code !== 'DESC').map(s => (
-                  <option key={s.code} value={s.code}>{s.label} ({s.start}–{s.end})</option>
-                ))}
+                {Object.values(shifts)
+                  .filter((s) => s.code !== 'DESC')
+                  .map((s) => (
+                    <option key={s.code} value={s.code}>
+                      {s.label} ({s.start}–{s.end})
+                    </option>
+                  ))}
               </select>
-              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <ChevronDown
+                size={12}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              />
             </div>
           )}
 
           <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
             <Users size={13} />
-            <span>{filteredWorkers.length} trabajadora{filteredWorkers.length !== 1 ? 's' : ''}</span>
+            <span>
+              {filteredWorkers.length} trabajadora{filteredWorkers.length !== 1 ? 's' : ''}
+            </span>
           </div>
         </div>
       </div>
@@ -1334,14 +1594,16 @@ export default function AsistenciaContent() {
             Selecciona una sucursal para ver y marcar la asistencia del día.
           </div>
         ) : dates.length === 0 ? (
-          <p className="text-xs text-gray-400 py-1">Selecciona un rango de fechas válido para ver los días.</p>
+          <p className="text-xs text-gray-400 py-1">
+            Selecciona un rango de fechas válido para ver los días.
+          </p>
         ) : (
           <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {dates.map(dt => {
+            {dates.map((dt) => {
               const { day, dow, monthShort } = formatDateLabel(dt);
               const isSelected = selectedDate === dt;
               const isSaving = savingDate === dt;
-              const recordedCount = filteredWorkers.filter(w => attendance[w.id]?.[dt]).length;
+              const recordedCount = filteredWorkers.filter((w) => attendance[w.id]?.[dt]).length;
               const hasData = recordedCount > 0;
               const isToday = dt === new Date().toISOString().split('T')[0];
               const isLocked = lockedDates.has(dt);
@@ -1354,22 +1616,28 @@ export default function AsistenciaContent() {
                     isSelected
                       ? 'bg-blue-600 border-blue-600 text-white'
                       : isLocked
-                      ? 'bg-red-50 border-red-200 text-red-700'
-                      : isToday
-                      ? 'bg-blue-50 border-blue-200 text-blue-700'
-                      : hasData
-                      ? 'bg-green-50 border-green-200 text-green-800' :'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                        ? 'bg-red-50 border-red-200 text-red-700'
+                        : isToday
+                          ? 'bg-blue-50 border-blue-200 text-blue-700'
+                          : hasData
+                            ? 'bg-green-50 border-green-200 text-green-800'
+                            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   <span className="text-[10px] font-medium opacity-70">{dow}</span>
                   <span className="text-sm font-bold">{day}</span>
                   <span className="text-[9px] opacity-60">{monthShort}</span>
                   {isLocked ? (
-                    <Lock size={8} className={`mt-0.5 ${isSelected ? 'text-white/80' : 'text-red-400'}`} />
+                    <Lock
+                      size={8}
+                      className={`mt-0.5 ${isSelected ? 'text-white/80' : 'text-red-400'}`}
+                    />
                   ) : isSaving ? (
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-0.5" />
                   ) : hasData ? (
-                    <div className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isSelected ? 'bg-white/60' : 'bg-green-500'}`} />
+                    <div
+                      className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isSelected ? 'bg-white/60' : 'bg-green-500'}`}
+                    />
                   ) : null}
                 </button>
               );
@@ -1387,7 +1655,9 @@ export default function AsistenciaContent() {
             </div>
             <div className="text-center">
               <p className="text-base font-semibold text-gray-700">Selecciona una sucursal</p>
-              <p className="text-sm text-gray-400 mt-1">Debes elegir una sucursal en el filtro de arriba para poder marcar la asistencia.</p>
+              <p className="text-sm text-gray-400 mt-1">
+                Debes elegir una sucursal en el filtro de arriba para poder marcar la asistencia.
+              </p>
             </div>
           </div>
         ) : loading ? (
@@ -1402,13 +1672,19 @@ export default function AsistenciaContent() {
             </div>
             <div className="text-center">
               <p className="text-base font-semibold text-gray-700">Panel bloqueado</p>
-              <p className="text-sm text-gray-400 mt-1">El panel de asistencia está bloqueado. Haz clic en "Bloqueado" para desbloquearlo.</p>
+              <p className="text-sm text-gray-400 mt-1">
+                El panel de asistencia está bloqueado. Un administrador puede desbloquearlo con el
+                botón «Bloqueada».
+              </p>
             </div>
           </div>
         ) : selectedDate ? (
           <DayView
             date={selectedDate}
-            dateLabel={(() => { const { day, dow, monthShort } = formatDateLabel(selectedDate); return `${dow} ${day} ${monthShort}`; })()}
+            dateLabel={(() => {
+              const { day, dow, monthShort } = formatDateLabel(selectedDate);
+              return `${dow} ${day} ${monthShort}`;
+            })()}
             workers={filteredWorkers}
             attendance={attendance}
             overtime={overtime}
@@ -1457,7 +1733,10 @@ export default function AsistenciaContent() {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-3 bg-red-600 text-white text-sm font-medium rounded-xl shadow-lg">
           <AlertCircle size={16} className="shrink-0" />
           {saveError}
-          <button onClick={() => setSaveError(null)} className="ml-2 text-white/70 hover:text-white">
+          <button
+            onClick={() => setSaveError(null)}
+            className="ml-2 text-white/70 hover:text-white"
+          >
             <X size={14} />
           </button>
         </div>
@@ -1476,7 +1755,9 @@ export default function AsistenciaContent() {
           workerName={overtimeModal.workerName}
           dateLabel={overtimeModal.dateLabel}
           currentHours={overtimeModal.currentHours}
-          onSave={(hours, notes) => saveOvertime(overtimeModal.workerId, overtimeModal.date, hours, notes)}
+          onSave={(hours, notes) =>
+            saveOvertime(overtimeModal.workerId, overtimeModal.date, hours, notes)
+          }
           onClose={() => setOvertimeModal(null)}
         />
       )}
@@ -1485,7 +1766,10 @@ export default function AsistenciaContent() {
           mode={lockModal.mode}
           dateLabel={lockModal.dateLabel}
           onConfirm={handleLockConfirm}
-          onClose={() => { setLockModal(null); setLockError(''); }}
+          onClose={() => {
+            setLockModal(null);
+            setLockError('');
+          }}
           error={lockError}
         />
       )}
@@ -1496,8 +1780,14 @@ export default function AsistenciaContent() {
 // ─── Day View ─────────────────────────────────────────────────────────────────
 
 interface Worker {
-  id: string; name: string; initials: string; avatarColor: string;
-  cargo: string; role: string; sucursal: string; area: string;
+  id: string;
+  name: string;
+  initials: string;
+  avatarColor: string;
+  cargo: string;
+  role: string;
+  sucursal: string;
+  area: string;
 }
 
 interface DayViewProps {
@@ -1521,10 +1811,27 @@ interface DayViewProps {
   savingCells: Set<string>;
 }
 
-function DayView({ date, dateLabel, workers, attendance, overtime, getEffectiveStatus, getAutoStatus, isMallaNT, onChangeStatus, onOpenOvertime, onOpenDailyAlert, onMarkAllPresent, markingAll, isLocked, onToggleLock, savingCells }: DayViewProps) {
-  const presentCount = workers.filter(w => getEffectiveStatus(w.id, date) === 'PRESENTE').length;
-  const absentCount = workers.filter(w => getEffectiveStatus(w.id, date) === 'AUSENTE').length;
-  let totalHE = workers.reduce((sum, w) => sum + (overtime[w.id]?.[date]?.hours ?? 0), 0);
+function DayView({
+  date,
+  dateLabel,
+  workers,
+  attendance,
+  overtime,
+  getEffectiveStatus,
+  getAutoStatus,
+  isMallaNT,
+  onChangeStatus,
+  onOpenOvertime,
+  onOpenDailyAlert,
+  onMarkAllPresent,
+  markingAll,
+  isLocked,
+  onToggleLock,
+  savingCells,
+}: DayViewProps) {
+  const presentCount = workers.filter((w) => getEffectiveStatus(w.id, date) === 'PRESENTE').length;
+  const absentCount = workers.filter((w) => getEffectiveStatus(w.id, date) === 'AUSENTE').length;
+  const totalHE = workers.reduce((sum, w) => sum + (overtime[w.id]?.[date]?.hours ?? 0), 0);
 
   return (
     <div className="space-y-4">
@@ -1533,7 +1840,10 @@ function DayView({ date, dateLabel, workers, attendance, overtime, getEffectiveS
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-medium">
           <Lock size={14} />
           <span>Este día está bloqueado. No se pueden modificar los registros.</span>
-          <button onClick={onToggleLock} className="ml-auto flex items-center gap-1 text-xs underline hover:no-underline">
+          <button
+            onClick={onToggleLock}
+            className="ml-auto flex items-center gap-1 text-xs underline hover:no-underline"
+          >
             <Unlock size={12} /> Desbloquear
           </button>
         </div>
@@ -1580,7 +1890,8 @@ function DayView({ date, dateLabel, workers, attendance, overtime, getEffectiveS
             onClick={onToggleLock}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
               isLocked
-                ? 'bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200' :'bg-red-500 hover:bg-red-600 text-white'
+                ? 'bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200'
+                : 'bg-red-500 hover:bg-red-600 text-white'
             }`}
           >
             {isLocked ? <Unlock size={14} /> : <Lock size={14} />}
@@ -1596,7 +1907,7 @@ function DayView({ date, dateLabel, workers, attendance, overtime, getEffectiveS
           <span className="text-xs text-gray-400">{workers.length} trabajadoras</span>
         </div>
         <div className="divide-y divide-gray-100">
-          {workers.map(w => {
+          {workers.map((w) => {
             const status = getEffectiveStatus(w.id, date);
             const autoStatus = getAutoStatus(w.id, date);
             const isNT = isMallaNT(w.id, date);
@@ -1605,17 +1916,26 @@ function DayView({ date, dateLabel, workers, attendance, overtime, getEffectiveS
 
             return (
               <div key={w.id} className="flex items-center gap-3 px-5 py-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${w.avatarColor || 'bg-blue-100 text-blue-700'}`}>
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${w.avatarColor || 'bg-blue-100 text-blue-700'}`}
+                >
                   {w.initials}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800 truncate">{w.name}</p>
-                  <p className="text-xs text-gray-400">{w.cargo || w.role} · {w.area}</p>
+                  <p className="text-xs text-gray-400">
+                    {w.cargo || w.role} · {w.area}
+                  </p>
                 </div>
                 {/* Status selector — disabled when locked or NT from Malla */}
-                <div className="relative shrink-0" title={isNT ? 'No trabajaba según la Malla' : undefined}>
+                <div
+                  className="relative shrink-0"
+                  title={isNT ? 'No trabajaba según la Malla' : undefined}
+                >
                   {savingCells.has(`${w.id}_${date}`) ? (
-                    <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border ${getStatusStyle(status)}`}>
+                    <div
+                      className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border ${getStatusStyle(status)}`}
+                    >
                       <RefreshCw size={10} className="animate-spin opacity-60" />
                       <span className="opacity-70">Guardando…</span>
                     </div>
@@ -1623,24 +1943,27 @@ function DayView({ date, dateLabel, workers, attendance, overtime, getEffectiveS
                     <>
                       <select
                         value={status}
-                        onChange={e => onChangeStatus(w.id, date, e.target.value)}
+                        onChange={(e) => onChangeStatus(w.id, date, e.target.value)}
                         disabled={isLocked || isNT}
-                        className={`appearance-none text-xs font-medium px-2.5 py-1.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-300 pr-6 ${getStatusStyle(status)} ${(isLocked || isNT) ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+                        className={`appearance-none text-xs font-medium px-2.5 py-1.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-300 pr-6 ${getStatusStyle(status)} ${isLocked || isNT ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
                       >
-                        {ATTENDANCE_STATUSES.map(s => (
-                          <option key={s.code} value={s.code}>{s.label}</option>
+                        {ATTENDANCE_STATUSES.map((s) => (
+                          <option key={s.code} value={s.code}>
+                            {s.label}
+                          </option>
                         ))}
                       </select>
-                      {!(isLocked || isNT) && <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />}
+                      {!(isLocked || isNT) && (
+                        <ChevronDown
+                          size={10}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60"
+                        />
+                      )}
                     </>
                   )}
                 </div>
-                {isNT && (
-                  <span className="text-[9px] text-gray-400 shrink-0">malla</span>
-                )}
-                {!isNT && isAuto && (
-                  <span className="text-[9px] text-gray-400 shrink-0">auto</span>
-                )}
+                {isNT && <span className="text-[9px] text-gray-400 shrink-0">malla</span>}
+                {!isNT && isAuto && <span className="text-[9px] text-gray-400 shrink-0">auto</span>}
                 {/* HE button */}
                 <button
                   onClick={() => onOpenOvertime(w)}
@@ -1649,7 +1972,8 @@ function DayView({ date, dateLabel, workers, attendance, overtime, getEffectiveS
                     he > 0
                       ? 'bg-amber-100 text-amber-700 border border-amber-300'
                       : isLocked
-                      ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed' :'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-amber-50 hover:text-amber-600'
+                        ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                        : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-amber-50 hover:text-amber-600'
                   }`}
                 >
                   <Clock size={11} />
@@ -1678,7 +2002,16 @@ interface PeriodOverviewProps {
   onToggleLock: (dt: string) => void;
 }
 
-function PeriodOverview({ dates, workers, attendance, overtime, getEffectiveStatus, onSelectDate, lockedDates, onToggleLock }: PeriodOverviewProps) {
+function PeriodOverview({
+  dates,
+  workers,
+  attendance,
+  overtime,
+  getEffectiveStatus,
+  onSelectDate,
+  lockedDates,
+  onToggleLock,
+}: PeriodOverviewProps) {
   const visibleDates = dates;
 
   if (dates.length === 0) {
@@ -1694,18 +2027,25 @@ function PeriodOverview({ dates, workers, attendance, overtime, getEffectiveStat
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100">
           <h3 className="font-semibold text-gray-800 text-sm">Resumen del período</h3>
-          <p className="text-xs text-gray-400 mt-0.5">Selecciona un día en la barra superior para ver el detalle o usar el control diario</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Selecciona un día en la barra superior para ver el detalle o usar el control diario
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-gray-50">
-                <th className="text-left px-4 py-2.5 font-semibold text-gray-600 sticky left-0 bg-gray-50 min-w-[160px]">Trabajadora</th>
-                {visibleDates.map(dt => {
+                <th className="text-left px-4 py-2.5 font-semibold text-gray-600 sticky left-0 bg-gray-50 min-w-[160px]">
+                  Trabajadora
+                </th>
+                {visibleDates.map((dt) => {
                   const { day, dow, monthShort } = formatDateLabel(dt);
                   const isLocked = lockedDates.has(dt);
                   return (
-                    <th key={dt} className="px-1 py-2 font-medium text-gray-500 min-w-[36px] text-center">
+                    <th
+                      key={dt}
+                      className="px-1 py-2 font-medium text-gray-500 min-w-[36px] text-center"
+                    >
                       <button
                         onClick={() => onSelectDate(dt)}
                         className={`flex flex-col items-center hover:text-blue-600 transition-colors ${isLocked ? 'text-red-400' : ''}`}
@@ -1719,43 +2059,71 @@ function PeriodOverview({ dates, workers, attendance, overtime, getEffectiveStat
                     </th>
                   );
                 })}
-                <th className="px-3 py-2.5 font-semibold text-gray-600 text-center min-w-[60px]">P</th>
-                <th className="px-3 py-2.5 font-semibold text-gray-600 text-center min-w-[60px]">A</th>
-                <th className="px-3 py-2.5 font-semibold text-amber-600 text-center min-w-[60px]">HE</th>
+                <th className="px-3 py-2.5 font-semibold text-gray-600 text-center min-w-[60px]">
+                  P
+                </th>
+                <th className="px-3 py-2.5 font-semibold text-gray-600 text-center min-w-[60px]">
+                  A
+                </th>
+                <th className="px-3 py-2.5 font-semibold text-amber-600 text-center min-w-[60px]">
+                  HE
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {workers.map(w => {
-                let totalP = 0, totalA = 0, totalHE = 0;
+              {workers.map((w) => {
+                let totalP = 0,
+                  totalA = 0,
+                  totalHE = 0;
                 return (
                   <tr key={w.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-2 sticky left-0 bg-white">
                       <div className="flex items-center gap-2">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${w.avatarColor || 'bg-blue-100 text-blue-700'}`}>
+                        <div
+                          className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${w.avatarColor || 'bg-blue-100 text-blue-700'}`}
+                        >
                           {w.initials}
                         </div>
-                        <span className="font-medium text-gray-800 truncate max-w-[110px]">{w.name}</span>
+                        <span className="font-medium text-gray-800 truncate max-w-[110px]">
+                          {w.name}
+                        </span>
                       </div>
                     </td>
-                    {visibleDates.map(dt => {
+                    {visibleDates.map((dt) => {
                       const status = getEffectiveStatus(w.id, dt);
                       const he = overtime[w.id]?.[dt]?.hours ?? 0;
                       if (status === 'PRESENTE') totalP++;
                       if (status === 'AUSENTE') totalA++;
                       totalHE += he;
                       const statusColors: Record<string, string> = {
-                        PRESENTE: 'bg-green-500', AUSENTE: 'bg-red-500', DESCANSO: 'bg-slate-300',
-                        NT: 'bg-gray-200', LICENCIA: 'bg-yellow-400', PERMISO: 'bg-teal-400',
-                        VACACIONES: 'bg-blue-400', CUMPLEANOS: 'bg-pink-400',
+                        PRESENTE: 'bg-green-500',
+                        AUSENTE: 'bg-red-500',
+                        DESCANSO: 'bg-slate-300',
+                        NT: 'bg-gray-200',
+                        LICENCIA: 'bg-yellow-400',
+                        PERMISO: 'bg-teal-400',
+                        VACACIONES: 'bg-blue-400',
+                        CUMPLEANOS: 'bg-pink-400',
                       };
                       const statusLetters: Record<string, string> = {
-                        PRESENTE: 'P', AUSENTE: 'A', DESCANSO: 'D', NT: '-',
-                        LICENCIA: 'L', PERMISO: 'M', VACACIONES: 'V', CUMPLEANOS: 'C',
+                        PRESENTE: 'P',
+                        AUSENTE: 'A',
+                        DESCANSO: 'D',
+                        NT: '-',
+                        LICENCIA: 'L',
+                        PERMISO: 'M',
+                        VACACIONES: 'V',
+                        CUMPLEANOS: 'C',
                       };
                       const letterColors: Record<string, string> = {
-                        PRESENTE: 'text-white', AUSENTE: 'text-white', DESCANSO: 'text-slate-600',
-                        NT: 'text-gray-400', LICENCIA: 'text-yellow-900', PERMISO: 'text-white',
-                        VACACIONES: 'text-white', CUMPLEANOS: 'text-white',
+                        PRESENTE: 'text-white',
+                        AUSENTE: 'text-white',
+                        DESCANSO: 'text-slate-600',
+                        NT: 'text-gray-400',
+                        LICENCIA: 'text-yellow-900',
+                        PERMISO: 'text-white',
+                        VACACIONES: 'text-white',
+                        CUMPLEANOS: 'text-white',
                       };
                       return (
                         <td key={dt} className="px-1 py-2 text-center">
@@ -1764,17 +2132,23 @@ function PeriodOverview({ dates, workers, attendance, overtime, getEffectiveStat
                             title={getStatusLabel(status)}
                             className={`w-5 h-5 rounded-sm mx-auto flex items-center justify-center transition-transform hover:scale-110 ${statusColors[status] ?? 'bg-gray-200'}`}
                           >
-                            <span className={`text-[8px] font-bold leading-none ${letterColors[status] ?? 'text-gray-500'}`}>
+                            <span
+                              className={`text-[8px] font-bold leading-none ${letterColors[status] ?? 'text-gray-500'}`}
+                            >
                               {statusLetters[status] ?? ''}
                             </span>
                           </button>
-                          {he > 0 && <span className="text-[9px] text-amber-600 font-bold block">{he}h</span>}
+                          {he > 0 && (
+                            <span className="text-[9px] text-amber-600 font-bold block">{he}h</span>
+                          )}
                         </td>
                       );
                     })}
                     <td className="px-3 py-2 text-center font-bold text-green-600">{totalP}</td>
                     <td className="px-3 py-2 text-center font-bold text-red-500">{totalA}</td>
-                    <td className="px-3 py-2 text-center font-bold text-amber-500">{totalHE > 0 ? totalHE : '-'}</td>
+                    <td className="px-3 py-2 text-center font-bold text-amber-500">
+                      {totalHE > 0 ? totalHE : '-'}
+                    </td>
                   </tr>
                 );
               })}
@@ -1786,25 +2160,50 @@ function PeriodOverview({ dates, workers, attendance, overtime, getEffectiveStat
       {/* Legend */}
       {(() => {
         const legendLetters: Record<string, string> = {
-          PRESENTE: 'P', AUSENTE: 'A', DESCANSO: 'D', NT: '-',
-          LICENCIA: 'L', PERMISO: 'M', VACACIONES: 'V', CUMPLEANOS: 'C',
+          PRESENTE: 'P',
+          AUSENTE: 'A',
+          DESCANSO: 'D',
+          NT: '-',
+          LICENCIA: 'L',
+          PERMISO: 'M',
+          VACACIONES: 'V',
+          CUMPLEANOS: 'C',
         };
         const legendBg: Record<string, string> = {
-          PRESENTE: 'bg-green-500', AUSENTE: 'bg-red-500', DESCANSO: 'bg-slate-300',
-          NT: 'bg-gray-200', LICENCIA: 'bg-yellow-400', PERMISO: 'bg-teal-400',
-          VACACIONES: 'bg-blue-400', CUMPLEANOS: 'bg-pink-400',
+          PRESENTE: 'bg-green-500',
+          AUSENTE: 'bg-red-500',
+          DESCANSO: 'bg-slate-300',
+          NT: 'bg-gray-200',
+          LICENCIA: 'bg-yellow-400',
+          PERMISO: 'bg-teal-400',
+          VACACIONES: 'bg-blue-400',
+          CUMPLEANOS: 'bg-pink-400',
         };
         const legendLetterColor: Record<string, string> = {
-          PRESENTE: 'text-white', AUSENTE: 'text-white', DESCANSO: 'text-slate-600',
-          NT: 'text-gray-400', LICENCIA: 'text-yellow-900', PERMISO: 'text-white',
-          VACACIONES: 'text-white', CUMPLEANOS: 'text-white',
+          PRESENTE: 'text-white',
+          AUSENTE: 'text-white',
+          DESCANSO: 'text-slate-600',
+          NT: 'text-gray-400',
+          LICENCIA: 'text-yellow-900',
+          PERMISO: 'text-white',
+          VACACIONES: 'text-white',
+          CUMPLEANOS: 'text-white',
         };
         return (
           <div className="flex flex-wrap gap-2">
-            {ATTENDANCE_STATUSES.map(s => (
-              <div key={s.code} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${s.color}`}>
-                <div className={`w-4 h-4 rounded-sm flex items-center justify-center shrink-0 ${legendBg[s.code] ?? 'bg-gray-200'}`}>
-                  <span className={`text-[8px] font-bold leading-none ${legendLetterColor[s.code] ?? 'text-gray-500'}`}>{legendLetters[s.code] ?? ''}</span>
+            {ATTENDANCE_STATUSES.map((s) => (
+              <div
+                key={s.code}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${s.color}`}
+              >
+                <div
+                  className={`w-4 h-4 rounded-sm flex items-center justify-center shrink-0 ${legendBg[s.code] ?? 'bg-gray-200'}`}
+                >
+                  <span
+                    className={`text-[8px] font-bold leading-none ${legendLetterColor[s.code] ?? 'text-gray-500'}`}
+                  >
+                    {legendLetters[s.code] ?? ''}
+                  </span>
                 </div>
                 {s.label}
               </div>

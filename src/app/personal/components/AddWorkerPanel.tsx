@@ -74,13 +74,15 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
   const selectedArea = watch('area');
 
   // Get cargos for the selected area; if none configured, show a free text input
-  const cargosForArea = selectedArea && areaCargos[selectedArea] && areaCargos[selectedArea].length > 0
-    ? areaCargos[selectedArea]
-    : null;
+  const cargosForArea =
+    selectedArea && areaCargos[selectedArea] && areaCargos[selectedArea].length > 0
+      ? areaCargos[selectedArea]
+      : null;
 
   const onSubmit = (data: FormData) => {
     const initials = getInitials(data.name);
-    const colorIdx = Math.abs(data.name.charCodeAt(0) + (data.name.charCodeAt(1) || 0)) % AVATAR_COLORS.length;
+    const colorIdx =
+      Math.abs(data.name.charCodeAt(0) + (data.name.charCodeAt(1) || 0)) % AVATAR_COLORS.length;
     const saved: Worker = {
       ...worker,
       ...data,
@@ -100,7 +102,10 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
           {isNew ? 'Añadir Trabajador' : 'Editar Trabajador'}
         </h3>
-        <button onClick={onCancel} className="p-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
+        <button
+          onClick={onCancel}
+          className="p-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+        >
           <X size={15} />
         </button>
       </div>
@@ -108,9 +113,14 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
       <form onSubmit={handleSubmit(onSubmit)} className="p-5 space-y-4">
         {/* Name */}
         <div>
-          <label className="block text-xs font-semibold text-foreground mb-1">Nombre completo</label>
+          <label className="block text-xs font-semibold text-foreground mb-1">
+            Nombre completo
+          </label>
           <input
-            {...register('name', { required: 'El nombre es obligatorio', minLength: { value: 3, message: 'Mínimo 3 caracteres' } })}
+            {...register('name', {
+              required: 'El nombre es obligatorio',
+              minLength: { value: 3, message: 'Mínimo 3 caracteres' },
+            })}
             placeholder="Ej: Juan Pérez"
             className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
           />
@@ -123,7 +133,10 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
           <input
             {...register('rut', {
               required: 'El RUT es obligatorio',
-              pattern: { value: /^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/, message: 'Formato: 12.345.678-9' }
+              pattern: {
+                value: /^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/,
+                message: 'Formato: 12.345.678-9',
+              },
             })}
             placeholder="Ej: 12.345.678-9"
             className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
@@ -133,7 +146,9 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
 
         {/* Birthday */}
         <div>
-          <label className="block text-xs font-semibold text-foreground mb-1">Fecha de cumpleaños</label>
+          <label className="block text-xs font-semibold text-foreground mb-1">
+            Fecha de cumpleaños
+          </label>
           <input
             type="date"
             {...register('birthday')}
@@ -148,7 +163,11 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
             {...register('sucursal', { required: true })}
             className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
           >
-            {sucursales.map((s) => <option key={`suc-${s.name}`} value={s.name}>{s.name}</option>)}
+            {sucursales.map((s) => (
+              <option key={`suc-${s.name}`} value={s.name}>
+                {s.name}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -159,7 +178,11 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
             {...register('area', { required: true })}
             className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
           >
-            {areas.map((a) => <option key={`area-${a}`} value={a}>{a}</option>)}
+            {areas.map((a) => (
+              <option key={`area-${a}`} value={a}>
+                {a}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -168,7 +191,9 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
           <label className="block text-xs font-semibold text-foreground mb-1">
             Cargo
             {cargosForArea && (
-              <span className="ml-1 text-[10px] text-secondary font-normal">(filtrado por área)</span>
+              <span className="ml-1 text-[10px] text-secondary font-normal">
+                (filtrado por área)
+              </span>
             )}
           </label>
           {cargosForArea ? (
@@ -176,7 +201,11 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
               {...register('cargo', { required: true })}
               className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
             >
-              {cargosForArea.map((c) => <option key={`cargo-${c}`} value={c}>{c}</option>)}
+              {cargosForArea.map((c) => (
+                <option key={`cargo-${c}`} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
           ) : (
             <input
@@ -185,17 +214,25 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
               className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
             />
           )}
-          {errors.cargo && <p className="text-xs text-red-500 mt-1">{String(errors.cargo.message)}</p>}
+          {errors.cargo && (
+            <p className="text-xs text-red-500 mt-1">{String(errors.cargo.message)}</p>
+          )}
         </div>
 
         {/* Horas */}
         <div>
-          <label className="block text-xs font-semibold text-foreground mb-1">Horas contratadas</label>
+          <label className="block text-xs font-semibold text-foreground mb-1">
+            Horas contratadas
+          </label>
           <select
             {...register('horasContratadas', { required: true })}
             className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
           >
-            {HORAS_OPTIONS.map((h) => <option key={`horas-${h}`} value={h}>{h} horas</option>)}
+            {HORAS_OPTIONS.map((h) => (
+              <option key={`horas-${h}`} value={h}>
+                {h} horas
+              </option>
+            ))}
           </select>
         </div>
 

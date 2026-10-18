@@ -1,16 +1,46 @@
 'use client';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Users, Clock, Sun, Star, Edit3, Save, X, AlertCircle, Download, Search } from 'lucide-react';
+import {
+  Users,
+  Clock,
+  Sun,
+  Star,
+  Edit3,
+  Save,
+  X,
+  AlertCircle,
+  Download,
+  Search,
+} from 'lucide-react';
 import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
 import { downloadSimpleWorkbook } from '@/lib/excel';
-import { useAppContext, getDaysOfWeekForMonth, getDaysInMonth, monthLabelToKey, MESES } from '@/context/AppContext';
+import {
+  useAppContext,
+  getDaysOfWeekForMonth,
+  getDaysInMonth,
+  monthLabelToKey,
+  MESES,
+} from '@/context/AppContext';
 
 // ─── Chilean public holidays 2026 (YYYY-MM-DD) ────────────────────────────
 const FERIADOS_2026 = new Set([
-  '2026-01-01','2026-04-03','2026-04-04','2026-05-01','2026-05-21',
-  '2026-06-29','2026-07-16','2026-08-15','2026-09-18','2026-09-19',
-  '2026-10-12','2026-10-31','2026-11-01','2026-11-02','2026-12-08','2026-12-25',
+  '2026-01-01',
+  '2026-04-03',
+  '2026-04-04',
+  '2026-05-01',
+  '2026-05-21',
+  '2026-06-29',
+  '2026-07-16',
+  '2026-08-15',
+  '2026-09-18',
+  '2026-09-19',
+  '2026-10-12',
+  '2026-10-31',
+  '2026-11-01',
+  '2026-11-02',
+  '2026-12-08',
+  '2026-12-25',
 ]);
 
 function isFeriado(year: number, monthIdx: number, day: number): boolean {
@@ -36,7 +66,12 @@ type WorkerDayRecords = Record<string, Record<number, DayRecord>>;
 // attendance keyed by workerId -> dateStr -> AttendanceRecord
 type AttendanceMap = Record<string, Record<string, AttendanceRecord>>;
 
-function calcNetHoursFromTimes(entrada: string, salida: string, entColacion: string, salColacion: string): number {
+function calcNetHoursFromTimes(
+  entrada: string,
+  salida: string,
+  entColacion: string,
+  salColacion: string
+): number {
   if (!entrada || !salida) return 0;
   const toMins = (t: string) => {
     const [h, m] = t.split(':').map(Number);
@@ -64,23 +99,43 @@ function TimeInput({ value, onChange }: { value: string; onChange: (v: string) =
 
 export default function RRHHContent() {
   const supabase = getSupabase();
-  const { workers, shifts, scheduleData, specialDays, areas, sucursales, selectedMes, setSelectedMes, globalArea, globalSucursal } = useAppContext();
+  const {
+    workers,
+    shifts,
+    scheduleData,
+    specialDays,
+    areas,
+    sucursales,
+    selectedMes,
+    setSelectedMes,
+    globalArea,
+    globalSucursal,
+  } = useAppContext();
 
-  const [selectedArea, setSelectedArea] = useState(globalArea && globalArea !== 'Todas' ? globalArea : 'Todas');
+  const [selectedArea, setSelectedArea] = useState(
+    globalArea && globalArea !== 'Todas' ? globalArea : 'Todas'
+  );
   const [selectedSucursal, setSelectedSucursal] = useState(globalSucursal || 'Todas');
   const [selectedCargo, setSelectedCargo] = useState('Todos');
   const [searchName, setSearchName] = useState('');
   const [activeTab, setActiveTab] = useState<'horario' | 'horas'>('horario');
   const [dayRecords, setDayRecords] = useState<WorkerDayRecords>({});
   const [editingCell, setEditingCell] = useState<{ workerId: string; dayIdx: number } | null>(null);
-  const [editBuffer, setEditBuffer] = useState<DayRecord>({ entradaReal: '', salidaReal: '', entradaColacion: '', salidaColacion: '' });
+  const [editBuffer, setEditBuffer] = useState<DayRecord>({
+    entradaReal: '',
+    salidaReal: '',
+    entradaColacion: '',
+    salidaColacion: '',
+  });
   const [mounted, setMounted] = useState(false);
   const [attendanceMap, setAttendanceMap] = useState<AttendanceMap>({});
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [savingTimes, setSavingTimes] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (globalSucursal) setSelectedSucursal(globalSucursal);
@@ -91,8 +146,18 @@ export default function RRHHContent() {
   }, [globalArea]);
 
   const MONTH_NAMES_MAP: Record<string, number> = {
-    'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-    'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+    Enero: 0,
+    Febrero: 1,
+    Marzo: 2,
+    Abril: 3,
+    Mayo: 4,
+    Junio: 5,
+    Julio: 6,
+    Agosto: 7,
+    Septiembre: 8,
+    Octubre: 9,
+    Noviembre: 10,
+    Diciembre: 11,
   };
   const parts = (selectedMes || '').split(' ');
   const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 0;
@@ -145,11 +210,13 @@ export default function RRHHContent() {
     }
   }, [monthStartDate, monthEndDate, supabase]);
 
-  useEffect(() => { loadAttendance(); }, [loadAttendance]);
+  useEffect(() => {
+    loadAttendance();
+  }, [loadAttendance]);
 
   // ─── Base filtered workers (area + sucursal) ───────────────────────────
   const baseFilteredWorkers = useMemo(() => {
-    return workers.filter(w => {
+    return workers.filter((w) => {
       if (w.estado !== 'Activo') return false;
       if (selectedArea !== 'Todas' && w.area !== selectedArea) return false;
       if (selectedSucursal !== 'Todas' && w.sucursal !== selectedSucursal) return false;
@@ -159,13 +226,15 @@ export default function RRHHContent() {
 
   // ─── Cargo options derived from base filtered workers ─────────────────
   const cargoOptions = useMemo(() => {
-    const cargos = Array.from(new Set(baseFilteredWorkers.map(w => w.cargo).filter(Boolean))).sort();
+    const cargos = Array.from(
+      new Set(baseFilteredWorkers.map((w) => w.cargo).filter(Boolean))
+    ).sort();
     return ['Todos', ...cargos];
   }, [baseFilteredWorkers]);
 
   // ─── Final filtered workers (+ cargo + name search) ───────────────────
   const filteredWorkers = useMemo(() => {
-    return baseFilteredWorkers.filter(w => {
+    return baseFilteredWorkers.filter((w) => {
       if (selectedCargo !== 'Todos' && w.cargo !== selectedCargo) return false;
       if (searchName.trim()) {
         const q = searchName.trim().toLowerCase();
@@ -176,7 +245,10 @@ export default function RRHHContent() {
   }, [baseFilteredWorkers, selectedCargo, searchName]);
 
   const areaOptions = useMemo(() => ['Todas', ...areas], [areas]);
-  const sucursalOptions = useMemo(() => ['Todas', ...(mounted ? sucursales.map(s => s.name) : [])], [sucursales, mounted]);
+  const sucursalOptions = useMemo(
+    () => ['Todas', ...(mounted ? sucursales.map((s) => s.name) : [])],
+    [sucursales, mounted]
+  );
 
   // ─── Get programmed shift info for a worker/day ────────────────────────
   const getProgrammedShift = (workerId: string, dayIdx: number) => {
@@ -200,7 +272,12 @@ export default function RRHHContent() {
   const startEdit = (workerId: string, dayIdx: number) => {
     const existing = dayRecords[workerId]?.[dayIdx];
     const prog = getProgrammedShift(workerId, dayIdx);
-    let defaultEntry: DayRecord = { entradaReal: '', salidaReal: '', entradaColacion: '', salidaColacion: '' };
+    let defaultEntry: DayRecord = {
+      entradaReal: '',
+      salidaReal: '',
+      entradaColacion: '',
+      salidaColacion: '',
+    };
     if (!existing && prog?.type === 'shift' && prog.shift) {
       defaultEntry = {
         entradaReal: prog.shift.start || '',
@@ -217,7 +294,7 @@ export default function RRHHContent() {
     if (!editingCell) return;
     const { workerId, dayIdx } = editingCell;
     const dateStr = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayIdx + 1).padStart(2, '0')}`;
-    setDayRecords(prev => ({
+    setDayRecords((prev) => ({
       ...prev,
       [workerId]: {
         ...(prev[workerId] || {}),
@@ -251,12 +328,14 @@ export default function RRHHContent() {
   // ─── Load time records from Supabase ──────────────────────────────────
   const loadTimeRecords = useCallback(async () => {
     try {
-      const data = await fetchAll((from, to) => supabase
-        .from('rrhh_time_records')
-        .select('*')
-        .eq('month_key', monthKey)
-        .order('id')
-        .range(from, to));
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from('rrhh_time_records')
+          .select('*')
+          .eq('month_key', monthKey)
+          .order('id')
+          .range(from, to)
+      );
 
       if (data && data.length > 0) {
         const records: WorkerDayRecords = {};
@@ -264,7 +343,7 @@ export default function RRHHContent() {
           const wid = r.worker_id as string;
           const dt = r.record_date as string;
           const [, , d] = dt.split('-').map(Number);
-          let dayIdx = d - 1;
+          const dayIdx = d - 1;
           if (!records[wid]) records[wid] = {};
           records[wid][dayIdx] = {
             entradaReal: (r.entrada_real as string) || '',
@@ -283,7 +362,9 @@ export default function RRHHContent() {
     }
   }, [monthKey, supabase]);
 
-  useEffect(() => { loadTimeRecords(); }, [loadTimeRecords]);
+  useEffect(() => {
+    loadTimeRecords();
+  }, [loadTimeRecords]);
 
   // ─── Hours calculations ────────────────────────────────────────────────
   const calcWorkerStats = (workerId: string) => {
@@ -307,7 +388,12 @@ export default function RRHHContent() {
       let hrs = 0;
 
       if (record && record.entradaReal && record.salidaReal) {
-        hrs = calcNetHoursFromTimes(record.entradaReal, record.salidaReal, record.entradaColacion, record.salidaColacion);
+        hrs = calcNetHoursFromTimes(
+          record.entradaReal,
+          record.salidaReal,
+          record.entradaColacion,
+          record.salidaColacion
+        );
       } else {
         const att = getAttendanceForDay(workerId, i);
         if (att && att.status === 'AUSENTE') {
@@ -321,7 +407,7 @@ export default function RRHHContent() {
               if (shift && shift.start && shift.end) {
                 const [sh, sm] = shift.start.split(':').map(Number);
                 const [eh, em] = shift.end.split(':').map(Number);
-                let mins = (eh * 60 + em) - (sh * 60 + sm);
+                let mins = eh * 60 + em - (sh * 60 + sm);
                 if (mins < 0) mins += 24 * 60;
                 hrs = mins / 60;
                 if (shift.colacion > 0) hrs -= shift.colacion / 60;
@@ -339,7 +425,7 @@ export default function RRHHContent() {
       if (isFeriado(year, monthIdx, i + 1) && hrs > 0) holidayHours += hrs;
     }
 
-    const contractedWeekly = workers.find(w => w.id === workerId)?.horasContratadas ?? 42;
+    const contractedWeekly = workers.find((w) => w.id === workerId)?.horasContratadas ?? 42;
     const weeks = Object.entries(weekMap)
       .sort((a, b) => Number(a[0]) - Number(b[0]))
       .map(([, hrs], idx) => ({
@@ -350,11 +436,14 @@ export default function RRHHContent() {
 
     const totalHours = weeks.reduce((s, w) => s + w.hours, 0);
     const totalOvertime = weeks.reduce((s, w) => s + w.overtime, 0);
-    const overtimeWeeks = weeks.filter(w => w.hours > contractedWeekly);
+    const overtimeWeeks = weeks.filter((w) => w.hours > contractedWeekly);
 
-    const recargoDominical = Math.round(sundayHours * 0.30 * 10) / 10;
-    const totalOvertimeHours = overtimeWeeks.reduce((sum, w) => sum + Math.round((w.hours - contractedWeekly) * 10) / 10, 0);
-    const recargoHE = Math.round(totalOvertimeHours * 0.50 * 10) / 10;
+    const recargoDominical = Math.round(sundayHours * 0.3 * 10) / 10;
+    const totalOvertimeHours = overtimeWeeks.reduce(
+      (sum, w) => sum + Math.round((w.hours - contractedWeekly) * 10) / 10,
+      0
+    );
+    const recargoHE = Math.round(totalOvertimeHours * 0.5 * 10) / 10;
 
     return {
       weeks,
@@ -383,14 +472,21 @@ export default function RRHHContent() {
     setExporting(true);
     try {
       // ── Sheet 1: Horario programado ──
-      const horarioHeaders = ['Trabajador/a', 'RUT', 'Cargo', 'Área', 'Sucursal', 'Horas Contratadas'];
+      const horarioHeaders = [
+        'Trabajador/a',
+        'RUT',
+        'Cargo',
+        'Área',
+        'Sucursal',
+        'Horas Contratadas',
+      ];
       for (let i = 1; i <= daysInMonth; i++) {
         const date = new Date(year, monthIdx, i);
         const labels = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
         horarioHeaders.push(`${labels[date.getDay()]} ${i}`);
       }
 
-      const horarioRows = filteredWorkers.map(worker => {
+      const horarioRows = filteredWorkers.map((worker) => {
         const row: (string | number)[] = [
           worker.name,
           worker.rut || '',
@@ -412,9 +508,18 @@ export default function RRHHContent() {
             continue;
           }
           const prog = getProgrammedShift(worker.id, dayIdx);
-          if (!prog) { row.push(''); continue; }
-          if (prog.type === 'desc') { row.push('DESC'); continue; }
-          if (prog.type === 'special') { row.push(prog.code); continue; }
+          if (!prog) {
+            row.push('');
+            continue;
+          }
+          if (prog.type === 'desc') {
+            row.push('DESC');
+            continue;
+          }
+          if (prog.type === 'special') {
+            row.push(prog.code);
+            continue;
+          }
           if (prog.type === 'shift' && prog.shift) {
             row.push(`${prog.code} (${prog.shift.start}-${prog.shift.end})`);
           } else {
@@ -426,14 +531,25 @@ export default function RRHHContent() {
 
       // ── Sheet 2: Horas y extras ──
       const horasHeaders = [
-        'Trabajador/a', 'RUT', 'Cargo', 'Área', 'Sucursal',
-        'Horas Contratadas/Sem', 'Total Horas Mes', 'Horas Domingos', 'Horas Feriados', 'Semanas con Extras',
+        'Trabajador/a',
+        'RUT',
+        'Cargo',
+        'Área',
+        'Sucursal',
+        'Horas Contratadas/Sem',
+        'Total Horas Mes',
+        'Horas Domingos',
+        'Horas Feriados',
+        'Semanas con Extras',
       ];
       // Add week columns dynamically
-      const maxWeeks = Math.max(...filteredWorkers.map(w => calcWorkerStats(w.id).weeks.length), 0);
+      const maxWeeks = Math.max(
+        ...filteredWorkers.map((w) => calcWorkerStats(w.id).weeks.length),
+        0
+      );
       for (let i = 1; i <= maxWeeks; i++) horasHeaders.push(`Semana ${i}`);
 
-      const horasRows = filteredWorkers.map(worker => {
+      const horasRows = filteredWorkers.map((worker) => {
         const stats = calcWorkerStats(worker.id);
         const row: (string | number)[] = [
           worker.name,
@@ -467,26 +583,41 @@ export default function RRHHContent() {
 
       // ── Download ──
       const fileName = `RRHH_${selectedMes.replace(' ', '_')}_${selectedSucursal !== 'Todas' ? selectedSucursal + '_' : ''}${selectedCargo !== 'Todos' ? selectedCargo + '_' : ''}export.xlsx`;
-      await downloadSimpleWorkbook([
-        {
-          name: 'Horario Programado',
-          rows: [horarioHeaders, ...horarioRows],
-          colWidths: [28, 14, 20, 16, 16, 10, ...Array(daysInMonth).fill(14)],
-        },
-        {
-          name: 'Horas y Extras',
-          rows: [horasHeaders, ...horasRows],
-          colWidths: [28, 14, 20, 16, 16, 14, 14, 14, 14, 14, ...Array(maxWeeks).fill(12)],
-        },
-        { name: 'Resumen', rows: summaryData, colWidths: [24, 28] },
-      ], fileName);
+      await downloadSimpleWorkbook(
+        [
+          {
+            name: 'Horario Programado',
+            rows: [horarioHeaders, ...horarioRows],
+            colWidths: [28, 14, 20, 16, 16, 10, ...Array(daysInMonth).fill(14)],
+          },
+          {
+            name: 'Horas y Extras',
+            rows: [horasHeaders, ...horasRows],
+            colWidths: [28, 14, 20, 16, 16, 14, 14, 14, 14, 14, ...Array(maxWeeks).fill(12)],
+          },
+          { name: 'Resumen', rows: summaryData, colWidths: [24, 28] },
+        ],
+        fileName
+      );
     } catch (err) {
       console.error('Error exportando Excel:', err);
     } finally {
       setExporting(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredWorkers, daysInMonth, year, monthIdx, dayRecords, attendanceMap, selectedMes, selectedSucursal, selectedArea, selectedCargo, searchName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    filteredWorkers,
+    daysInMonth,
+    year,
+    monthIdx,
+    dayRecords,
+    attendanceMap,
+    selectedMes,
+    selectedSucursal,
+    selectedArea,
+    selectedCargo,
+    searchName,
+  ]);
 
   return (
     <div className="p-6 xl:p-8 max-w-screen-2xl mx-auto">
@@ -497,7 +628,9 @@ export default function RRHHContent() {
             <Users size={20} className="text-secondary" />
             Recursos Humanos
           </h1>
-          <p className="text-muted-foreground text-sm mt-1 ml-3">Control de horarios y horas trabajadas por colaborador/a</p>
+          <p className="text-muted-foreground text-sm mt-1 ml-3">
+            Control de horarios y horas trabajadas por colaborador/a
+          </p>
         </div>
         {/* Export button */}
         <button
@@ -518,57 +651,86 @@ export default function RRHHContent() {
       <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-wrap gap-4 items-end mb-5">
         {/* Mes */}
         <div className="flex flex-col gap-1 min-w-[160px]">
-          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">Mes</span>
+          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+            Mes
+          </span>
           <select
             value={selectedMes}
-            onChange={e => setSelectedMes(e.target.value)}
+            onChange={(e) => setSelectedMes(e.target.value)}
             className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
           >
-            {MESES.map(m => <option key={m} value={m}>{m}</option>)}
+            {MESES.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
           </select>
         </div>
         {/* Sucursal */}
         <div className="flex flex-col gap-1 min-w-[160px]">
-          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">Sucursal</span>
+          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+            Sucursal
+          </span>
           <select
             value={selectedSucursal}
-            onChange={e => setSelectedSucursal(e.target.value)}
+            onChange={(e) => setSelectedSucursal(e.target.value)}
             className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
           >
-            {sucursalOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            {sucursalOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
           </select>
         </div>
         {/* Área */}
         <div className="flex flex-col gap-1 min-w-[160px]">
-          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">Área</span>
+          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+            Área
+          </span>
           <select
             value={selectedArea}
-            onChange={e => setSelectedArea(e.target.value)}
+            onChange={(e) => setSelectedArea(e.target.value)}
             className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
           >
-            {areaOptions.map(a => <option key={a} value={a}>{a}</option>)}
+            {areaOptions.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
           </select>
         </div>
         {/* Cargo */}
         <div className="flex flex-col gap-1 min-w-[160px]">
-          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">Cargo</span>
+          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+            Cargo
+          </span>
           <select
             value={selectedCargo}
-            onChange={e => setSelectedCargo(e.target.value)}
+            onChange={(e) => setSelectedCargo(e.target.value)}
             className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
           >
-            {cargoOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            {cargoOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
           </select>
         </div>
         {/* Buscador nombre */}
         <div className="flex flex-col gap-1 min-w-[200px] flex-1">
-          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">Buscar trabajador/a</span>
+          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+            Buscar trabajador/a
+          </span>
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+            />
             <input
               type="text"
               value={searchName}
-              onChange={e => setSearchName(e.target.value)}
+              onChange={(e) => setSearchName(e.target.value)}
               placeholder="Nombre…"
               className="w-full pl-8 pr-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
@@ -593,7 +755,9 @@ export default function RRHHContent() {
       {/* Result count */}
       {(selectedCargo !== 'Todos' || searchName.trim()) && (
         <p className="text-xs text-muted-foreground mb-3">
-          Mostrando <span className="font-semibold text-foreground">{filteredWorkers.length}</span> trabajador{filteredWorkers.length !== 1 ? 'es' : ''} filtrado{filteredWorkers.length !== 1 ? 's' : ''}
+          Mostrando <span className="font-semibold text-foreground">{filteredWorkers.length}</span>{' '}
+          trabajador{filteredWorkers.length !== 1 ? 'es' : ''} filtrado
+          {filteredWorkers.length !== 1 ? 's' : ''}
         </p>
       )}
 
@@ -620,18 +784,32 @@ export default function RRHHContent() {
         </div>
       ) : activeTab === 'horario' ? (
         /* ── HORARIO TAB ── */
-        <div className="bg-card rounded-2xl border border-border overflow-x-auto" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <div
+          className="bg-card rounded-2xl border border-border overflow-x-auto"
+          style={{ boxShadow: 'var(--shadow-card)' }}
+        >
           {/* Legend */}
           <div className="flex items-center gap-4 px-4 py-2 border-b border-border bg-muted/20 text-[10px] text-muted-foreground flex-wrap">
             <span className="font-semibold text-foreground text-xs">Leyenda:</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block" /> Inasistencia</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-100 border border-green-300 inline-block" /> Tiempos reales ingresados</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-100 border border-slate-300 inline-block" /> Turno programado</span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block" />{' '}
+              Inasistencia
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-green-100 border border-green-300 inline-block" />{' '}
+              Tiempos reales ingresados
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-slate-100 border border-slate-300 inline-block" />{' '}
+              Turno programado
+            </span>
           </div>
           <table className="min-w-max w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <th className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-left font-semibold text-foreground min-w-[180px]">Trabajador/a</th>
+                <th className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-left font-semibold text-foreground min-w-[180px]">
+                  Trabajador/a
+                </th>
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const dow = daysOfWeek[i];
                   const isSun = dow === 'D';
@@ -651,7 +829,7 @@ export default function RRHHContent() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {filteredWorkers.map(worker => (
+              {filteredWorkers.map((worker) => (
                 <tr key={`rrhh-row-${worker.id}`} className="hover:bg-muted/20 transition-colors">
                   <td className="sticky left-0 z-10 bg-card px-4 py-2 border-r border-border">
                     <div className="flex items-center gap-2">
@@ -660,7 +838,9 @@ export default function RRHHContent() {
                       </div>
                       <div>
                         <p className="font-semibold text-foreground text-xs">{worker.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{worker.cargo} · {worker.horasContratadas}h</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {worker.cargo} · {worker.horasContratadas}h
+                        </p>
                       </div>
                     </div>
                   </td>
@@ -669,43 +849,80 @@ export default function RRHHContent() {
                     const record = dayRecords[worker.id]?.[dayIdx];
                     const att = getAttendanceForDay(worker.id, dayIdx);
                     const isAbsent = att?.status === 'AUSENTE';
-                    const isEditing = editingCell?.workerId === worker.id && editingCell?.dayIdx === dayIdx;
+                    const isEditing =
+                      editingCell?.workerId === worker.id && editingCell?.dayIdx === dayIdx;
                     const dow = daysOfWeek[dayIdx];
                     const isSun = dow === 'D';
                     const isFer = isFeriado(year, monthIdx, dayIdx + 1);
 
                     // Cell background: absent overrides sun/holiday tint
                     const cellBg = isAbsent
-                      ? 'bg-red-50/60' : isSun ?'bg-red-50/30' : isFer ? 'bg-orange-50/30' : '';
+                      ? 'bg-red-50/60'
+                      : isSun
+                        ? 'bg-red-50/30'
+                        : isFer
+                          ? 'bg-orange-50/30'
+                          : '';
 
                     if (isEditing) {
                       return (
-                        <td key={`cell-${worker.id}-${dayIdx}`} className={`px-1 py-1 border-r border-border/50 ${cellBg}`}>
+                        <td
+                          key={`cell-${worker.id}-${dayIdx}`}
+                          className={`px-1 py-1 border-r border-border/50 ${cellBg}`}
+                        >
                           <div className="bg-card border border-secondary rounded-lg p-2 shadow-lg min-w-[160px] z-30 relative">
-                            <p className="text-[10px] font-bold text-secondary mb-2">Día {dayIdx + 1}</p>
+                            <p className="text-[10px] font-bold text-secondary mb-2">
+                              Día {dayIdx + 1}
+                            </p>
                             <div className="grid grid-cols-2 gap-1 mb-1">
                               <div>
                                 <p className="text-[9px] text-muted-foreground mb-0.5">Entrada</p>
-                                <TimeInput value={editBuffer.entradaReal} onChange={v => setEditBuffer(b => ({ ...b, entradaReal: v }))} />
+                                <TimeInput
+                                  value={editBuffer.entradaReal}
+                                  onChange={(v) => setEditBuffer((b) => ({ ...b, entradaReal: v }))}
+                                />
                               </div>
                               <div>
                                 <p className="text-[9px] text-muted-foreground mb-0.5">Salida</p>
-                                <TimeInput value={editBuffer.salidaReal} onChange={v => setEditBuffer(b => ({ ...b, salidaReal: v }))} />
+                                <TimeInput
+                                  value={editBuffer.salidaReal}
+                                  onChange={(v) => setEditBuffer((b) => ({ ...b, salidaReal: v }))}
+                                />
                               </div>
                               <div>
-                                <p className="text-[9px] text-muted-foreground mb-0.5">Ent. Colación</p>
-                                <TimeInput value={editBuffer.entradaColacion} onChange={v => setEditBuffer(b => ({ ...b, entradaColacion: v }))} />
+                                <p className="text-[9px] text-muted-foreground mb-0.5">
+                                  Ent. Colación
+                                </p>
+                                <TimeInput
+                                  value={editBuffer.entradaColacion}
+                                  onChange={(v) =>
+                                    setEditBuffer((b) => ({ ...b, entradaColacion: v }))
+                                  }
+                                />
                               </div>
                               <div>
-                                <p className="text-[9px] text-muted-foreground mb-0.5">Sal. Colación</p>
-                                <TimeInput value={editBuffer.salidaColacion} onChange={v => setEditBuffer(b => ({ ...b, salidaColacion: v }))} />
+                                <p className="text-[9px] text-muted-foreground mb-0.5">
+                                  Sal. Colación
+                                </p>
+                                <TimeInput
+                                  value={editBuffer.salidaColacion}
+                                  onChange={(v) =>
+                                    setEditBuffer((b) => ({ ...b, salidaColacion: v }))
+                                  }
+                                />
                               </div>
                             </div>
                             <div className="flex gap-1 mt-1">
-                              <button onClick={saveEdit} className="flex-1 flex items-center justify-center gap-1 bg-secondary text-white rounded px-2 py-1 text-[10px] font-bold hover:bg-blue-700 transition-colors">
+                              <button
+                                onClick={saveEdit}
+                                className="flex-1 flex items-center justify-center gap-1 bg-secondary text-white rounded px-2 py-1 text-[10px] font-bold hover:bg-blue-700 transition-colors"
+                              >
                                 <Save size={10} /> Guardar
                               </button>
-                              <button onClick={cancelEdit} className="flex items-center justify-center p-1 rounded border border-border hover:bg-muted/50 transition-colors">
+                              <button
+                                onClick={cancelEdit}
+                                className="flex items-center justify-center p-1 rounded border border-border hover:bg-muted/50 transition-colors"
+                              >
                                 <X size={10} className="text-muted-foreground" />
                               </button>
                             </div>
@@ -720,19 +937,30 @@ export default function RRHHContent() {
                         <td
                           key={`cell-${worker.id}-${dayIdx}`}
                           className={`px-1 py-1 border-r border-border/50 text-center ${cellBg}`}
-                          title={att?.absenceReason ? `Motivo: ${att.absenceReason}` : 'Inasistencia'}
+                          title={
+                            att?.absenceReason ? `Motivo: ${att.absenceReason}` : 'Inasistencia'
+                          }
                         >
                           <div className="flex flex-col items-center gap-0.5">
                             {/* Programmed shift (greyed out to show what was planned) */}
-                            <span className={`text-[9px] font-semibold px-1 rounded opacity-50 ${prog.shift.colorClass}`}>{prog.code}</span>
-                            <span className="text-[8px] text-muted-foreground/60 line-through">{prog.shift.start}–{prog.shift.end}</span>
+                            <span
+                              className={`text-[9px] font-semibold px-1 rounded opacity-50 ${prog.shift.colorClass}`}
+                            >
+                              {prog.code}
+                            </span>
+                            <span className="text-[8px] text-muted-foreground/60 line-through">
+                              {prog.shift.start}–{prog.shift.end}
+                            </span>
                             {/* Absent badge */}
                             <span className="bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full leading-none mt-0.5">
                               AUSENTE
                             </span>
                             {/* Reason */}
                             {att?.absenceReason && (
-                              <span className="text-[8px] text-red-600 font-medium max-w-[80px] truncate leading-tight" title={att.absenceReason}>
+                              <span
+                                className="text-[8px] text-red-600 font-medium max-w-[80px] truncate leading-tight"
+                                title={att.absenceReason}
+                              >
                                 {att.absenceReason}
                               </span>
                             )}
@@ -747,7 +975,9 @@ export default function RRHHContent() {
                         <td
                           key={`cell-${worker.id}-${dayIdx}`}
                           className={`px-1 py-1 border-r border-border/50 text-center ${cellBg}`}
-                          title={att?.absenceReason ? `Motivo: ${att.absenceReason}` : 'Inasistencia'}
+                          title={
+                            att?.absenceReason ? `Motivo: ${att.absenceReason}` : 'Inasistencia'
+                          }
                         >
                           <div className="flex flex-col items-center gap-0.5">
                             <AlertCircle size={12} className="text-red-500" />
@@ -755,7 +985,10 @@ export default function RRHHContent() {
                               AUSENTE
                             </span>
                             {att?.absenceReason && (
-                              <span className="text-[8px] text-red-600 font-medium max-w-[80px] truncate" title={att.absenceReason}>
+                              <span
+                                className="text-[8px] text-red-600 font-medium max-w-[80px] truncate"
+                                title={att.absenceReason}
+                              >
                                 {att.absenceReason}
                               </span>
                             )}
@@ -775,7 +1008,9 @@ export default function RRHHContent() {
                         {prog?.type === 'special' ? (
                           <div className="flex flex-col items-center gap-0.5">
                             <span className="text-[11px]">📋</span>
-                            <span className="text-[9px] text-muted-foreground">{prog.code.slice(0, 4)}</span>
+                            <span className="text-[9px] text-muted-foreground">
+                              {prog.code.slice(0, 4)}
+                            </span>
                           </div>
                         ) : prog?.type === 'desc' ? (
                           <div className="flex flex-col items-center gap-0.5">
@@ -786,17 +1021,29 @@ export default function RRHHContent() {
                           <div className="flex flex-col items-center gap-0.5">
                             {record ? (
                               <>
-                                <span className="text-[10px] font-bold text-green-700">{record.entradaReal}</span>
-                                <span className="text-[9px] text-muted-foreground">→ {record.salidaReal}</span>
+                                <span className="text-[10px] font-bold text-green-700">
+                                  {record.entradaReal}
+                                </span>
+                                <span className="text-[9px] text-muted-foreground">
+                                  → {record.salidaReal}
+                                </span>
                                 {record.entradaColacion && (
-                                  <span className="text-[8px] text-orange-500">🍽 {record.entradaColacion}-{record.salidaColacion}</span>
+                                  <span className="text-[8px] text-orange-500">
+                                    🍽 {record.entradaColacion}-{record.salidaColacion}
+                                  </span>
                                 )}
                                 <Edit3 size={8} className="text-secondary opacity-60" />
                               </>
                             ) : (
                               <>
-                                <span className={`text-[10px] font-bold px-1 rounded ${prog.shift.colorClass}`}>{prog.code}</span>
-                                <span className="text-[9px] text-muted-foreground">{prog.shift.start}</span>
+                                <span
+                                  className={`text-[10px] font-bold px-1 rounded ${prog.shift.colorClass}`}
+                                >
+                                  {prog.code}
+                                </span>
+                                <span className="text-[9px] text-muted-foreground">
+                                  {prog.shift.start}
+                                </span>
                                 <Edit3 size={8} className="text-muted-foreground/40" />
                               </>
                             )}
@@ -815,50 +1062,83 @@ export default function RRHHContent() {
       ) : (
         /* ── HORAS TAB ── */
         <div className="space-y-3">
-          {filteredWorkers.map(worker => {
+          {filteredWorkers.map((worker) => {
             const stats = calcWorkerStats(worker.id);
             return (
-              <div key={`hrs-${worker.id}`} className="bg-card rounded-xl border border-border p-4 shadow-sm">
+              <div
+                key={`hrs-${worker.id}`}
+                className="bg-card rounded-xl border border-border p-4 shadow-sm"
+              >
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-9 h-9 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-sm font-bold shrink-0">
                     {worker.initials}
                   </div>
                   <div>
                     <p className="font-bold text-foreground text-sm">{worker.name}</p>
-                    <p className="text-xs text-muted-foreground">{worker.cargo} · {worker.area} · {worker.horasContratadas}h contratadas/semana</p>
+                    <p className="text-xs text-muted-foreground">
+                      {worker.cargo} · {worker.area} · {worker.horasContratadas}h contratadas/semana
+                    </p>
                   </div>
                   <div className="ml-auto flex gap-2 text-center flex-wrap justify-end">
                     <div className="bg-muted/40 rounded-lg px-3 py-2">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total mes</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                        Total mes
+                      </p>
                       <p className="text-lg font-bold text-foreground">{stats.totalHours}h</p>
                     </div>
-                    <div className={`rounded-lg px-3 py-2 ${stats.sundayHours > 0 ? 'bg-red-50 border border-red-100' : 'bg-muted/40'}`}>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Sun size={10} /> Domingos</p>
-                      <p className={`text-lg font-bold ${stats.sundayHours > 0 ? 'text-red-600' : 'text-foreground'}`}>{stats.sundayHours}h</p>
+                    <div
+                      className={`rounded-lg px-3 py-2 ${stats.sundayHours > 0 ? 'bg-red-50 border border-red-100' : 'bg-muted/40'}`}
+                    >
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                        <Sun size={10} /> Domingos
+                      </p>
+                      <p
+                        className={`text-lg font-bold ${stats.sundayHours > 0 ? 'text-red-600' : 'text-foreground'}`}
+                      >
+                        {stats.sundayHours}h
+                      </p>
                     </div>
                     {stats.sundaySurcharge > 0 && (
                       <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
-                        <p className="text-[10px] text-orange-600 uppercase tracking-wider">Recargo Dom.</p>
-                        <p className="text-lg font-bold text-orange-600">+{stats.sundaySurcharge}h</p>
+                        <p className="text-[10px] text-orange-600 uppercase tracking-wider">
+                          Recargo Dom.
+                        </p>
+                        <p className="text-lg font-bold text-orange-600">
+                          +{stats.sundaySurcharge}h
+                        </p>
                       </div>
                     )}
-                    <div className={`rounded-lg px-3 py-2 ${stats.holidayHours > 0 ? 'bg-orange-50 border border-orange-100' : 'bg-muted/40'}`}>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Star size={10} /> Feriados</p>
-                      <p className={`text-lg font-bold ${stats.holidayHours > 0 ? 'text-orange-600' : 'text-foreground'}`}>{stats.holidayHours}h</p>
+                    <div
+                      className={`rounded-lg px-3 py-2 ${stats.holidayHours > 0 ? 'bg-orange-50 border border-orange-100' : 'bg-muted/40'}`}
+                    >
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                        <Star size={10} /> Feriados
+                      </p>
+                      <p
+                        className={`text-lg font-bold ${stats.holidayHours > 0 ? 'text-orange-600' : 'text-foreground'}`}
+                      >
+                        {stats.holidayHours}h
+                      </p>
                     </div>
                     <div className="bg-purple-50 border border-purple-100 rounded-lg px-3 py-2">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Recargo dominical (30%)</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                        Recargo dominical (30%)
+                      </p>
                       <p className="text-lg font-bold text-purple-600">{stats.recargoDominical}h</p>
                     </div>
                     {stats.totalOvertimeHours > 0 && (
                       <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Recargo HE (50%)</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                          Recargo HE (50%)
+                        </p>
                         <p className="text-lg font-bold text-indigo-600">{stats.recargoHE}h</p>
                       </div>
                     )}
                     {stats.totalOvertime > 0 && (
                       <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                        <p className="text-[10px] text-red-600 uppercase tracking-wider">HE Total</p>
+                        <p className="text-[10px] text-red-600 uppercase tracking-wider">
+                          HE Total
+                        </p>
                         <p className="text-lg font-bold text-red-600">+{stats.totalOvertime}h</p>
                       </div>
                     )}
@@ -873,14 +1153,25 @@ export default function RRHHContent() {
                       <div
                         key={`wk-${worker.id}-${idx}`}
                         className={`flex flex-col items-center px-3 py-2 rounded-lg border text-xs min-w-[70px] ${
-                          isOver ? 'bg-red-50 border-red-200 text-red-700' : isUnder ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                          wk.hours === 0 ? 'bg-muted/30 border-border text-muted-foreground' : 'bg-green-50 border-green-200 text-green-700'
+                          isOver
+                            ? 'bg-red-50 border-red-200 text-red-700'
+                            : isUnder
+                              ? 'bg-amber-50 border-amber-200 text-amber-700'
+                              : wk.hours === 0
+                                ? 'bg-muted/30 border-border text-muted-foreground'
+                                : 'bg-green-50 border-green-200 text-green-700'
                         }`}
                       >
                         <span className="font-bold text-sm">{wk.label}</span>
                         <span className="font-semibold">{wk.hours}h</span>
-                        {isOver && <span className="text-[9px] font-bold">+{wk.overtime}h extra</span>}
-                        {isUnder && <span className="text-[9px]">↓ {Math.round((stats.contractedWeekly - wk.hours) * 10) / 10}h</span>}
+                        {isOver && (
+                          <span className="text-[9px] font-bold">+{wk.overtime}h extra</span>
+                        )}
+                        {isUnder && (
+                          <span className="text-[9px]">
+                            ↓ {Math.round((stats.contractedWeekly - wk.hours) * 10) / 10}h
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -904,15 +1195,27 @@ export default function RRHHContent() {
                   </div>
                   <div className="bg-muted/30 rounded-lg px-2 py-1.5 text-center">
                     <p className="text-muted-foreground text-[10px]">Semanas con extras</p>
-                    <p className={`font-bold ${stats.overtimeWeeks.length > 0 ? 'text-red-600' : 'text-foreground'}`}>{stats.overtimeWeeks.length}</p>
+                    <p
+                      className={`font-bold ${stats.overtimeWeeks.length > 0 ? 'text-red-600' : 'text-foreground'}`}
+                    >
+                      {stats.overtimeWeeks.length}
+                    </p>
                   </div>
                   <div className="bg-muted/30 rounded-lg px-2 py-1.5 text-center">
                     <p className="text-muted-foreground text-[10px]">Total HE mes</p>
-                    <p className={`font-bold ${stats.totalOvertime > 0 ? 'text-red-600' : 'text-foreground'}`}>{stats.totalOvertime > 0 ? `+${stats.totalOvertime}h` : '0h'}</p>
+                    <p
+                      className={`font-bold ${stats.totalOvertime > 0 ? 'text-red-600' : 'text-foreground'}`}
+                    >
+                      {stats.totalOvertime > 0 ? `+${stats.totalOvertime}h` : '0h'}
+                    </p>
                   </div>
                   <div className="bg-muted/30 rounded-lg px-2 py-1.5 text-center">
                     <p className="text-muted-foreground text-[10px]">Recargo dominical</p>
-                    <p className={`font-bold ${stats.sundaySurcharge > 0 ? 'text-orange-600' : 'text-foreground'}`}>{stats.sundaySurcharge > 0 ? `+${stats.sundaySurcharge}h` : '0h'}</p>
+                    <p
+                      className={`font-bold ${stats.sundaySurcharge > 0 ? 'text-orange-600' : 'text-foreground'}`}
+                    >
+                      {stats.sundaySurcharge > 0 ? `+${stats.sundaySurcharge}h` : '0h'}
+                    </p>
                   </div>
                 </div>
               </div>

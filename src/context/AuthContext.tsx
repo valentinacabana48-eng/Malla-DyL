@@ -34,11 +34,15 @@ export function useAuth() {
 function translateAuthError(message: string): string {
   const m = message.toLowerCase();
   if (m.includes('invalid login credentials')) return 'Correo o contraseña incorrectos.';
-  if (m.includes('email not confirmed')) return 'Debes confirmar tu correo antes de ingresar. Revisa tu bandeja de entrada.';
+  if (m.includes('email not confirmed'))
+    return 'Debes confirmar tu correo antes de ingresar. Revisa tu bandeja de entrada.';
   if (m.includes('user already registered')) return 'Ya existe una cuenta con ese correo.';
-  if (m.includes('password should be at least')) return 'La contraseña debe tener al menos 8 caracteres.';
-  if (m.includes('rate limit') || m.includes('too many')) return 'Demasiados intentos. Espera unos minutos e intenta de nuevo.';
-  if (m.includes('signups not allowed')) return 'El registro de cuentas nuevas está deshabilitado. Pide a un administrador que te cree una cuenta.';
+  if (m.includes('password should be at least'))
+    return 'La contraseña debe tener al menos 8 caracteres.';
+  if (m.includes('rate limit') || m.includes('too many'))
+    return 'Demasiados intentos. Espera unos minutos e intenta de nuevo.';
+  if (m.includes('signups not allowed'))
+    return 'El registro de cuentas nuevas está deshabilitado. Pide a un administrador que te cree una cuenta.';
   return message;
 }
 
@@ -49,16 +53,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [recoveringPassword, setRecoveringPassword] = useState(false);
 
-  const loadRole = useCallback(async (userId: string | undefined) => {
-    if (!userId) { setRole(null); return; }
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error) console.error('Error loading role:', error);
-    setRole((data?.role as UserRole) ?? 'pendiente');
-  }, [supabase]);
+  const loadRole = useCallback(
+    async (userId: string | undefined) => {
+      if (!userId) {
+        setRole(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (error) console.error('Error loading role:', error);
+      setRole((data?.role as UserRole) ?? 'pendiente');
+    },
+    [supabase]
+  );
 
   useEffect(() => {
     let active = true;
@@ -70,11 +80,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (active) setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (event === 'PASSWORD_RECOVERY') setRecoveringPassword(true);
       setSession(newSession);
       // No llamar a Supabase dentro del callback (puede bloquear el cliente); se difiere.
-      setTimeout(() => { loadRole(newSession?.user.id); }, 0);
+      setTimeout(() => {
+        loadRole(newSession?.user.id);
+      }, 0);
     });
 
     return () => {
@@ -83,59 +97,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, loadRole]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    return error ? translateAuthError(error.message) : null;
-  }, [supabase]);
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      return error ? translateAuthError(error.message) : null;
+    },
+    [supabase]
+  );
 
-  const signUp = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: { emailRedirectTo: window.location.origin },
-    });
-    return error ? translateAuthError(error.message) : null;
-  }, [supabase]);
+  const signUp = useCallback(
+    async (email: string, password: string) => {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { emailRedirectTo: window.location.origin },
+      });
+      return error ? translateAuthError(error.message) : null;
+    },
+    [supabase]
+  );
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setRole(null);
   }, [supabase]);
 
-  const sendPasswordReset = useCallback(async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: window.location.origin,
-    });
-    return error ? translateAuthError(error.message) : null;
-  }, [supabase]);
+  const sendPasswordReset = useCallback(
+    async (email: string) => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin,
+      });
+      return error ? translateAuthError(error.message) : null;
+    },
+    [supabase]
+  );
 
-  const updatePassword = useCallback(async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) return translateAuthError(error.message);
-    setRecoveringPassword(false);
-    return null;
-  }, [supabase]);
+  const updatePassword = useCallback(
+    async (password: string) => {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) return translateAuthError(error.message);
+      setRecoveringPassword(false);
+      return null;
+    },
+    [supabase]
+  );
 
   const refreshRole = useCallback(async () => {
     await loadRole(session?.user.id);
   }, [loadRole, session]);
 
   return (
-    <AuthContext.Provider value={{
-      user: session?.user ?? null,
-      session,
-      role,
-      loading,
-      isAdmin: role === 'admin',
-      isReadonly: role !== 'admin',
-      recoveringPassword,
-      signIn,
-      signUp,
-      signOut,
-      sendPasswordReset,
-      updatePassword,
-      refreshRole,
-    }}>
+    <AuthContext.Provider
+      value={{
+        user: session?.user ?? null,
+        session,
+        role,
+        loading,
+        isAdmin: role === 'admin',
+        isReadonly: role !== 'admin',
+        recoveringPassword,
+        signIn,
+        signUp,
+        signOut,
+        sendPasswordReset,
+        updatePassword,
+        refreshRole,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

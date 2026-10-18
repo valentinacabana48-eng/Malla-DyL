@@ -1,7 +1,13 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { X, CheckSquare, Square, Search, Zap } from 'lucide-react';
-import { type ShiftCode, type Shift, type Worker, useAppContext, monthLabelToKey } from '@/context/AppContext';
+import {
+  type ShiftCode,
+  type Shift,
+  type Worker,
+  useAppContext,
+  monthLabelToKey,
+} from '@/context/AppContext';
 
 interface Props {
   workers: Worker[];
@@ -13,7 +19,7 @@ interface Props {
 export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: Props) {
   const { scheduleData, specialDays, selectedMes, areas } = useAppContext();
   const [selectedShift, setSelectedShift] = useState<ShiftCode>(Object.keys(shifts)[0] || null);
-  const [selectedWorkers, setSelectedWorkers] = useState<string[]>(workers.map(w => w.id));
+  const [selectedWorkers, setSelectedWorkers] = useState<string[]>(workers.map((w) => w.id));
   const [workerSearch, setWorkerSearch] = useState('');
   const [areaFilter, setAreaFilter] = useState('Todas');
   const [applyMode, setApplyMode] = useState<'all' | 'empty'>('empty');
@@ -26,7 +32,7 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
   }, [scheduleData, selectedMes]);
 
   const filteredWorkers = useMemo(() => {
-    return workers.filter(w => {
+    return workers.filter((w) => {
       if (areaFilter !== 'Todas' && w.area !== areaFilter) return false;
       if (workerSearch.trim()) {
         const q = workerSearch.trim().toLowerCase();
@@ -37,18 +43,18 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
   }, [workers, workerSearch, areaFilter]);
 
   const toggleWorker = (id: string) => {
-    setSelectedWorkers(prev =>
-      prev.includes(id) ? prev.filter(w => w !== id) : [...prev, id]
+    setSelectedWorkers((prev) =>
+      prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id]
     );
   };
 
   const toggleAll = () => {
-    const visibleIds = filteredWorkers.map(w => w.id);
-    const allSelected = visibleIds.every(id => selectedWorkers.includes(id));
+    const visibleIds = filteredWorkers.map((w) => w.id);
+    const allSelected = visibleIds.every((id) => selectedWorkers.includes(id));
     if (allSelected) {
-      setSelectedWorkers(prev => prev.filter(id => !visibleIds.includes(id)));
+      setSelectedWorkers((prev) => prev.filter((id) => !visibleIds.includes(id)));
     } else {
-      setSelectedWorkers(prev => [...new Set([...prev, ...visibleIds])]);
+      setSelectedWorkers((prev) => [...new Set([...prev, ...visibleIds])]);
     }
   };
 
@@ -56,8 +62,20 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
     if (!selectedShift || selectedWorkers.length === 0) return;
     const daysInMonth = new Date(
       parseInt(selectedMes.split(' ')[1] || '2026', 10),
-      ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-        .indexOf(selectedMes.split(' ')[0]) + 1,
+      [
+        'Enero',
+        'Febrero',
+        'Marzo',
+        'Abril',
+        'Mayo',
+        'Junio',
+        'Julio',
+        'Agosto',
+        'Septiembre',
+        'Octubre',
+        'Noviembre',
+        'Diciembre',
+      ].indexOf(selectedMes.split(' ')[0]) + 1,
       0
     ).getDate();
 
@@ -69,7 +87,7 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
       // Skip days where ALL selected workers already have a special day
       dayIndices = [];
       for (let i = 0; i < daysInMonth; i++) {
-        const allHaveSpecial = selectedWorkers.every(wId => {
+        const allHaveSpecial = selectedWorkers.every((wId) => {
           const workerSpecial = currentSpecialDays[wId] || {};
           return !!workerSpecial[i];
         });
@@ -79,7 +97,7 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
       // Only empty days: no shift AND no special day
       dayIndices = [];
       for (let i = 0; i < daysInMonth; i++) {
-        const anyEmpty = selectedWorkers.some(wId => {
+        const anyEmpty = selectedWorkers.some((wId) => {
           const sched = currentMonthSchedule[wId] || [];
           const workerSpecial = currentSpecialDays[wId] || {};
           return !sched[i] && !workerSpecial[i];
@@ -92,11 +110,12 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
     onAssign(selectedWorkers, dayIndices, selectedShift);
   };
 
-  const visibleIds = filteredWorkers.map(w => w.id);
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedWorkers.includes(id));
+  const visibleIds = filteredWorkers.map((w) => w.id);
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedWorkers.includes(id));
   const canSubmit = selectedShift && selectedWorkers.length > 0;
 
-  const shiftList = Object.values(shifts).filter(s => s.code !== 'DESC');
+  const shiftList = Object.values(shifts).filter((s) => s.code !== 'DESC');
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
@@ -109,7 +128,9 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
             </div>
             <div>
               <h2 className="text-sm font-bold text-foreground">Asignación Masiva de Turno</h2>
-              <p className="text-xs text-muted-foreground">Asigna un turno a múltiples trabajadoras a la vez</p>
+              <p className="text-xs text-muted-foreground">
+                Asigna un turno a múltiples trabajadoras a la vez
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
@@ -124,7 +145,7 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
               1. Turno a asignar
             </label>
             <div className="flex flex-wrap gap-2">
-              {shiftList.map(s => (
+              {shiftList.map((s) => (
                 <button
                   key={`bs-${s.code}`}
                   onClick={() => setSelectedShift(s.code)}
@@ -149,7 +170,9 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
               <button
                 onClick={() => setApplyMode('empty')}
                 className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                  applyMode === 'empty' ? 'bg-secondary text-white border-secondary' : 'border-border text-muted-foreground hover:bg-muted/50'
+                  applyMode === 'empty'
+                    ? 'bg-secondary text-white border-secondary'
+                    : 'border-border text-muted-foreground hover:bg-muted/50'
                 }`}
               >
                 Solo días vacíos
@@ -157,7 +180,9 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
               <button
                 onClick={() => setApplyMode('all')}
                 className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                  applyMode === 'all' ? 'bg-secondary text-white border-secondary' : 'border-border text-muted-foreground hover:bg-muted/50'
+                  applyMode === 'all'
+                    ? 'bg-secondary text-white border-secondary'
+                    : 'border-border text-muted-foreground hover:bg-muted/50'
                 }`}
               >
                 Todos los días del mes
@@ -165,7 +190,8 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
             </div>
             {applyMode === 'all' && (
               <p className="mt-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
-                ⚠️ Esto sobreescribirá todos los turnos existentes del mes para las trabajadoras seleccionadas.
+                ⚠️ Esto sobreescribirá todos los turnos existentes del mes para las trabajadoras
+                seleccionadas.
               </p>
             )}
           </div>
@@ -188,28 +214,37 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
             {/* Filters */}
             <div className="flex gap-2 mb-3">
               <div className="relative flex-1">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Search
+                  size={13}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
                 <input
                   type="text"
                   placeholder="Buscar trabajadora..."
                   value={workerSearch}
-                  onChange={e => setWorkerSearch(e.target.value)}
+                  onChange={(e) => setWorkerSearch(e.target.value)}
                   className="w-full pl-8 pr-3 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-secondary"
                 />
               </div>
               <select
                 value={areaFilter}
-                onChange={e => setAreaFilter(e.target.value)}
+                onChange={(e) => setAreaFilter(e.target.value)}
                 className="px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-secondary"
               >
-                {areaOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                {areaOptions.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
               </select>
             </div>
 
             {/* Worker list */}
             <div className="border border-border rounded-xl overflow-hidden max-h-52 overflow-y-auto">
               {filteredWorkers.length === 0 ? (
-                <div className="py-6 text-center text-xs text-muted-foreground">No hay trabajadoras que coincidan</div>
+                <div className="py-6 text-center text-xs text-muted-foreground">
+                  No hay trabajadoras que coincidan
+                </div>
               ) : (
                 filteredWorkers.map((w, idx) => {
                   const isSelected = selectedWorkers.includes(w.id);
@@ -221,9 +256,11 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
                         isSelected ? 'bg-secondary/5' : 'hover:bg-muted/40'
                       } ${idx % 2 === 0 ? '' : ''}`}
                     >
-                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                        isSelected ? 'bg-secondary border-secondary' : 'border-border'
-                      }`}>
+                      <div
+                        className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected ? 'bg-secondary border-secondary' : 'border-border'
+                        }`}
+                      >
                         {isSelected && <span className="text-white text-[9px] font-bold">✓</span>}
                       </div>
                       <div
@@ -234,9 +271,13 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-foreground truncate">{w.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{w.cargo || w.role} · {w.area}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {w.cargo || w.role} · {w.area}
+                        </p>
                       </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{w.horasContratadas}h</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {w.horasContratadas}h
+                      </span>
                     </button>
                   );
                 })
@@ -248,7 +289,8 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
         {/* Footer */}
         <div className="px-6 py-4 border-t border-border shrink-0 flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            {selectedWorkers.length} trabajadora{selectedWorkers.length !== 1 ? 's' : ''} · turno {selectedShift || '—'} · {applyMode === 'empty' ? 'días vacíos' : 'todo el mes'}
+            {selectedWorkers.length} trabajadora{selectedWorkers.length !== 1 ? 's' : ''} · turno{' '}
+            {selectedShift || '—'} · {applyMode === 'empty' ? 'días vacíos' : 'todo el mes'}
           </p>
           <div className="flex gap-2">
             <button

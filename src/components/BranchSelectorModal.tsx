@@ -89,14 +89,19 @@ export default function BranchSelectorModal({ onConfirm }: BranchSelectorModalPr
             <div className="relative">
               <select
                 value={selectedSucursal}
-                onChange={e => setSelectedSucursal(e.target.value)}
+                onChange={(e) => setSelectedSucursal(e.target.value)}
                 className="w-full pl-4 pr-10 py-3 bg-muted/60 border border-border rounded-xl text-sm font-semibold text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer transition-colors hover:bg-muted"
               >
-                {sucursales.map(s => (
-                  <option key={s.name} value={s.name}>{s.name}</option>
+                {sucursales.map((s) => (
+                  <option key={s.name} value={s.name}>
+                    {s.name}
+                  </option>
                 ))}
               </select>
-              <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <ChevronDown
+                size={14}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              />
             </div>
           </div>
 
@@ -109,14 +114,19 @@ export default function BranchSelectorModal({ onConfirm }: BranchSelectorModalPr
             <div className="relative">
               <select
                 value={selectedArea}
-                onChange={e => setSelectedArea(e.target.value)}
+                onChange={(e) => setSelectedArea(e.target.value)}
                 className="w-full pl-4 pr-10 py-3 bg-muted/60 border border-border rounded-xl text-sm font-semibold text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer transition-colors hover:bg-muted"
               >
-                {areas.map(a => (
-                  <option key={a} value={a}>{a}</option>
+                {areas.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
                 ))}
               </select>
-              <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <ChevronDown
+                size={14}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              />
             </div>
           </div>
 

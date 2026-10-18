@@ -10,12 +10,18 @@ interface OvertimeModalProps {
   onClose: () => void;
 }
 
-export default function OvertimeModal({ workerName, dateLabel, currentHours, onSave, onClose }: OvertimeModalProps) {
+export default function OvertimeModal({
+  workerName,
+  dateLabel,
+  currentHours,
+  onSave,
+  onClose,
+}: OvertimeModalProps) {
   const [hours, setHours] = useState<number>(currentHours);
   const [notes, setNotes] = useState('');
 
   function adjust(delta: number) {
-    setHours(prev => Math.max(0, Math.min(12, Math.round((prev + delta) * 2) / 2)));
+    setHours((prev) => Math.max(0, Math.min(12, Math.round((prev + delta) * 2) / 2)));
   }
 
   return (
@@ -28,10 +34,15 @@ export default function OvertimeModal({ workerName, dateLabel, currentHours, onS
             </div>
             <div>
               <h2 className="font-semibold text-gray-900 text-sm">Horas Extra (HE)</h2>
-              <p className="text-xs text-gray-500">{workerName} · {dateLabel}</p>
+              <p className="text-xs text-gray-500">
+                {workerName} · {dateLabel}
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+          >
             <X size={16} />
           </button>
         </div>
@@ -62,7 +73,7 @@ export default function OvertimeModal({ workerName, dateLabel, currentHours, onS
             <input
               type="text"
               value={notes}
-              onChange={e => setNotes(e.target.value)}
+              onChange={(e) => setNotes(e.target.value)}
               placeholder="Ej: Inventario fin de mes"
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
             />

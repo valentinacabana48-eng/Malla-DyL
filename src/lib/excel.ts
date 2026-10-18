@@ -16,13 +16,18 @@ function dateToSerial(d: Date): number {
 
 function normalizeCell(value: ExcelJS.CellValue, empty: '' | null): CellValue {
   if (value === null || value === undefined) return empty;
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
+    return value;
   if (value instanceof Date) return dateToSerial(value);
   if (typeof value === 'object') {
-    if ('richText' in value) return value.richText.map(t => t.text).join('');
+    if ('richText' in value) return value.richText.map((t) => t.text).join('');
     if ('formula' in value || 'sharedFormula' in value) {
       const result = (value as ExcelJS.CellFormulaValue).result;
-      if (result === undefined || (typeof result === 'object' && result !== null && !(result instanceof Date))) return empty;
+      if (
+        result === undefined ||
+        (typeof result === 'object' && result !== null && !(result instanceof Date))
+      )
+        return empty;
       return normalizeCell(result as ExcelJS.CellValue, empty);
     }
     if ('hyperlink' in value) return (value as ExcelJS.CellHyperlinkValue).text ?? empty;
@@ -33,9 +38,10 @@ function normalizeCell(value: ExcelJS.CellValue, empty: '' | null): CellValue {
 
 // CSV simple (RFC 4180) con detección de separador: Excel en español usa ';'
 function parseCsv(text: string): string[][] {
-  const clean = text.replace(/^﻿/, '');
+  const clean = text.replace(/^\uFEFF/, '');
   const firstLine = clean.split(/\r?\n/, 1)[0] ?? '';
-  const delimiter = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ';' : ',';
+  const delimiter =
+    (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ';' : ',';
 
   const rows: string[][] = [];
   let row: string[] = [];
@@ -44,40 +50,54 @@ function parseCsv(text: string): string[][] {
   for (let i = 0; i < clean.length; i++) {
     const c = clean[i];
     if (inQuotes) {
-      if (c === '"' && clean[i + 1] === '"') { field += '"'; i++; }
-      else if (c === '"') inQuotes = false;
+      if (c === '"' && clean[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (c === '"') inQuotes = false;
       else field += c;
     } else if (c === '"') {
       inQuotes = true;
     } else if (c === delimiter) {
-      row.push(field); field = '';
+      row.push(field);
+      field = '';
     } else if (c === '\n' || c === '\r') {
       if (c === '\r' && clean[i + 1] === '\n') i++;
-      row.push(field); rows.push(row); row = []; field = '';
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
     } else {
       field += c;
     }
   }
-  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
+  if (field !== '' || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
   return rows;
 }
 
 function padRows<T>(rows: T[][], empty: T): T[][] {
   const width = rows.reduce((max, r) => Math.max(max, r.length), 0);
-  return rows.map(r => (r.length < width ? [...r, ...Array(width - r.length).fill(empty)] : r));
+  return rows.map((r) => (r.length < width ? [...r, ...Array(width - r.length).fill(empty)] : r));
 }
 
 /**
  * Lee la primera hoja como matriz de filas (equivalente a `sheet_to_json(ws, { header: 1, defval })`).
  * Acepta .xlsx y .csv. Las fechas/horas se devuelven como número de serie de Excel.
  */
-export async function readFirstSheetRows(file: File, empty: '' | null = ''): Promise<CellValue[][]> {
+export async function readFirstSheetRows(
+  file: File,
+  empty: '' | null = ''
+): Promise<CellValue[][]> {
   const name = file.name.toLowerCase();
   if (name.endsWith('.xls')) {
-    throw new Error('El formato .xls (Excel 97-2003) no es compatible. Abre el archivo en Excel y guárdalo como .xlsx.');
+    throw new Error(
+      'El formato .xls (Excel 97-2003) no es compatible. Abre el archivo en Excel y guárdalo como .xlsx.'
+    );
   }
   if (name.endsWith('.csv')) {
-    const rows = parseCsv(await file.text()).map(r => r.map(v => (v === '' ? empty : v)));
+    const rows = parseCsv(await file.text()).map((r) => r.map((v) => (v === '' ? empty : v)));
     return padRows<CellValue>(rows, empty);
   }
 
@@ -109,10 +129,12 @@ export interface SimpleSheet {
 export async function downloadSimpleWorkbook(sheets: SimpleSheet[], fileName: string) {
   const ExcelJSLib = await loadExcelJS();
   const wb = new ExcelJSLib.Workbook();
-  sheets.forEach(sheet => {
+  sheets.forEach((sheet) => {
     const ws = wb.addWorksheet(sheet.name);
-    sheet.rows.forEach(r => ws.addRow(r));
-    sheet.colWidths?.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    sheet.rows.forEach((r) => ws.addRow(r));
+    sheet.colWidths?.forEach((w, i) => {
+      ws.getColumn(i + 1).width = w;
+    });
   });
   await downloadWorkbook(wb, fileName);
 }
@@ -125,7 +147,9 @@ export async function createWorkbook() {
 /** Genera el archivo y lo descarga en el navegador. */
 export async function downloadWorkbook(wb: ExcelJS.Workbook, fileName: string) {
   const buffer = await wb.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

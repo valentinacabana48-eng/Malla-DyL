@@ -8,8 +8,18 @@ export interface PeriodOption {
 }
 
 const MONTH_NAMES = [
-  'Enero','Febrero','Marzo','Abril','Mayo','Junio',
-  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
 ];
 
 /** Build a period key from two date strings */
@@ -37,8 +47,8 @@ export function getDatesInRange(startDate: string, endDate: string): string[] {
 /** Default start: 1st of current month */
 export function getDefaultStartDate(): string {
   const now = new Date();
-  let month = now.getMonth() + 1;
-  let year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
   return `${year}-${String(month).padStart(2, '0')}-01`;
 }
 
@@ -63,8 +73,14 @@ export function buildPeriods(count = 12): PeriodOption[] {
   for (let i = -6; i < count - 6; i++) {
     let month = now.getMonth() + 1 + i;
     let year = now.getFullYear();
-    while (month > 12) { month -= 12; year++; }
-    while (month < 1) { month += 12; year--; }
+    while (month > 12) {
+      month -= 12;
+      year++;
+    }
+    while (month < 1) {
+      month += 12;
+      year--;
+    }
     const key = `${year}-${String(month).padStart(2, '0')}`;
     const endMonth = month === 12 ? 1 : month + 1;
     const endYear = month === 12 ? year + 1 : year;
@@ -85,7 +101,10 @@ export function getCurrentPeriodKey(): string {
   let year = now.getFullYear();
   if (day < 22) {
     month -= 1;
-    if (month < 1) { month = 12; year--; }
+    if (month < 1) {
+      month = 12;
+      year--;
+    }
   }
   return `${year}-${String(month).padStart(2, '0')}`;
 }
@@ -110,8 +129,21 @@ export function getDatesInPeriod(periodKey: string): string[] {
 export function formatDateLabel(dateStr: string): { day: number; dow: string; monthShort: string } {
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(y, m - 1, d);
-  const DOW = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-  const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const DOW = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const MONTHS = [
+    'Ene',
+    'Feb',
+    'Mar',
+    'Abr',
+    'May',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dic',
+  ];
   return { day: d, dow: DOW[date.getDay()], monthShort: MONTHS[m - 1] };
 }
 
@@ -128,22 +160,29 @@ export const ABSENCE_REASONS = [
 ];
 
 export const ATTENDANCE_STATUSES = [
-  { code: 'PRESENTE',          label: 'Presente',           color: 'bg-green-100 text-green-800 border-green-300' },
-  { code: 'AUSENTE',           label: 'Ausente',            color: 'bg-red-100 text-red-800 border-red-300' },
-  { code: 'FALTA_JUSTIFICADA', label: 'Falta justificada',  color: 'bg-orange-100 text-orange-800 border-orange-300' },
-  { code: 'ENFERMEDAD',        label: 'Enfermedad',         color: 'bg-rose-100 text-rose-800 border-rose-300' },
-  { code: 'DESCANSO',          label: 'Descanso',           color: 'bg-slate-100 text-slate-700 border-slate-300' },
-  { code: 'NT',                label: 'No trabajaba',       color: 'bg-gray-100 text-gray-500 border-gray-300' },
-  { code: 'LICENCIA',          label: 'Licencia',           color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
-  { code: 'PERMISO',           label: 'Permiso',            color: 'bg-teal-100 text-teal-800 border-teal-300' },
-  { code: 'VACACIONES',        label: 'Vacaciones',         color: 'bg-blue-100 text-blue-800 border-blue-300' },
-  { code: 'CUMPLEANOS',        label: 'Cumpleaños',         color: 'bg-pink-100 text-pink-700 border-pink-300' },
+  { code: 'PRESENTE', label: 'Presente', color: 'bg-green-100 text-green-800 border-green-300' },
+  { code: 'AUSENTE', label: 'Ausente', color: 'bg-red-100 text-red-800 border-red-300' },
+  {
+    code: 'FALTA_JUSTIFICADA',
+    label: 'Falta justificada',
+    color: 'bg-orange-100 text-orange-800 border-orange-300',
+  },
+  { code: 'ENFERMEDAD', label: 'Enfermedad', color: 'bg-rose-100 text-rose-800 border-rose-300' },
+  { code: 'DESCANSO', label: 'Descanso', color: 'bg-slate-100 text-slate-700 border-slate-300' },
+  { code: 'NT', label: 'No trabajaba', color: 'bg-gray-100 text-gray-500 border-gray-300' },
+  { code: 'LICENCIA', label: 'Licencia', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+  { code: 'PERMISO', label: 'Permiso', color: 'bg-teal-100 text-teal-800 border-teal-300' },
+  { code: 'VACACIONES', label: 'Vacaciones', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+  { code: 'CUMPLEANOS', label: 'Cumpleaños', color: 'bg-pink-100 text-pink-700 border-pink-300' },
 ];
 
 export function getStatusStyle(code: string): string {
-  return ATTENDANCE_STATUSES.find(s => s.code === code)?.color ?? 'bg-gray-100 text-gray-700 border-gray-300';
+  return (
+    ATTENDANCE_STATUSES.find((s) => s.code === code)?.color ??
+    'bg-gray-100 text-gray-700 border-gray-300'
+  );
 }
 
 export function getStatusLabel(code: string): string {
-  return ATTENDANCE_STATUSES.find(s => s.code === code)?.label ?? code;
+  return ATTENDANCE_STATUSES.find((s) => s.code === code)?.label ?? code;
 }

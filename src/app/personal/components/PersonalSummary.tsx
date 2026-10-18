@@ -2,7 +2,6 @@ import React from 'react';
 import { Users, UserCheck, UserX, Clock, Briefcase } from 'lucide-react';
 import Icon from '@/components/ui/AppIcon';
 
-
 interface Summary {
   total: number;
   activos: number;
@@ -30,12 +29,35 @@ const CARGO_COLORS = [
 
 export default function PersonalSummary({ summary }: { summary: Summary }) {
   const topCards = [
-    { id: 'sum-total', label: 'Trabajadores totales', value: summary.total, icon: Users, iconBg: 'bg-blue-100', iconColor: 'text-blue-600' },
-    { id: 'sum-activos', label: 'Activos', value: summary.activos, icon: UserCheck, iconBg: 'bg-green-100', iconColor: 'text-green-600' },
-    { id: 'sum-inactivos', label: 'Inactivos', value: summary.inactivos, icon: UserX, iconBg: 'bg-orange-100', iconColor: 'text-orange-500' },
+    {
+      id: 'sum-total',
+      label: 'Trabajadores totales',
+      value: summary.total,
+      icon: Users,
+      iconBg: 'bg-blue-100',
+      iconColor: 'text-blue-600',
+    },
+    {
+      id: 'sum-activos',
+      label: 'Activos',
+      value: summary.activos,
+      icon: UserCheck,
+      iconBg: 'bg-green-100',
+      iconColor: 'text-green-600',
+    },
+    {
+      id: 'sum-inactivos',
+      label: 'Inactivos',
+      value: summary.inactivos,
+      icon: UserX,
+      iconBg: 'bg-orange-100',
+      iconColor: 'text-orange-500',
+    },
   ];
 
-  const horasEntries = Object.entries(summary.horasBreakdown).sort((a, b) => Number(b[0]) - Number(a[0]));
+  const horasEntries = Object.entries(summary.horasBreakdown).sort(
+    (a, b) => Number(b[0]) - Number(a[0])
+  );
   const cargoEntries = Object.entries(summary.cargoBreakdown || {}).sort((a, b) => b[1] - a[1]);
 
   return (
@@ -45,12 +67,19 @@ export default function PersonalSummary({ summary }: { summary: Summary }) {
         {topCards.map((c) => {
           const Icon = c.icon;
           return (
-            <div key={c.id} className="bg-card rounded-xl border border-border px-4 py-3 shadow-sm flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full ${c.iconBg} flex items-center justify-center shrink-0`}>
+            <div
+              key={c.id}
+              className="bg-card rounded-xl border border-border px-4 py-3 shadow-sm flex items-center gap-3"
+            >
+              <div
+                className={`w-10 h-10 rounded-full ${c.iconBg} flex items-center justify-center shrink-0`}
+              >
                 <Icon size={18} className={c.iconColor} />
               </div>
               <div>
-                <p className="text-2xl font-extrabold text-foreground font-tabular leading-tight">{c.value}</p>
+                <p className="text-2xl font-extrabold text-foreground font-tabular leading-tight">
+                  {c.value}
+                </p>
                 <p className="text-xs text-muted-foreground font-medium">{c.label}</p>
               </div>
             </div>
@@ -63,7 +92,9 @@ export default function PersonalSummary({ summary }: { summary: Summary }) {
         <div className="bg-card rounded-xl border border-border px-5 py-4 shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <Briefcase size={15} className="text-secondary" />
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Distribución por cargo</h3>
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+              Distribución por cargo
+            </h3>
           </div>
           <div className="flex flex-wrap gap-2">
             {cargoEntries.map(([cargo, count], idx) => {
@@ -87,12 +118,18 @@ export default function PersonalSummary({ summary }: { summary: Summary }) {
         <div className="bg-card rounded-xl border border-border px-5 py-4 shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <Clock size={15} className="text-secondary" />
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Distribución por horas contratadas</h3>
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+              Distribución por horas contratadas
+            </h3>
           </div>
           <div className="flex flex-wrap gap-3">
             {horasEntries.map(([horas, count]) => {
               const h = Number(horas);
-              const colors = HORAS_COLORS[h] || { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
+              const colors = HORAS_COLORS[h] || {
+                bg: 'bg-slate-50',
+                text: 'text-slate-700',
+                border: 'border-slate-200',
+              };
               return (
                 <div
                   key={`horas-${horas}`}

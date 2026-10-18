@@ -1,19 +1,51 @@
 'use client';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Eye, Download, Printer, ChevronDown, User, Calendar, List, Coffee } from 'lucide-react';
-import { useAppContext, getDaysOfWeekForMonth, getDaysInMonth, calcNetHours, MESES, monthLabelToKey } from '@/context/AppContext';
+import {
+  useAppContext,
+  getDaysOfWeekForMonth,
+  getDaysInMonth,
+  calcNetHours,
+  MESES,
+  monthLabelToKey,
+} from '@/context/AppContext';
 
 const MONTH_NAMES_ES: Record<string, string> = {
-  'Enero': 'Enero', 'Febrero': 'Febrero', 'Marzo': 'Marzo', 'Abril': 'Abril',
-  'Mayo': 'Mayo', 'Junio': 'Junio', 'Julio': 'Julio', 'Agosto': 'Agosto',
-  'Septiembre': 'Septiembre', 'Octubre': 'Octubre', 'Noviembre': 'Noviembre', 'Diciembre': 'Diciembre',
+  Enero: 'Enero',
+  Febrero: 'Febrero',
+  Marzo: 'Marzo',
+  Abril: 'Abril',
+  Mayo: 'Mayo',
+  Junio: 'Junio',
+  Julio: 'Julio',
+  Agosto: 'Agosto',
+  Septiembre: 'Septiembre',
+  Octubre: 'Octubre',
+  Noviembre: 'Noviembre',
+  Diciembre: 'Diciembre',
 };
 
 // Build a Mon-Sun weekly calendar grid for the month
-function buildCalendarWeeks(monthLabel: string): { date: number; dow: string; dowFull: string; isOtherMonth?: boolean; otherMonthDate?: number }[][] {
+function buildCalendarWeeks(monthLabel: string): {
+  date: number;
+  dow: string;
+  dowFull: string;
+  isOtherMonth?: boolean;
+  otherMonthDate?: number;
+}[][] {
   const MONTH_NAMES: Record<string, number> = {
-    'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-    'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+    Enero: 0,
+    Febrero: 1,
+    Marzo: 2,
+    Abril: 3,
+    Mayo: 4,
+    Junio: 5,
+    Julio: 6,
+    Agosto: 7,
+    Septiembre: 8,
+    Octubre: 9,
+    Noviembre: 10,
+    Diciembre: 11,
   };
   const parts = monthLabel.split(' ');
   const monthIdx = MONTH_NAMES[parts[0]] ?? 6;
@@ -21,28 +53,50 @@ function buildCalendarWeeks(monthLabel: string): { date: number; dow: string; do
   const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
   const DOW_LETTERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
   const DOW_FULL_MAP: Record<number, string> = {
-    0: 'DOMINGO', 1: 'LUNES', 2: 'MARTES', 3: 'MIÉRCOLES', 4: 'JUEVES', 5: 'VIERNES', 6: 'SÁBADO',
+    0: 'DOMINGO',
+    1: 'LUNES',
+    2: 'MARTES',
+    3: 'MIÉRCOLES',
+    4: 'JUEVES',
+    5: 'VIERNES',
+    6: 'SÁBADO',
   };
 
   const prevMonthDays = new Date(year, monthIdx, 0).getDate();
   const firstDow = new Date(year, monthIdx, 1).getDay();
   const firstMonIdx = (firstDow + 6) % 7;
 
-  type Cell = { date: number; dow: string; dowFull: string; isOtherMonth?: boolean; otherMonthDate?: number };
+  type Cell = {
+    date: number;
+    dow: string;
+    dowFull: string;
+    isOtherMonth?: boolean;
+    otherMonthDate?: number;
+  };
   const cells: Cell[] = [];
 
   for (let p = 0; p < firstMonIdx; p++) {
     const prevDay = prevMonthDays - firstMonIdx + 1 + p;
     const date = new Date(year, monthIdx - 1, prevDay);
     const dowLetter = DOW_LETTERS[date.getDay()];
-    const dowFull = date.getDay() === 2 ? 'MARTES' : date.getDay() === 3 ? 'MIÉRCOLES' : DOW_FULL_MAP[date.getDay()] || dowLetter;
+    const dowFull =
+      date.getDay() === 2
+        ? 'MARTES'
+        : date.getDay() === 3
+          ? 'MIÉRCOLES'
+          : DOW_FULL_MAP[date.getDay()] || dowLetter;
     cells.push({ date: 0, dow: dowLetter, dowFull, isOtherMonth: true, otherMonthDate: prevDay });
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, monthIdx, d);
     const dowLetter = DOW_LETTERS[date.getDay()];
-    const dowFull = date.getDay() === 2 ? 'MARTES' : date.getDay() === 3 ? 'MIÉRCOLES' : DOW_FULL_MAP[date.getDay()] || dowLetter;
+    const dowFull =
+      date.getDay() === 2
+        ? 'MARTES'
+        : date.getDay() === 3
+          ? 'MIÉRCOLES'
+          : DOW_FULL_MAP[date.getDay()] || dowLetter;
     cells.push({ date: d, dow: dowLetter, dowFull });
   }
 
@@ -50,7 +104,12 @@ function buildCalendarWeeks(monthLabel: string): { date: number; dow: string; do
   while (cells.length % 7 !== 0) {
     const date = new Date(year, monthIdx + 1, nextDay);
     const dowLetter = DOW_LETTERS[date.getDay()];
-    const dowFull = date.getDay() === 2 ? 'MARTES' : date.getDay() === 3 ? 'MIÉRCOLES' : DOW_FULL_MAP[date.getDay()] || dowLetter;
+    const dowFull =
+      date.getDay() === 2
+        ? 'MARTES'
+        : date.getDay() === 3
+          ? 'MIÉRCOLES'
+          : DOW_FULL_MAP[date.getDay()] || dowLetter;
     cells.push({ date: 0, dow: dowLetter, dowFull, isOtherMonth: true, otherMonthDate: nextDay });
     nextDay++;
   }
@@ -66,10 +125,23 @@ function dayIndexFromDate(date: number): number {
   return date - 1;
 }
 
-function buildMonthClippedWeeks(monthLabel: string, daysInMonthCount: number): { startDay: number; endDay: number }[] {
+function buildMonthClippedWeeks(
+  monthLabel: string,
+  daysInMonthCount: number
+): { startDay: number; endDay: number }[] {
   const MONTH_NAMES_MAP: Record<string, number> = {
-    'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-    'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+    Enero: 0,
+    Febrero: 1,
+    Marzo: 2,
+    Abril: 3,
+    Mayo: 4,
+    Junio: 5,
+    Julio: 6,
+    Agosto: 7,
+    Septiembre: 8,
+    Octubre: 9,
+    Noviembre: 10,
+    Diciembre: 11,
   };
   const parts = (monthLabel || '').split(' ');
   const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 7;
@@ -129,14 +201,21 @@ interface GroupedListPrintProps {
   area: string;
 }
 
-function GroupedListPrint({ workers, shifts, scheduleData, monthLabel, sucursal, area }: GroupedListPrintProps) {
+function GroupedListPrint({
+  workers,
+  shifts,
+  scheduleData,
+  monthLabel,
+  sucursal,
+  area,
+}: GroupedListPrintProps) {
   const monthKey = monthLabelToKey(monthLabel);
   const monthParts = monthLabel.split(' ');
   const monthName = monthParts[0] || '';
   const monthYear = monthParts[1] || '';
 
   // Filter workers
-  const filtered = workers.filter(w => {
+  const filtered = workers.filter((w) => {
     if (w.estado !== 'Activo') return false;
     if (sucursal !== 'Todas' && w.sucursal !== sucursal) return false;
     if (area !== 'Todas' && w.area !== area) return false;
@@ -144,25 +223,30 @@ function GroupedListPrint({ workers, shifts, scheduleData, monthLabel, sucursal,
   });
 
   // For each worker, find their most common shift this month
-  function getWorkerShifts(workerId: string): { shift: import('@/context/AppContext').Shift | null; days: number }[] {
+  function getWorkerShifts(
+    workerId: string
+  ): { shift: import('@/context/AppContext').Shift | null; days: number }[] {
     const sched = (scheduleData[monthKey] || {})[workerId] || [];
     const counts: Record<string, number> = {};
-    sched.forEach(code => {
+    sched.forEach((code) => {
       if (code && code !== 'DESC' && shifts[code]) {
         counts[code] = (counts[code] || 0) + 1;
       }
     });
-    const topCodes = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([code, count]) => ({ shift: shifts[code] || null, days: count }));
+    const topCodes = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([code, count]) => ({ shift: shifts[code] || null, days: count }));
     return topCodes;
   }
 
   // Build rows with shift info
-  const rows: WorkerShiftRow[] = filtered.map(w => {
+  const rows: WorkerShiftRow[] = filtered.map((w) => {
     const workerShifts = getWorkerShifts(w.id);
     const primary = workerShifts[0] || { shift: null, days: 0 };
-    const shiftLabel = workerShifts.length > 0
-      ? workerShifts.map(s => s.shift ? `${s.shift.label} (${s.days}d)` : '—').join(', ')
-      : '—';
+    const shiftLabel =
+      workerShifts.length > 0
+        ? workerShifts.map((s) => (s.shift ? `${s.shift.label} (${s.days}d)` : '—')).join(', ')
+        : '—';
     return {
       num: 0,
       name: w.name,
@@ -180,19 +264,33 @@ function GroupedListPrint({ workers, shifts, scheduleData, monthLabel, sucursal,
     if (b.start === '—') return -1;
     const [ah, am] = a.start.split(':').map(Number);
     const [bh, bm] = b.start.split(':').map(Number);
-    return (ah * 60 + am) - (bh * 60 + bm);
+    return ah * 60 + am - (bh * 60 + bm);
   });
 
   // Assign sequential numbers
-  rows.forEach((r, i) => { r.num = i + 1; });
+  rows.forEach((r, i) => {
+    r.num = i + 1;
+  });
 
   return (
     <div className="bg-white p-8 rounded-xl border border-border shadow-sm">
       {/* Logos */}
       <div className="flex justify-center items-center gap-6 mb-4">
-        <img src="/assets/images/descarga-1784608578238.png" alt="Mayorista DyL" className="h-20 object-contain" />
-        <img src="/assets/images/descarga__2_-1784608577889.png" alt="Envases DyL" className="h-20 object-contain" />
-        <img src="/assets/images/descarga__1_-1784608578251.png" alt="Distribuidora DyL" className="h-20 object-contain" />
+        <img
+          src="/assets/images/descarga-1784608578238.png"
+          alt="Mayorista DyL"
+          className="h-20 object-contain"
+        />
+        <img
+          src="/assets/images/descarga__2_-1784608577889.png"
+          alt="Envases DyL"
+          className="h-20 object-contain"
+        />
+        <img
+          src="/assets/images/descarga__1_-1784608578251.png"
+          alt="Distribuidora DyL"
+          className="h-20 object-contain"
+        />
       </div>
 
       {/* Title */}
@@ -201,7 +299,9 @@ function GroupedListPrint({ workers, shifts, scheduleData, monthLabel, sucursal,
       </h1>
       {(sucursal !== 'Todas' || area !== 'Todas') && (
         <p className="text-center text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">
-          {sucursal !== 'Todas' ? `Sucursal: ${sucursal}` : ''}{sucursal !== 'Todas' && area !== 'Todas' ? ' · ' : ''}{area !== 'Todas' ? `Área: ${area}` : ''}
+          {sucursal !== 'Todas' ? `Sucursal: ${sucursal}` : ''}
+          {sucursal !== 'Todas' && area !== 'Todas' ? ' · ' : ''}
+          {area !== 'Todas' ? `Área: ${area}` : ''}
         </p>
       )}
 
@@ -211,23 +311,47 @@ function GroupedListPrint({ workers, shifts, scheduleData, monthLabel, sucursal,
       <table className="w-full border-collapse border border-gray-400 text-xs">
         <thead>
           <tr className="bg-gray-100">
-            <th className="border border-gray-300 px-2 py-1.5 text-center font-black text-gray-700 w-8">#</th>
-            <th className="border border-gray-300 px-3 py-1.5 text-left font-black text-gray-700">NOMBRE</th>
-            <th className="border border-gray-300 px-2 py-1.5 text-center font-black text-gray-700 w-28">TURNO</th>
-            <th className="border border-gray-300 px-2 py-1.5 text-center font-black text-gray-700 w-20">ENTRADA</th>
-            <th className="border border-gray-300 px-2 py-1.5 text-center font-black text-gray-700 w-20">SALIDA</th>
-            <th className="border border-gray-300 px-2 py-1.5 text-center font-black text-gray-700 w-24">COLACIÓN</th>
+            <th className="border border-gray-300 px-2 py-1.5 text-center font-black text-gray-700 w-8">
+              #
+            </th>
+            <th className="border border-gray-300 px-3 py-1.5 text-left font-black text-gray-700">
+              NOMBRE
+            </th>
+            <th className="border border-gray-300 px-2 py-1.5 text-center font-black text-gray-700 w-28">
+              TURNO
+            </th>
+            <th className="border border-gray-300 px-2 py-1.5 text-center font-black text-gray-700 w-20">
+              ENTRADA
+            </th>
+            <th className="border border-gray-300 px-2 py-1.5 text-center font-black text-gray-700 w-20">
+              SALIDA
+            </th>
+            <th className="border border-gray-300 px-2 py-1.5 text-center font-black text-gray-700 w-24">
+              COLACIÓN
+            </th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, i) => (
             <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-              <td className="border border-gray-300 px-2 py-1 text-center font-bold text-gray-700">{row.num}</td>
-              <td className="border border-gray-300 px-3 py-1 text-gray-800 font-medium">{row.name}</td>
-              <td className="border border-gray-300 px-2 py-1 text-center text-gray-700">{row.shiftLabel !== '—' ? row.shiftLabel : ''}</td>
-              <td className="border border-gray-300 px-2 py-1 text-center text-gray-700">{row.start !== '—' ? row.start : ''}</td>
-              <td className="border border-gray-300 px-2 py-1 text-center text-gray-700">{row.end !== '—' ? row.end : ''}</td>
-              <td className="border border-gray-300 px-2 py-1 text-center text-gray-700">{row.colacion > 0 ? `${row.colacion} min` : '0'}</td>
+              <td className="border border-gray-300 px-2 py-1 text-center font-bold text-gray-700">
+                {row.num}
+              </td>
+              <td className="border border-gray-300 px-3 py-1 text-gray-800 font-medium">
+                {row.name}
+              </td>
+              <td className="border border-gray-300 px-2 py-1 text-center text-gray-700">
+                {row.shiftLabel !== '—' ? row.shiftLabel : ''}
+              </td>
+              <td className="border border-gray-300 px-2 py-1 text-center text-gray-700">
+                {row.start !== '—' ? row.start : ''}
+              </td>
+              <td className="border border-gray-300 px-2 py-1 text-center text-gray-700">
+                {row.end !== '—' ? row.end : ''}
+              </td>
+              <td className="border border-gray-300 px-2 py-1 text-center text-gray-700">
+                {row.colacion > 0 ? `${row.colacion} min` : '0'}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -237,9 +361,19 @@ function GroupedListPrint({ workers, shifts, scheduleData, monthLabel, sucursal,
 }
 
 export default function VistaPreviaContent() {
-  const { workers, shifts, scheduleData, specialDays, sucursales, areas, selectedMes, getAllNonWorkingTypes, globalSucursal } = useAppContext();
+  const {
+    workers,
+    shifts,
+    scheduleData,
+    specialDays,
+    sucursales,
+    areas,
+    selectedMes,
+    getAllNonWorkingTypes,
+    globalSucursal,
+  } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
-  const sucursalOptions = ['Todas', ...sucursales.map(s => s.name)];
+  const sucursalOptions = ['Todas', ...sucursales.map((s) => s.name)];
   const areaOptions = ['Todas', ...areas];
 
   const [selectedArea, setSelectedArea] = useState('Todas');
@@ -255,7 +389,7 @@ export default function VistaPreviaContent() {
   }, [globalSucursal]);
 
   const filteredWorkers = useMemo(() => {
-    return workers.filter(w => {
+    return workers.filter((w) => {
       if (w.estado !== 'Activo') return false;
       if (selectedArea !== 'Todas' && w.area !== selectedArea) return false;
       if (selectedSucursal !== 'Todas' && w.sucursal !== selectedSucursal) return false;
@@ -263,8 +397,8 @@ export default function VistaPreviaContent() {
     });
   }, [workers, selectedArea, selectedSucursal]);
 
-  const selectedWorker = useMemo(() =>
-    workers.find(w => w.id === selectedWorkerId) || null,
+  const selectedWorker = useMemo(
+    () => workers.find((w) => w.id === selectedWorkerId) || null,
     [workers, selectedWorkerId]
   );
 
@@ -284,7 +418,7 @@ export default function VistaPreviaContent() {
   const daysInMonth = useMemo(() => getDaysInMonth(exportMes), [exportMes]);
 
   const monthCalendarWeeks = useMemo(
-    () => calendarWeeks.filter(week => week.some(cell => !cell.isOtherMonth && cell.date > 0)),
+    () => calendarWeeks.filter((week) => week.some((cell) => !cell.isOtherMonth && cell.date > 0)),
     [calendarWeeks]
   );
 
@@ -305,19 +439,19 @@ export default function VistaPreviaContent() {
     }
 
     const clippedWeeks = buildMonthClippedWeeks(exportMes, daysInMonth);
-    const weeklyHours = clippedWeeks.map(w =>
+    const weeklyHours = clippedWeeks.map((w) =>
       calcClippedWeekHours(w.startDay, w.endDay, sched, workerSpecialDays, shifts)
     );
 
     // Compute primary shift colación
     const counts: Record<string, number> = {};
-    sched.forEach(code => {
+    sched.forEach((code) => {
       if (code && code !== 'DESC' && shifts[code]) {
         counts[code] = (counts[code] || 0) + 1;
       }
     });
     const topCode = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-    const colacion = topCode && shifts[topCode] ? (shifts[topCode].colacion || 0) : 0;
+    const colacion = topCode && shifts[topCode] ? shifts[topCode].colacion || 0 : 0;
 
     return { workDays, sundaysWorked, weeklyHours, colacion };
   }, [selectedWorker, workerSchedule, workerSpecialDays, shifts, daysInMonth, exportMes]);
@@ -326,8 +460,12 @@ export default function VistaPreviaContent() {
   const monthName = monthParts[0] || 'Julio';
   const monthYear = monthParts[1] || '2026';
 
-  const handlePrint = () => { window.print(); };
-  const handleExportPDF = () => { window.print(); };
+  const handlePrint = () => {
+    window.print();
+  };
+  const handleExportPDF = () => {
+    window.print();
+  };
 
   return (
     <div className="p-6 xl:p-8 max-w-screen-2xl mx-auto">
@@ -337,7 +475,9 @@ export default function VistaPreviaContent() {
             <Eye size={24} className="text-secondary" />
             Vista Previa
           </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Malla mensual individual por trabajador/a</p>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Malla mensual individual por trabajador/a
+          </p>
         </div>
         {(activeTab === 'lista' || selectedWorker) && (
           <div className="flex items-center gap-2">
@@ -387,59 +527,99 @@ export default function VistaPreviaContent() {
         <div className="flex flex-wrap gap-4">
           {/* Mes */}
           <div className="flex-1 min-w-[160px]">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Mes</label>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+              Mes
+            </label>
             <div className="relative">
               <select
                 value={exportMes}
-                onChange={e => setExportMes(e.target.value)}
+                onChange={(e) => setExportMes(e.target.value)}
                 className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8"
               >
-                {MESES.map(m => <option key={m} value={m}>{m}</option>)}
+                {MESES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
               </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <ChevronDown
+                size={14}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              />
             </div>
           </div>
           <div className="flex-1 min-w-[180px]">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Sucursal</label>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+              Sucursal
+            </label>
             <div className="relative">
               <select
                 value={selectedSucursal}
-                onChange={e => { setSelectedSucursal(e.target.value); setSelectedWorkerId(''); }}
+                onChange={(e) => {
+                  setSelectedSucursal(e.target.value);
+                  setSelectedWorkerId('');
+                }}
                 className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8"
               >
-                {sucursalOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                {sucursalOptions.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <ChevronDown
+                size={14}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              />
             </div>
           </div>
           <div className="flex-1 min-w-[180px]">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Área</label>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+              Área
+            </label>
             <div className="relative">
               <select
                 value={selectedArea}
-                onChange={e => { setSelectedArea(e.target.value); setSelectedWorkerId(''); }}
+                onChange={(e) => {
+                  setSelectedArea(e.target.value);
+                  setSelectedWorkerId('');
+                }}
                 className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8"
               >
-                {areaOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                {areaOptions.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
               </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <ChevronDown
+                size={14}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              />
             </div>
           </div>
           {activeTab === 'individual' && (
             <div className="flex-1 min-w-[220px]">
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Trabajadora</label>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                Trabajadora
+              </label>
               <div className="relative">
                 <select
                   value={selectedWorkerId}
-                  onChange={e => setSelectedWorkerId(e.target.value)}
+                  onChange={(e) => setSelectedWorkerId(e.target.value)}
                   className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8"
                 >
                   <option value="">— Seleccionar —</option>
-                  {filteredWorkers.map(w => (
-                    <option key={w.id} value={w.id}>{w.name} ({w.role || w.cargo})</option>
+                  {filteredWorkers.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} ({w.role || w.cargo})
+                    </option>
                   ))}
                 </select>
-                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <ChevronDown
+                  size={14}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                />
               </div>
             </div>
           )}
@@ -466,8 +646,12 @@ export default function VistaPreviaContent() {
           {!selectedWorker ? (
             <div className="bg-card rounded-xl border border-border shadow-sm flex flex-col items-center justify-center py-20 text-center">
               <User size={48} className="text-muted-foreground/20 mb-3" />
-              <p className="text-base font-semibold text-muted-foreground">Selecciona una trabajadora para ver su malla</p>
-              <p className="text-sm text-muted-foreground/60 mt-1">Filtra por sucursal y área para encontrarla más rápido</p>
+              <p className="text-base font-semibold text-muted-foreground">
+                Selecciona una trabajadora para ver su malla
+              </p>
+              <p className="text-sm text-muted-foreground/60 mt-1">
+                Filtra por sucursal y área para encontrarla más rápido
+              </p>
             </div>
           ) : (
             <>
@@ -483,17 +667,30 @@ export default function VistaPreviaContent() {
               <div ref={printRef} className="print-area">
                 {/* ── COPY 1: Worker's copy ── */}
                 <div className="pdf-page bg-white p-8 rounded-xl border border-border shadow-sm">
-
                   {/* Copy label */}
                   <div className="text-right mb-2">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">Copia trabajador/a</span>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
+                      Copia trabajador/a
+                    </span>
                   </div>
 
                   {/* Logos */}
                   <div className="flex justify-center items-center gap-6 mb-6">
-                    <img src="/assets/images/descarga-1784608578238.png" alt="Mayorista DyL" className="h-24 object-contain" />
-                    <img src="/assets/images/descarga__2_-1784608577889.png" alt="Envases DyL" className="h-24 object-contain" />
-                    <img src="/assets/images/descarga__1_-1784608578251.png" alt="Distribuidora DyL" className="h-24 object-contain" />
+                    <img
+                      src="/assets/images/descarga-1784608578238.png"
+                      alt="Mayorista DyL"
+                      className="h-24 object-contain"
+                    />
+                    <img
+                      src="/assets/images/descarga__2_-1784608577889.png"
+                      alt="Envases DyL"
+                      className="h-24 object-contain"
+                    />
+                    <img
+                      src="/assets/images/descarga__1_-1784608578251.png"
+                      alt="Distribuidora DyL"
+                      className="h-24 object-contain"
+                    />
                   </div>
 
                   {/* Title */}
@@ -507,7 +704,9 @@ export default function VistaPreviaContent() {
                       <span className="text-xl font-bold text-gray-800">{selectedWorker.name}</span>
                     </div>
                     <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-6 py-3 flex items-center justify-center">
-                      <span className="text-xl font-bold text-gray-800">{monthName} {monthYear}</span>
+                      <span className="text-xl font-bold text-gray-800">
+                        {monthName} {monthYear}
+                      </span>
                     </div>
                   </div>
 
@@ -515,8 +714,19 @@ export default function VistaPreviaContent() {
                   <div className="border-2 border-gray-400 rounded overflow-hidden mb-6">
                     {/* Header row */}
                     <div className="grid grid-cols-7 border-b-2 border-gray-400">
-                      {['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'].map(day => (
-                        <div key={day} className="text-center py-2 text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50">
+                      {[
+                        'LUNES',
+                        'MARTES',
+                        'MIÉRCOLES',
+                        'JUEVES',
+                        'VIERNES',
+                        'SÁBADO',
+                        'DOMINGO',
+                      ].map((day) => (
+                        <div
+                          key={day}
+                          className="text-center py-2 text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
+                        >
                           {day}
                         </div>
                       ))}
@@ -524,29 +734,43 @@ export default function VistaPreviaContent() {
 
                     {/* Week rows */}
                     {calendarWeeks.map((week, wi) => (
-                      <div key={`week-${wi}`} className="grid grid-cols-7 border-b border-gray-300 last:border-b-0">
+                      <div
+                        key={`week-${wi}`}
+                        className="grid grid-cols-7 border-b border-gray-300 last:border-b-0"
+                      >
                         {week.map((cell, ci) => {
                           if (cell.isOtherMonth) {
                             return (
-                              <div key={`other-${wi}-${ci}`} className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-1.5 flex flex-col items-center justify-start bg-gray-50/70">
-                                <span className="text-xs font-bold text-gray-300 mb-1">{cell.otherMonthDate}</span>
+                              <div
+                                key={`other-${wi}-${ci}`}
+                                className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-1.5 flex flex-col items-center justify-start bg-gray-50/70"
+                              >
+                                <span className="text-xs font-bold text-gray-300 mb-1">
+                                  {cell.otherMonthDate}
+                                </span>
                               </div>
                             );
                           }
                           if (!cell.date) {
-                            return <div key={`empty-${wi}-${ci}`} className="border-r border-gray-300 last:border-r-0 min-h-[60px] bg-gray-50/50" />;
+                            return (
+                              <div
+                                key={`empty-${wi}-${ci}`}
+                                className="border-r border-gray-300 last:border-r-0 min-h-[60px] bg-gray-50/50"
+                              />
+                            );
                           }
                           const idx = dayIndexFromDate(cell.date);
                           const code = workerSchedule[idx] ?? null;
                           const specialDayCode = workerSpecialDays[idx];
-                          const shiftInfo = code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
+                          const shiftInfo =
+                            code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
                           const isSunday = ci === 6;
 
                           let cellLabel: string | null = null;
                           let cellColor = 'text-gray-500';
 
                           if (specialDayCode) {
-                            const nwt = nonWorkingTypes.find(t => t.code === specialDayCode);
+                            const nwt = nonWorkingTypes.find((t) => t.code === specialDayCode);
                             cellLabel = nwt ? nwt.label.toUpperCase() : specialDayCode;
                             cellColor = 'text-yellow-700';
                           } else if (code === 'DESC') {
@@ -562,7 +786,9 @@ export default function VistaPreviaContent() {
                               key={`cell-${wi}-${ci}`}
                               className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-1.5 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
                             >
-                              <span className="text-xs font-bold text-gray-700 mb-1">{cell.date}</span>
+                              <span className="text-xs font-bold text-gray-700 mb-1">
+                                {cell.date}
+                              </span>
                               {shiftInfo ? (
                                 <>
                                   <span className="text-[10px] font-bold text-blue-700 text-center leading-tight">
@@ -579,7 +805,9 @@ export default function VistaPreviaContent() {
                                   )}
                                 </>
                               ) : (
-                                <span className={`text-[10px] font-semibold text-center leading-tight ${cellColor}`}>
+                                <span
+                                  className={`text-[10px] font-semibold text-center leading-tight ${cellColor}`}
+                                >
                                   {cellLabel}
                                 </span>
                               )}
@@ -593,30 +821,49 @@ export default function VistaPreviaContent() {
                   {/* Resumen de turno */}
                   <div className="border-2 border-gray-400 rounded overflow-hidden">
                     <div className="bg-gray-100 border-b-2 border-gray-400 py-2 text-center">
-                      <span className="text-sm font-black text-gray-800 uppercase tracking-wider">RESUMEN DE TURNO</span>
+                      <span className="text-sm font-black text-gray-800 uppercase tracking-wider">
+                        RESUMEN DE TURNO
+                      </span>
                     </div>
                     <div className="p-4">
                       <div className="flex items-center gap-8 mb-4">
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-gray-800 underline">JORNADA</span>
-                          <span className="text-2xl font-black text-gray-900 underline">{selectedWorker.horasContratadas}</span>
+                          <span className="text-sm font-black text-gray-800 underline">
+                            JORNADA
+                          </span>
+                          <span className="text-2xl font-black text-gray-900 underline">
+                            {selectedWorker.horasContratadas}
+                          </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-gray-800 underline">DOMINGOS TRABAJADOS</span>
-                          <span className="text-2xl font-black text-gray-900 underline">{summary?.sundaysWorked ?? 0}</span>
+                          <span className="text-sm font-black text-gray-800 underline">
+                            DOMINGOS TRABAJADOS
+                          </span>
+                          <span className="text-2xl font-black text-gray-900 underline">
+                            {summary?.sundaysWorked ?? 0}
+                          </span>
                         </div>
                       </div>
 
                       {(() => {
                         const weekHours = summary?.weeklyHours || [];
                         const totalWeeks = Math.max(weekHours.length, monthCalendarWeeks.length);
-                        const colsClass = totalWeeks === 6 ? 'grid-cols-6' : totalWeeks === 4 ? 'grid-cols-4' : 'grid-cols-5';
+                        const colsClass =
+                          totalWeeks === 6
+                            ? 'grid-cols-6'
+                            : totalWeeks === 4
+                              ? 'grid-cols-4'
+                              : 'grid-cols-5';
                         return (
                           <div className={`grid ${colsClass} gap-3`}>
                             {Array.from({ length: totalWeeks }).map((_, wi) => (
                               <div key={`week-sum-${wi}`} className="text-center">
-                                <p className="text-xs font-bold text-gray-700 mb-1">Semana {wi + 1}</p>
-                                <p className="text-xl font-black text-gray-900">{weekHours[wi] ?? 0}</p>
+                                <p className="text-xs font-bold text-gray-700 mb-1">
+                                  Semana {wi + 1}
+                                </p>
+                                <p className="text-xl font-black text-gray-900">
+                                  {weekHours[wi] ?? 0}
+                                </p>
                               </div>
                             ))}
                           </div>
@@ -624,22 +871,34 @@ export default function VistaPreviaContent() {
                       })()}
                     </div>
                   </div>
-
                 </div>
 
                 {/* ── COPY 2: Signature copy ── */}
                 <div className="pdf-page pdf-page-break bg-white p-8 rounded-xl border border-border shadow-sm mt-8">
-
                   {/* Copy label */}
                   <div className="text-right mb-2">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">Copia empresa — para firmar</span>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
+                      Copia empresa — para firmar
+                    </span>
                   </div>
 
                   {/* Logos */}
                   <div className="flex justify-center items-center gap-6 mb-6">
-                    <img src="/assets/images/descarga-1784608578238.png" alt="Mayorista DyL" className="h-24 object-contain" />
-                    <img src="/assets/images/descarga__2_-1784608577889.png" alt="Envases DyL" className="h-24 object-contain" />
-                    <img src="/assets/images/descarga__1_-1784608578251.png" alt="Distribuidora DyL" className="h-24 object-contain" />
+                    <img
+                      src="/assets/images/descarga-1784608578238.png"
+                      alt="Mayorista DyL"
+                      className="h-24 object-contain"
+                    />
+                    <img
+                      src="/assets/images/descarga__2_-1784608577889.png"
+                      alt="Envases DyL"
+                      className="h-24 object-contain"
+                    />
+                    <img
+                      src="/assets/images/descarga__1_-1784608578251.png"
+                      alt="Distribuidora DyL"
+                      className="h-24 object-contain"
+                    />
                   </div>
 
                   <h1 className="text-center text-2xl font-black tracking-widest text-gray-900 mb-6 uppercase">
@@ -651,42 +910,69 @@ export default function VistaPreviaContent() {
                       <span className="text-xl font-bold text-gray-800">{selectedWorker.name}</span>
                     </div>
                     <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-6 py-3 flex items-center justify-center">
-                      <span className="text-xl font-bold text-gray-800">{monthName} {monthYear}</span>
+                      <span className="text-xl font-bold text-gray-800">
+                        {monthName} {monthYear}
+                      </span>
                     </div>
                   </div>
 
                   <div className="border-2 border-gray-400 rounded overflow-hidden mb-6">
                     <div className="grid grid-cols-7 border-b-2 border-gray-400">
-                      {['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'].map(day => (
-                        <div key={day} className="text-center py-2 text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50">
+                      {[
+                        'LUNES',
+                        'MARTES',
+                        'MIÉRCOLES',
+                        'JUEVES',
+                        'VIERNES',
+                        'SÁBADO',
+                        'DOMINGO',
+                      ].map((day) => (
+                        <div
+                          key={day}
+                          className="text-center py-2 text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
+                        >
                           {day}
                         </div>
                       ))}
                     </div>
                     {calendarWeeks.map((week, wi) => (
-                      <div key={`week2-${wi}`} className="grid grid-cols-7 border-b border-gray-300 last:border-b-0">
+                      <div
+                        key={`week2-${wi}`}
+                        className="grid grid-cols-7 border-b border-gray-300 last:border-b-0"
+                      >
                         {week.map((cell, ci) => {
                           if (cell.isOtherMonth) {
                             return (
-                              <div key={`other2-${wi}-${ci}`} className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-1.5 flex flex-col items-center justify-start bg-gray-50/70">
-                                <span className="text-xs font-bold text-gray-300 mb-1">{cell.otherMonthDate}</span>
+                              <div
+                                key={`other2-${wi}-${ci}`}
+                                className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-1.5 flex flex-col items-center justify-start bg-gray-50/70"
+                              >
+                                <span className="text-xs font-bold text-gray-300 mb-1">
+                                  {cell.otherMonthDate}
+                                </span>
                               </div>
                             );
                           }
                           if (!cell.date) {
-                            return <div key={`empty2-${wi}-${ci}`} className="border-r border-gray-300 last:border-r-0 min-h-[60px] bg-gray-50/50" />;
+                            return (
+                              <div
+                                key={`empty2-${wi}-${ci}`}
+                                className="border-r border-gray-300 last:border-r-0 min-h-[60px] bg-gray-50/50"
+                              />
+                            );
                           }
                           const idx = dayIndexFromDate(cell.date);
                           const code = workerSchedule[idx] ?? null;
                           const specialDayCode = workerSpecialDays[idx];
-                          const shiftInfo = code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
+                          const shiftInfo =
+                            code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
                           const isSunday = ci === 6;
 
                           let cellLabel: string | null = null;
                           let cellColor = 'text-gray-500';
 
                           if (specialDayCode) {
-                            const nwt = nonWorkingTypes.find(t => t.code === specialDayCode);
+                            const nwt = nonWorkingTypes.find((t) => t.code === specialDayCode);
                             cellLabel = nwt ? nwt.label.toUpperCase() : specialDayCode;
                             cellColor = 'text-yellow-700';
                           } else if (code === 'DESC') {
@@ -702,7 +988,9 @@ export default function VistaPreviaContent() {
                               key={`cell2-${wi}-${ci}`}
                               className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-1.5 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
                             >
-                              <span className="text-xs font-bold text-gray-700 mb-1">{cell.date}</span>
+                              <span className="text-xs font-bold text-gray-700 mb-1">
+                                {cell.date}
+                              </span>
                               {shiftInfo ? (
                                 <>
                                   <span className="text-[10px] font-bold text-blue-700 text-center leading-tight">
@@ -719,7 +1007,9 @@ export default function VistaPreviaContent() {
                                   )}
                                 </>
                               ) : (
-                                <span className={`text-[10px] font-semibold text-center leading-tight ${cellColor}`}>
+                                <span
+                                  className={`text-[10px] font-semibold text-center leading-tight ${cellColor}`}
+                                >
                                   {cellLabel}
                                 </span>
                               )}
@@ -732,29 +1022,48 @@ export default function VistaPreviaContent() {
 
                   <div className="border-2 border-gray-400 rounded overflow-hidden mb-8">
                     <div className="bg-gray-100 border-b-2 border-gray-400 py-2 text-center">
-                      <span className="text-sm font-black text-gray-800 uppercase tracking-wider">RESUMEN DE TURNO</span>
+                      <span className="text-sm font-black text-gray-800 uppercase tracking-wider">
+                        RESUMEN DE TURNO
+                      </span>
                     </div>
                     <div className="p-4">
                       <div className="flex items-center gap-8 mb-4">
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-gray-800 underline">JORNADA</span>
-                          <span className="text-2xl font-black text-gray-900 underline">{selectedWorker.horasContratadas}</span>
+                          <span className="text-sm font-black text-gray-800 underline">
+                            JORNADA
+                          </span>
+                          <span className="text-2xl font-black text-gray-900 underline">
+                            {selectedWorker.horasContratadas}
+                          </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-gray-800 underline">DOMINGOS TRABAJADOS</span>
-                          <span className="text-2xl font-black text-gray-900 underline">{summary?.sundaysWorked ?? 0}</span>
+                          <span className="text-sm font-black text-gray-800 underline">
+                            DOMINGOS TRABAJADOS
+                          </span>
+                          <span className="text-2xl font-black text-gray-900 underline">
+                            {summary?.sundaysWorked ?? 0}
+                          </span>
                         </div>
                       </div>
                       {(() => {
                         const weekHours = summary?.weeklyHours || [];
                         const totalWeeks = Math.max(weekHours.length, monthCalendarWeeks.length);
-                        const colsClass = totalWeeks === 6 ? 'grid-cols-6' : totalWeeks === 4 ? 'grid-cols-4' : 'grid-cols-5';
+                        const colsClass =
+                          totalWeeks === 6
+                            ? 'grid-cols-6'
+                            : totalWeeks === 4
+                              ? 'grid-cols-4'
+                              : 'grid-cols-5';
                         return (
                           <div className={`grid ${colsClass} gap-3`}>
                             {Array.from({ length: totalWeeks }).map((_, wi) => (
                               <div key={`week-sum2-${wi}`} className="text-center">
-                                <p className="text-xs font-bold text-gray-700 mb-1">Semana {wi + 1}</p>
-                                <p className="text-xl font-black text-gray-900">{weekHours[wi] ?? 0}</p>
+                                <p className="text-xs font-bold text-gray-700 mb-1">
+                                  Semana {wi + 1}
+                                </p>
+                                <p className="text-xl font-black text-gray-900">
+                                  {weekHours[wi] ?? 0}
+                                </p>
                               </div>
                             ))}
                           </div>
@@ -771,12 +1080,13 @@ export default function VistaPreviaContent() {
                     <div className="flex gap-10 justify-around">
                       <div className="flex-1 text-center">
                         <div className="border-b-2 border-gray-700 mb-2 h-12" />
-                        <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">Firma trabajador/a</p>
+                        <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                          Firma trabajador/a
+                        </p>
                         <p className="text-xs text-gray-500 mt-1">{selectedWorker.name}</p>
                       </div>
                     </div>
                   </div>
-
                 </div>
               </div>
             </>

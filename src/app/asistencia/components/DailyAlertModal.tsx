@@ -24,14 +24,20 @@ interface DailyAlertModalProps {
   onClose: () => void;
 }
 
-export default function DailyAlertModal({ date, dateLabel, workers, onConfirm, onClose }: DailyAlertModalProps) {
+export default function DailyAlertModal({
+  date,
+  dateLabel,
+  workers,
+  onConfirm,
+  onClose,
+}: DailyAlertModalProps) {
   const [step, setStep] = useState<'question' | 'select'>('question');
   const [absentIds, setAbsentIds] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
 
   function toggleAbsent(id: string) {
-    setAbsentIds(prev => {
+    setAbsentIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -40,11 +46,11 @@ export default function DailyAlertModal({ date, dateLabel, workers, onConfirm, o
   }
 
   function setReason(id: string, reason: string) {
-    setReasons(prev => ({ ...prev, [id]: reason }));
+    setReasons((prev) => ({ ...prev, [id]: reason }));
   }
 
   function setComment(id: string, comment: string) {
-    setComments(prev => ({ ...prev, [id]: comment }));
+    setComments((prev) => ({ ...prev, [id]: comment }));
   }
 
   function handleAllPresent() {
@@ -56,7 +62,7 @@ export default function DailyAlertModal({ date, dateLabel, workers, onConfirm, o
   }
 
   function handleConfirmAbsences() {
-    const absences: AbsenceEntry[] = Array.from(absentIds).map(id => {
+    const absences: AbsenceEntry[] = Array.from(absentIds).map((id) => {
       const reason = reasons[id] || 'Falta injustificada';
       const comment = comments[id]?.trim();
       // If "Otro" is selected and there's a comment, use the comment as the reason
@@ -80,7 +86,10 @@ export default function DailyAlertModal({ date, dateLabel, workers, onConfirm, o
               <p className="text-xs text-gray-500">{dateLabel}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+          >
             <X size={16} />
           </button>
         </div>
@@ -119,7 +128,7 @@ export default function DailyAlertModal({ date, dateLabel, workers, onConfirm, o
               <p className="text-sm text-gray-600">Selecciona quién no asistió y el motivo:</p>
             </div>
             <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-2">
-              {workers.map(w => {
+              {workers.map((w) => {
                 const isAbsent = absentIds.has(w.id);
                 const currentReason = reasons[w.id] || 'Falta injustificada';
                 const isOtro = currentReason === 'Otro';
@@ -132,11 +141,15 @@ export default function DailyAlertModal({ date, dateLabel, workers, onConfirm, o
                       onClick={() => toggleAbsent(w.id)}
                       className="w-full flex items-center gap-3 p-3 text-left"
                     >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${w.avatarColor || 'bg-blue-100 text-blue-700'}`}>
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${w.avatarColor || 'bg-blue-100 text-blue-700'}`}
+                      >
                         {w.initials}
                       </div>
                       <span className="flex-1 text-sm font-medium text-gray-800">{w.name}</span>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isAbsent ? 'border-red-500 bg-red-500' : 'border-gray-300'}`}>
+                      <div
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isAbsent ? 'border-red-500 bg-red-500' : 'border-gray-300'}`}
+                      >
                         {isAbsent && <XCircle size={12} className="text-white" />}
                       </div>
                     </button>
@@ -144,19 +157,21 @@ export default function DailyAlertModal({ date, dateLabel, workers, onConfirm, o
                       <div className="px-3 pb-3 space-y-2">
                         <select
                           value={currentReason}
-                          onChange={e => setReason(w.id, e.target.value)}
+                          onChange={(e) => setReason(w.id, e.target.value)}
                           className="w-full text-xs border border-red-200 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-300"
-                          onClick={e => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          {ABSENCE_REASONS.map(r => (
-                            <option key={r} value={r}>{r}</option>
+                          {ABSENCE_REASONS.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
                           ))}
                         </select>
                         {isOtro && (
                           <textarea
                             value={comments[w.id] || ''}
-                            onChange={e => setComment(w.id, e.target.value)}
-                            onClick={e => e.stopPropagation()}
+                            onChange={(e) => setComment(w.id, e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
                             placeholder="Describe el motivo de la ausencia..."
                             rows={2}
                             className="w-full text-xs border border-red-200 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-300 resize-none"

@@ -22,17 +22,17 @@ export default function SpecialDaysAlerts({ workers, specialDaysData, selectedMe
   const workerAlerts = useMemo((): WorkerAlert[] => {
     const result: WorkerAlert[] = [];
 
-    workers.forEach(worker => {
+    workers.forEach((worker) => {
       const workerSpecialDays = specialDaysData[worker.id] || {};
       const counts: Record<string, number> = {};
 
-      Object.values(workerSpecialDays).forEach(typeCode => {
+      Object.values(workerSpecialDays).forEach((typeCode) => {
         counts[typeCode] = (counts[typeCode] || 0) + 1;
       });
 
       const alerts: { type: 'warning' | 'info'; message: string }[] = [];
 
-      nonWorkingTypes.forEach(nwt => {
+      nonWorkingTypes.forEach((nwt) => {
         const used = counts[nwt.code] || 0;
         if (used === 0) return;
 
@@ -63,7 +63,7 @@ export default function SpecialDaysAlerts({ workers, specialDaysData, selectedMe
 
       // Also handle any unknown codes (e.g. deleted custom types still in data)
       Object.entries(counts).forEach(([code, used]) => {
-        const known = nonWorkingTypes.find(t => t.code === code);
+        const known = nonWorkingTypes.find((t) => t.code === code);
         if (!known && used > 0) {
           alerts.push({ type: 'info', message: `📌 ${code}: ${used} día(s)` });
         }
@@ -75,10 +75,10 @@ export default function SpecialDaysAlerts({ workers, specialDaysData, selectedMe
     });
 
     return result;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workers, specialDaysData, selectedMes, nonWorkingTypes]);
 
-  const hasWarnings = workerAlerts.some(wa => wa.alerts.some(a => a.type === 'warning'));
+  const hasWarnings = workerAlerts.some((wa) => wa.alerts.some((a) => a.type === 'warning'));
 
   if (workerAlerts.length === 0) return null;
 
@@ -92,31 +92,43 @@ export default function SpecialDaysAlerts({ workers, specialDaysData, selectedMe
         {hasWarnings && (
           <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold">
             <AlertTriangle size={11} />
-            {workerAlerts.filter(wa => wa.alerts.some(a => a.type === 'warning')).length} con alertas
+            {workerAlerts.filter((wa) => wa.alerts.some((a) => a.type === 'warning')).length} con
+            alertas
           </span>
         )}
       </div>
 
       <div className="divide-y divide-border/50">
         {workerAlerts.map(({ worker, alerts }) => {
-          const hasWorkerWarning = alerts.some(a => a.type === 'warning');
+          const hasWorkerWarning = alerts.some((a) => a.type === 'warning');
           return (
-            <div key={`alert-row-${worker.id}`} className={`px-5 py-3 flex items-start gap-3 ${hasWorkerWarning ? 'bg-orange-50/50' : ''}`}>
+            <div
+              key={`alert-row-${worker.id}`}
+              className={`px-5 py-3 flex items-start gap-3 ${hasWorkerWarning ? 'bg-orange-50/50' : ''}`}
+            >
               <div className="w-8 h-8 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5">
                 {worker.initials}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-foreground">{worker.name}</p>
-                <p className="text-[10px] text-muted-foreground mb-1.5">{worker.role || worker.cargo} · {worker.sucursal}</p>
+                <p className="text-[10px] text-muted-foreground mb-1.5">
+                  {worker.role || worker.cargo} · {worker.sucursal}
+                </p>
                 <div className="flex flex-wrap gap-1.5">
                   {alerts.map((alert, ai) => (
                     <span
                       key={`alert-badge-${worker.id}-${ai}`}
                       className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium ${
-                        alert.type === 'warning' ?'bg-orange-100 text-orange-700 border border-orange-200' :'bg-blue-50 text-blue-700 border border-blue-100'
+                        alert.type === 'warning'
+                          ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                          : 'bg-blue-50 text-blue-700 border border-blue-100'
                       }`}
                     >
-                      {alert.type === 'warning' ? <AlertTriangle size={10} /> : <CheckCircle size={10} />}
+                      {alert.type === 'warning' ? (
+                        <AlertTriangle size={10} />
+                      ) : (
+                        <CheckCircle size={10} />
+                      )}
                       {alert.message}
                     </span>
                   ))}

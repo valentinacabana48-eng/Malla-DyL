@@ -1,5 +1,13 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from 'react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
@@ -89,18 +97,66 @@ export const NON_WORKING_TYPES: NonWorkingType[] = [
 ];
 
 export const NON_WORKING_COLOR_OPTIONS = [
-  { label: 'Gris',     colorClass: 'bg-slate-100 text-slate-700 border border-slate-300',    legendColor: 'bg-slate-400' },
-  { label: 'Amarillo', colorClass: 'bg-yellow-100 text-yellow-800 border border-yellow-300',  legendColor: 'bg-yellow-500' },
-  { label: 'Rosado',   colorClass: 'bg-pink-100 text-pink-700 border border-pink-300',        legendColor: 'bg-pink-400' },
-  { label: 'Teal',     colorClass: 'bg-teal-100 text-teal-800 border border-teal-300',        legendColor: 'bg-teal-500' },
-  { label: 'Verde',    colorClass: 'bg-green-100 text-green-800 border border-green-300',     legendColor: 'bg-green-500' },
-  { label: 'Azul',     colorClass: 'bg-blue-100 text-blue-800 border border-blue-300',        legendColor: 'bg-blue-500' },
-  { label: 'Morado',   colorClass: 'bg-purple-100 text-purple-800 border border-purple-300',  legendColor: 'bg-purple-500' },
-  { label: 'Naranja',  colorClass: 'bg-orange-100 text-orange-800 border border-orange-300',  legendColor: 'bg-orange-400' },
-  { label: 'Rojo',     colorClass: 'bg-red-100 text-red-800 border border-red-300',           legendColor: 'bg-red-500' },
-  { label: 'Celeste',  colorClass: 'bg-cyan-100 text-cyan-800 border border-cyan-300',        legendColor: 'bg-cyan-500' },
-  { label: 'Índigo',   colorClass: 'bg-indigo-100 text-indigo-800 border border-indigo-300',  legendColor: 'bg-indigo-500' },
-  { label: 'Lima',     colorClass: 'bg-lime-100 text-lime-800 border border-lime-300',        legendColor: 'bg-lime-500' },
+  {
+    label: 'Gris',
+    colorClass: 'bg-slate-100 text-slate-700 border border-slate-300',
+    legendColor: 'bg-slate-400',
+  },
+  {
+    label: 'Amarillo',
+    colorClass: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
+    legendColor: 'bg-yellow-500',
+  },
+  {
+    label: 'Rosado',
+    colorClass: 'bg-pink-100 text-pink-700 border border-pink-300',
+    legendColor: 'bg-pink-400',
+  },
+  {
+    label: 'Teal',
+    colorClass: 'bg-teal-100 text-teal-800 border border-teal-300',
+    legendColor: 'bg-teal-500',
+  },
+  {
+    label: 'Verde',
+    colorClass: 'bg-green-100 text-green-800 border border-green-300',
+    legendColor: 'bg-green-500',
+  },
+  {
+    label: 'Azul',
+    colorClass: 'bg-blue-100 text-blue-800 border border-blue-300',
+    legendColor: 'bg-blue-500',
+  },
+  {
+    label: 'Morado',
+    colorClass: 'bg-purple-100 text-purple-800 border border-purple-300',
+    legendColor: 'bg-purple-500',
+  },
+  {
+    label: 'Naranja',
+    colorClass: 'bg-orange-100 text-orange-800 border border-orange-300',
+    legendColor: 'bg-orange-400',
+  },
+  {
+    label: 'Rojo',
+    colorClass: 'bg-red-100 text-red-800 border border-red-300',
+    legendColor: 'bg-red-500',
+  },
+  {
+    label: 'Celeste',
+    colorClass: 'bg-cyan-100 text-cyan-800 border border-cyan-300',
+    legendColor: 'bg-cyan-500',
+  },
+  {
+    label: 'Índigo',
+    colorClass: 'bg-indigo-100 text-indigo-800 border border-indigo-300',
+    legendColor: 'bg-indigo-500',
+  },
+  {
+    label: 'Lima',
+    colorClass: 'bg-lime-100 text-lime-800 border border-lime-300',
+    legendColor: 'bg-lime-500',
+  },
 ];
 
 export type SpecialDaysMonth = Record<string, Record<number, string>>;
@@ -141,8 +197,18 @@ const DEFAULT_SUCURSALES_DATA: Sucursal[] = [
 const DEFAULT_AREAS = ['Cajas', 'Tesorería', 'Supermercado', 'Bodega'];
 
 const MONTH_NAMES_LIST = [
-  'Enero','Febrero','Marzo','Abril','Mayo','Junio',
-  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
 ];
 export const MESES: string[] = [];
 for (let year = 2026; year <= 2030; year++) {
@@ -152,28 +218,78 @@ for (let year = 2026; year <= 2030; year++) {
 }
 
 export const DAYS_OF_WEEK_AUG_2026 = [
-  'S','D','L','M','M','J','V','S','D','L','M','M','J','V','S','D','L','M','M','J','V','S','D','L','M','M','J','V','S','D','L'
+  'S',
+  'D',
+  'L',
+  'M',
+  'M',
+  'J',
+  'V',
+  'S',
+  'D',
+  'L',
+  'M',
+  'M',
+  'J',
+  'V',
+  'S',
+  'D',
+  'L',
+  'M',
+  'M',
+  'J',
+  'V',
+  'S',
+  'D',
+  'L',
+  'M',
+  'M',
+  'J',
+  'V',
+  'S',
+  'D',
+  'L',
 ];
 
 export function monthLabelToKey(monthLabel: string): string {
   const MONTH_NAMES: Record<string, number> = {
-    'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6,
-    'Julio': 7, 'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12,
+    Enero: 1,
+    Febrero: 2,
+    Marzo: 3,
+    Abril: 4,
+    Mayo: 5,
+    Junio: 6,
+    Julio: 7,
+    Agosto: 8,
+    Septiembre: 9,
+    Octubre: 10,
+    Noviembre: 11,
+    Diciembre: 12,
   };
   const parts = monthLabel.split(' ');
   const monthNum = MONTH_NAMES[parts[0]] ?? 1;
-  let year = parseInt(parts[1] || '2026', 10);
+  const year = parseInt(parts[1] || '2026', 10);
   return `${year}-${String(monthNum).padStart(2, '0')}`;
 }
 
 export function getDaysOfWeekForMonth(monthLabel: string): string[] {
   const MONTH_NAMES: Record<string, number> = {
-    'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-    'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+    Enero: 0,
+    Febrero: 1,
+    Marzo: 2,
+    Abril: 3,
+    Mayo: 4,
+    Junio: 5,
+    Julio: 6,
+    Agosto: 7,
+    Septiembre: 8,
+    Octubre: 9,
+    Noviembre: 10,
+    Diciembre: 11,
   };
   const parts = monthLabel.split(' ');
   const monthIdx = MONTH_NAMES[parts[0]] ?? 7;
-  let year = parseInt(parts[1] || '2026', 10);
+  const year = parseInt(parts[1] || '2026', 10);
   const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
   const DOW_LETTERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
   const result: string[] = [];
@@ -190,12 +306,22 @@ export function getDaysOfWeekForMonth(monthLabel: string): string[] {
 
 export function getDaysInMonth(monthLabel: string): number {
   const MONTH_NAMES: Record<string, number> = {
-    'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-    'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+    Enero: 0,
+    Febrero: 1,
+    Marzo: 2,
+    Abril: 3,
+    Mayo: 4,
+    Junio: 5,
+    Julio: 6,
+    Agosto: 7,
+    Septiembre: 8,
+    Octubre: 9,
+    Noviembre: 10,
+    Diciembre: 11,
   };
   const parts = monthLabel.split(' ');
   const monthIdx = MONTH_NAMES[parts[0]] ?? 7;
-  let year = parseInt(parts[1] || '2026', 10);
+  const year = parseInt(parts[1] || '2026', 10);
   return new Date(year, monthIdx + 1, 0).getDate();
 }
 
@@ -203,7 +329,7 @@ export function calcNetHours(shift: Shift): number {
   if (!shift.start || !shift.end) return 0;
   const [sh, sm] = shift.start.split(':').map(Number);
   const [eh, em] = shift.end.split(':').map(Number);
-  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  let mins = eh * 60 + em - (sh * 60 + sm);
   if (mins < 0) mins += 24 * 60;
   const grossHours = mins / 60;
   if (grossHours > 5 && shift.colacion > 0) {
@@ -213,16 +339,56 @@ export function calcNetHours(shift: Shift): number {
 }
 
 export const SHIFT_COLOR_OPTIONS = [
-  { label: 'Azul',     colorClass: 'bg-blue-100 text-blue-800 border border-blue-300',    legendColor: 'bg-blue-500' },
-  { label: 'Verde',    colorClass: 'bg-green-100 text-green-800 border border-green-300',  legendColor: 'bg-green-600' },
-  { label: 'Naranja',  colorClass: 'bg-orange-100 text-orange-800 border border-orange-300', legendColor: 'bg-orange-400' },
-  { label: 'Morado',   colorClass: 'bg-purple-100 text-purple-800 border border-purple-300', legendColor: 'bg-purple-500' },
-  { label: 'Rojo',     colorClass: 'bg-red-100 text-red-800 border border-red-300',        legendColor: 'bg-red-500' },
-  { label: 'Rosado',   colorClass: 'bg-pink-100 text-pink-800 border border-pink-300',     legendColor: 'bg-pink-500' },
-  { label: 'Celeste',  colorClass: 'bg-cyan-100 text-cyan-800 border border-cyan-300',     legendColor: 'bg-cyan-500' },
-  { label: 'Amarillo', colorClass: 'bg-yellow-100 text-yellow-800 border border-yellow-300', legendColor: 'bg-yellow-500' },
-  { label: 'Gris',     colorClass: 'bg-slate-100 text-slate-700 border border-slate-300',  legendColor: 'bg-slate-400' },
-  { label: 'Teal',     colorClass: 'bg-teal-100 text-teal-800 border border-teal-300',     legendColor: 'bg-teal-500' },
+  {
+    label: 'Azul',
+    colorClass: 'bg-blue-100 text-blue-800 border border-blue-300',
+    legendColor: 'bg-blue-500',
+  },
+  {
+    label: 'Verde',
+    colorClass: 'bg-green-100 text-green-800 border border-green-300',
+    legendColor: 'bg-green-600',
+  },
+  {
+    label: 'Naranja',
+    colorClass: 'bg-orange-100 text-orange-800 border border-orange-300',
+    legendColor: 'bg-orange-400',
+  },
+  {
+    label: 'Morado',
+    colorClass: 'bg-purple-100 text-purple-800 border border-purple-300',
+    legendColor: 'bg-purple-500',
+  },
+  {
+    label: 'Rojo',
+    colorClass: 'bg-red-100 text-red-800 border border-red-300',
+    legendColor: 'bg-red-500',
+  },
+  {
+    label: 'Rosado',
+    colorClass: 'bg-pink-100 text-pink-800 border border-pink-300',
+    legendColor: 'bg-pink-500',
+  },
+  {
+    label: 'Celeste',
+    colorClass: 'bg-cyan-100 text-cyan-800 border border-cyan-300',
+    legendColor: 'bg-cyan-500',
+  },
+  {
+    label: 'Amarillo',
+    colorClass: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
+    legendColor: 'bg-yellow-500',
+  },
+  {
+    label: 'Gris',
+    colorClass: 'bg-slate-100 text-slate-700 border border-slate-300',
+    legendColor: 'bg-slate-400',
+  },
+  {
+    label: 'Teal',
+    colorClass: 'bg-teal-100 text-teal-800 border border-teal-300',
+    legendColor: 'bg-teal-500',
+  },
 ];
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -249,11 +415,25 @@ interface AppContextValue {
   addShift: (s: Shift) => void;
   updateShift: (s: Shift) => void;
   deleteShift: (code: string) => void;
-  setCellShift: (workerId: string, dayIndex: number, shift: ShiftCode, overrideMonthKey?: string) => Promise<boolean>;
+  setCellShift: (
+    workerId: string,
+    dayIndex: number,
+    shift: ShiftCode,
+    overrideMonthKey?: string
+  ) => Promise<boolean>;
   bulkAssign: (workerIds: string[], dayIndices: number[], shift: ShiftCode) => Promise<boolean>;
   getScheduleForWorker: (workerId: string) => ShiftCode[];
-  setSpecialDay: (workerId: string, dayIndex: number, typeCode: string | null, overrideMonthKey?: string) => void;
-  bulkAssignSpecialDay: (workerIds: string[], dayIndices: number[], typeCode: string | null) => void;
+  setSpecialDay: (
+    workerId: string,
+    dayIndex: number,
+    typeCode: string | null,
+    overrideMonthKey?: string
+  ) => void;
+  bulkAssignSpecialDay: (
+    workerIds: string[],
+    dayIndices: number[],
+    typeCode: string | null
+  ) => void;
   getSpecialDaysForWorker: (workerId: string) => Record<number, string>;
   addSucursal: (name: string, cajas?: number) => void;
   updateSucursal: (oldName: string, newName: string, cajas?: number) => void;
@@ -375,7 +555,9 @@ async function dbWrite(op: PromiseLike<DbResult>, what: string): Promise<boolean
 }
 
 function fetchAllRows(table: string, orderBy: string): Promise<Record<string, unknown>[]> {
-  return fetchAll((from, to) => getSupabase().from(table).select('*').order(orderBy).range(from, to));
+  return fetchAll((from, to) =>
+    getSupabase().from(table).select('*').order(orderBy).range(from, to)
+  );
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -422,29 +604,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           fetchAllRows('app_settings', 'key'),
         ]);
 
-        if (workersData) setWorkers(workersData.map(r => rowToWorker(r as Record<string, unknown>)));
+        if (workersData)
+          setWorkers(workersData.map((r) => rowToWorker(r as Record<string, unknown>)));
         if (shiftsData) {
           const shiftsMap: Record<string, Shift> = {};
-          shiftsData.forEach(r => { const s = rowToShift(r as Record<string, unknown>); shiftsMap[s.code] = s; });
+          shiftsData.forEach((r) => {
+            const s = rowToShift(r as Record<string, unknown>);
+            shiftsMap[s.code] = s;
+          });
           setShifts(shiftsMap);
         }
         if (sucursalesData && sucursalesData.length > 0) {
-          setSucursales(sucursalesData.map(r => ({ name: r.name as string, cajas: r.cajas as number })));
+          setSucursales(
+            sucursalesData.map((r) => ({ name: r.name as string, cajas: r.cajas as number }))
+          );
         }
         if (areasData && areasData.length > 0) {
-          setAreas(areasData.map(r => r.name as string));
+          setAreas(areasData.map((r) => r.name as string));
         }
         if (areaCargosData) {
           const ac: AreaCargos = {};
-          areaCargosData.forEach(r => { ac[r.area_name as string] = (r.cargos as string[]) || []; });
+          areaCargosData.forEach((r) => {
+            ac[r.area_name as string] = (r.cargos as string[]) || [];
+          });
           setAreaCargosState(ac);
         }
-        if (nwtData) setCustomNonWorkingTypes(nwtData.map(r => rowToNWT(r as Record<string, unknown>)));
+        if (nwtData)
+          setCustomNonWorkingTypes(nwtData.map((r) => rowToNWT(r as Record<string, unknown>)));
 
         // Rebuild scheduleData from flat rows
         if (scheduleRows) {
           const sd: ScheduleData = {};
-          scheduleRows.forEach(r => {
+          scheduleRows.forEach((r) => {
             const mk = r.month_key as string;
             const wid = r.worker_id as string;
             if (!sd[mk]) sd[mk] = {};
@@ -456,7 +647,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Rebuild specialDays from special_days_v2 rows (JSONB per worker+month)
         if (specialDaysV2Rows) {
           const spd: SpecialDaysData = {};
-          specialDaysV2Rows.forEach(r => {
+          specialDaysV2Rows.forEach((r) => {
             const mk = r.month_key as string;
             const wid = r.worker_id as string;
             const daysObj = (r.days as Record<string, string>) || {};
@@ -471,7 +662,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (settingsData) {
-          const mesSetting = settingsData.find(r => r.key === 'selected_mes');
+          const mesSetting = settingsData.find((r) => r.key === 'selected_mes');
           if (mesSetting) setSelectedMesState(mesSetting.value as string);
         }
       } catch (err) {
@@ -495,7 +686,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (payload.eventType === 'DELETE') {
             const old = payload.old as Record<string, unknown>;
             if (!old?.month_key || !old?.worker_id) return;
-            setScheduleData(prev => {
+            setScheduleData((prev) => {
               const monthSched = { ...(prev[old.month_key as string] || {}) };
               delete monthSched[old.worker_id as string];
               return { ...prev, [old.month_key as string]: monthSched };
@@ -507,7 +698,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const monthKey = row.month_key as string;
           const workerId = row.worker_id as string;
           const days = (row.days as ShiftCode[]) || Array(31).fill(null);
-          setScheduleData(prev => ({
+          setScheduleData((prev) => ({
             ...prev,
             [monthKey]: {
               ...(prev[monthKey] || {}),
@@ -525,7 +716,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (!old?.month_key || !old?.worker_id) return;
             const monthKey = old.month_key as string;
             const workerId = old.worker_id as string;
-            setSpecialDaysState(prev => {
+            setSpecialDaysState((prev) => {
               const monthData = { ...(prev[monthKey] || {}) };
               delete monthData[workerId];
               return { ...prev, [monthKey]: monthData };
@@ -540,7 +731,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             Object.entries(daysObj).forEach(([di, tc]) => {
               workerDays[Number(di)] = tc;
             });
-            setSpecialDaysState(prev => {
+            setSpecialDaysState((prev) => {
               const monthData = { ...(prev[monthKey] || {}) };
               monthData[workerId] = workerDays;
               return { ...prev, [monthKey]: monthData };
@@ -548,30 +739,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
       )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'workers' },
-        async () => {
-          try {
-            const data = await fetchAllRows('workers', 'name');
-            setWorkers(data.map(rowToWorker));
-          } catch (err) {
-            console.error('Error reloading workers:', err);
-          }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workers' }, async () => {
+        try {
+          const data = await fetchAllRows('workers', 'name');
+          setWorkers(data.map(rowToWorker));
+        } catch (err) {
+          console.error('Error reloading workers:', err);
         }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'shifts' },
-        async () => {
-          const { data } = await supabase.from('shifts').select('*').order('label');
-          if (data) {
-            const map: Record<string, Shift> = {};
-            data.forEach(r => { const s = rowToShift(r as Record<string, unknown>); map[s.code] = s; });
-            setShifts(map);
-          }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, async () => {
+        const { data } = await supabase.from('shifts').select('*').order('label');
+        if (data) {
+          const map: Record<string, Shift> = {};
+          data.forEach((r) => {
+            const s = rowToShift(r as Record<string, unknown>);
+            map[s.code] = s;
+          });
+          setShifts(map);
         }
-      )
+      })
       .subscribe();
 
     return () => {
@@ -581,454 +767,726 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ─────────────────────────────────────────────────────────────────────────
 
   // ── setSelectedMes ──
-  const setSelectedMes = useCallback(async (mes: string) => {
-    // ── Carry-over: if last day of previous month had a shift, copy to day 0 of new month ──
-    setScheduleData(prev => {
-      const prevMonthKey = monthLabelToKey(selectedMes);
-      const newMonthKey = monthLabelToKey(mes);
+  const setSelectedMes = useCallback(
+    async (mes: string) => {
+      // ── Carry-over: if last day of previous month had a shift, copy to day 0 of new month ──
+      setScheduleData((prev) => {
+        const prevMonthKey = monthLabelToKey(selectedMes);
+        const newMonthKey = monthLabelToKey(mes);
 
-      // Determine last day index of previous month
-      const MONTH_NAMES_MAP: Record<string, number> = {
-        'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-        'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
-      };
-      const prevParts = selectedMes.split(' ');
-      const prevMonthIdx = MONTH_NAMES_MAP[prevParts[0]] ?? 7;
-      const prevYear = parseInt(prevParts[1] || '2026', 10);
-      const prevDaysInMonth = new Date(prevYear, prevMonthIdx + 1, 0).getDate();
-      const lastDayIdx = prevDaysInMonth - 1; // 0-based
+        // Determine last day index of previous month
+        const MONTH_NAMES_MAP: Record<string, number> = {
+          Enero: 0,
+          Febrero: 1,
+          Marzo: 2,
+          Abril: 3,
+          Mayo: 4,
+          Junio: 5,
+          Julio: 6,
+          Agosto: 7,
+          Septiembre: 8,
+          Octubre: 9,
+          Noviembre: 10,
+          Diciembre: 11,
+        };
+        const prevParts = selectedMes.split(' ');
+        const prevMonthIdx = MONTH_NAMES_MAP[prevParts[0]] ?? 7;
+        const prevYear = parseInt(prevParts[1] || '2026', 10);
+        const prevDaysInMonth = new Date(prevYear, prevMonthIdx + 1, 0).getDate();
+        const lastDayIdx = prevDaysInMonth - 1; // 0-based
 
-      const prevMonthSched = prev[prevMonthKey] || {};
-      const newMonthSched = { ...(prev[newMonthKey] || {}) };
-      let changed = false;
+        const prevMonthSched = prev[prevMonthKey] || {};
+        const newMonthSched = { ...(prev[newMonthKey] || {}) };
+        let changed = false;
 
-      Object.keys(prevMonthSched).forEach(workerId => {
-        const prevDays = prevMonthSched[workerId] || [];
-        const lastShift = prevDays[lastDayIdx];
-        if (!lastShift || lastShift === 'DESC') return; // nothing to carry over
+        Object.keys(prevMonthSched).forEach((workerId) => {
+          const prevDays = prevMonthSched[workerId] || [];
+          const lastShift = prevDays[lastDayIdx];
+          if (!lastShift || lastShift === 'DESC') return; // nothing to carry over
 
-        const newDays = [...(newMonthSched[workerId] || Array(31).fill(null))];
-        if (newDays[0] !== null && newDays[0] !== undefined) return; // already has a shift on day 1
+          const newDays = [...(newMonthSched[workerId] || Array(31).fill(null))];
+          if (newDays[0] !== null && newDays[0] !== undefined) return; // already has a shift on day 1
 
-        newDays[0] = lastShift;
-        newMonthSched[workerId] = newDays;
-        changed = true;
+          newDays[0] = lastShift;
+          newMonthSched[workerId] = newDays;
+          changed = true;
 
-        // Persist carry-over to Supabase
-        dbWrite(
-          supabase.from('schedule_data').upsert(
-            { month_key: newMonthKey, worker_id: workerId, days: newDays },
-            { onConflict: 'month_key,worker_id' }
-          ),
-          'el arrastre de turnos al nuevo mes'
-        );
+          // Persist carry-over to Supabase
+          dbWrite(
+            supabase
+              .from('schedule_data')
+              .upsert(
+                { month_key: newMonthKey, worker_id: workerId, days: newDays },
+                { onConflict: 'month_key,worker_id' }
+              ),
+            'el arrastre de turnos al nuevo mes'
+          );
+        });
+
+        if (!changed) return prev;
+        return { ...prev, [newMonthKey]: newMonthSched };
       });
 
-      if (!changed) return prev;
-      return { ...prev, [newMonthKey]: newMonthSched };
-    });
-
-    setSelectedMesState(mes);
-    await dbWrite(supabase.from('app_settings').upsert({ key: 'selected_mes', value: mes }, { onConflict: 'key' }), 'el mes seleccionado');
-  }, [selectedMes, supabase]);
+      setSelectedMesState(mes);
+      await dbWrite(
+        supabase
+          .from('app_settings')
+          .upsert({ key: 'selected_mes', value: mes }, { onConflict: 'key' }),
+        'el mes seleccionado'
+      );
+    },
+    [selectedMes, supabase]
+  );
 
   // ── Workers ──
-  const addWorker = useCallback(async (w: Worker) => {
-    setWorkers(prev => [...prev, w]);
-    const ok = await dbWrite(supabase.from('workers').upsert(workerToRow(w), { onConflict: 'id' }), 'el trabajador');
-    if (!ok) setWorkers(prev => prev.filter(x => x.id !== w.id));
-  }, [supabase]);
+  const addWorker = useCallback(
+    async (w: Worker) => {
+      setWorkers((prev) => [...prev, w]);
+      const ok = await dbWrite(
+        supabase.from('workers').upsert(workerToRow(w), { onConflict: 'id' }),
+        'el trabajador'
+      );
+      if (!ok) setWorkers((prev) => prev.filter((x) => x.id !== w.id));
+    },
+    [supabase]
+  );
 
-  const updateWorker = useCallback(async (updated: Worker) => {
-    setWorkers(prev => prev.map(w => w.id === updated.id ? updated : w));
-    await dbWrite(supabase.from('workers').upsert(workerToRow(updated), { onConflict: 'id' }), 'los cambios del trabajador');
-  }, [supabase]);
+  const updateWorker = useCallback(
+    async (updated: Worker) => {
+      setWorkers((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+      await dbWrite(
+        supabase.from('workers').upsert(workerToRow(updated), { onConflict: 'id' }),
+        'los cambios del trabajador'
+      );
+    },
+    [supabase]
+  );
 
-  const deleteWorker = useCallback(async (id: string) => {
-    setWorkers(prev => prev.filter(w => w.id !== id));
-    setScheduleData(prev => {
-      const next: ScheduleData = {};
-      Object.entries(prev).forEach(([mk, ms]) => {
-        const nm = { ...ms };
-        delete nm[id];
-        next[mk] = nm;
+  const deleteWorker = useCallback(
+    async (id: string) => {
+      setWorkers((prev) => prev.filter((w) => w.id !== id));
+      setScheduleData((prev) => {
+        const next: ScheduleData = {};
+        Object.entries(prev).forEach(([mk, ms]) => {
+          const nm = { ...ms };
+          delete nm[id];
+          next[mk] = nm;
+        });
+        return next;
       });
-      return next;
-    });
-    // Primero la malla y los días especiales; el trabajador al final, para no dejar datos huérfanos
-    (await dbWrite(supabase.from('schedule_data').delete().eq('worker_id', id), 'la eliminación de la malla del trabajador')) &&
-      (await dbWrite(supabase.from('special_days_v2').delete().eq('worker_id', id), 'la eliminación de los días especiales')) &&
-      (await dbWrite(supabase.from('workers').delete().eq('id', id), 'la eliminación del trabajador'));
-  }, [supabase]);
+      // Primero la malla y los días especiales; el trabajador al final, para no dejar datos huérfanos
+      const scheduleDeleted = await dbWrite(
+        supabase.from('schedule_data').delete().eq('worker_id', id),
+        'la eliminación de la malla del trabajador'
+      );
+      if (!scheduleDeleted) return;
+      const specialDeleted = await dbWrite(
+        supabase.from('special_days_v2').delete().eq('worker_id', id),
+        'la eliminación de los días especiales'
+      );
+      if (!specialDeleted) return;
+      await dbWrite(
+        supabase.from('workers').delete().eq('id', id),
+        'la eliminación del trabajador'
+      );
+    },
+    [supabase]
+  );
 
   // ── Shifts ──
-  const addShift = useCallback(async (s: Shift) => {
-    setShifts(prev => ({ ...prev, [s.code]: s }));
-    await dbWrite(supabase.from('shifts').upsert(shiftToRow(s), { onConflict: 'code' }), 'el turno');
-  }, [supabase]);
+  const addShift = useCallback(
+    async (s: Shift) => {
+      setShifts((prev) => ({ ...prev, [s.code]: s }));
+      await dbWrite(
+        supabase.from('shifts').upsert(shiftToRow(s), { onConflict: 'code' }),
+        'el turno'
+      );
+    },
+    [supabase]
+  );
 
-  const updateShift = useCallback(async (s: Shift) => {
-    setShifts(prev => ({ ...prev, [s.code]: s }));
-    await dbWrite(supabase.from('shifts').upsert(shiftToRow(s), { onConflict: 'code' }), 'el turno');
-  }, [supabase]);
+  const updateShift = useCallback(
+    async (s: Shift) => {
+      setShifts((prev) => ({ ...prev, [s.code]: s }));
+      await dbWrite(
+        supabase.from('shifts').upsert(shiftToRow(s), { onConflict: 'code' }),
+        'el turno'
+      );
+    },
+    [supabase]
+  );
 
-  const deleteShift = useCallback(async (code: string) => {
-    setShifts(prev => {
-      const next = { ...prev };
-      delete next[code];
-      return next;
-    });
-    // Remove deleted shift from all schedule rows in state
-    setScheduleData(prev => {
-      const next: ScheduleData = {};
-      Object.entries(prev).forEach(([mk, ms]) => {
-        next[mk] = {};
-        Object.entries(ms).forEach(([wId, days]) => {
-          next[mk][wId] = days.map(d => (d === code ? null : d));
-        });
+  const deleteShift = useCallback(
+    async (code: string) => {
+      setShifts((prev) => {
+        const next = { ...prev };
+        delete next[code];
+        return next;
       });
-      return next;
-    });
-    if (!await dbWrite(supabase.from('shifts').delete().eq('code', code), 'la eliminación del turno')) return;
-    // Actualizar solo las filas de la malla que contienen este turno
-    const { data: affectedRows, error } = await supabase
-      .from('schedule_data')
-      .select('id, days')
-      .contains('days', [code]);
-    if (error) {
-      console.error('Error buscando mallas con el turno eliminado:', error);
-      return;
-    }
-    await Promise.all((affectedRows || []).map(row => {
-      const days = (row.days as ShiftCode[]).map(d => (d === code ? null : d));
-      return dbWrite(supabase.from('schedule_data').update({ days }).eq('id', row.id), 'la malla');
-    }));
-  }, [supabase]);
+      // Remove deleted shift from all schedule rows in state
+      setScheduleData((prev) => {
+        const next: ScheduleData = {};
+        Object.entries(prev).forEach(([mk, ms]) => {
+          next[mk] = {};
+          Object.entries(ms).forEach(([wId, days]) => {
+            next[mk][wId] = days.map((d) => (d === code ? null : d));
+          });
+        });
+        return next;
+      });
+      if (
+        !(await dbWrite(
+          supabase.from('shifts').delete().eq('code', code),
+          'la eliminación del turno'
+        ))
+      )
+        return;
+      // Actualizar solo las filas de la malla que contienen este turno
+      const { data: affectedRows, error } = await supabase
+        .from('schedule_data')
+        .select('id, days')
+        .contains('days', [code]);
+      if (error) {
+        console.error('Error buscando mallas con el turno eliminado:', error);
+        return;
+      }
+      await Promise.all(
+        (affectedRows || []).map((row) => {
+          const days = (row.days as ShiftCode[]).map((d) => (d === code ? null : d));
+          return dbWrite(
+            supabase.from('schedule_data').update({ days }).eq('id', row.id),
+            'la malla'
+          );
+        })
+      );
+    },
+    [supabase]
+  );
 
   // Keep a ref to always have the latest scheduleData for async DB writes
   const scheduleDataRef = useRef<ScheduleData>({});
-  useEffect(() => { scheduleDataRef.current = scheduleData; }, [scheduleData]);
+  useEffect(() => {
+    scheduleDataRef.current = scheduleData;
+  }, [scheduleData]);
 
   // Keep a ref to always have the latest specialDays for sync reads in callbacks
   const specialDaysRef = useRef<SpecialDaysData>({});
-  useEffect(() => { specialDaysRef.current = specialDays; }, [specialDays]);
+  useEffect(() => {
+    specialDaysRef.current = specialDays;
+  }, [specialDays]);
 
   // ── Schedule (per-month) ──
-  const setCellShift = useCallback((workerId: string, dayIndex: number, shift: ShiftCode, overrideMonthKey?: string): Promise<boolean> => {
-    const monthKey = overrideMonthKey ?? monthLabelToKey(selectedMes);
+  const setCellShift = useCallback(
+    (
+      workerId: string,
+      dayIndex: number,
+      shift: ShiftCode,
+      overrideMonthKey?: string
+    ): Promise<boolean> => {
+      const monthKey = overrideMonthKey ?? monthLabelToKey(selectedMes);
 
-    // Never overwrite a cell that already has a special day (DESCANSO, LICENCIA, etc.)
-    const existingSpecial = (specialDaysRef.current[monthKey] || {})[workerId]?.[dayIndex];
-    if (existingSpecial) {
-      return Promise.resolve(true); // silently skip — special day takes priority
-    }
-
-    // Read the current array synchronously from the ref BEFORE any async gap.
-    // This is the same pattern used by bulkAssign and avoids the setTimeout race
-    // condition where the ref might not yet reflect the latest optimistic state.
-    const currentArr = [...((scheduleDataRef.current[monthKey] || {})[workerId] || Array(31).fill(null))];
-    currentArr[dayIndex] = shift;
-
-    // Update React state optimistically
-    setScheduleData(prev => {
-      const monthSched = prev[monthKey] || {};
-      return { ...prev, [monthKey]: { ...monthSched, [workerId]: currentArr } };
-    });
-
-    // Persistir solo esta celda: es atómico en la BD, así dos ediciones simultáneas no se pisan
-    return (async (): Promise<boolean> => {
-      const { error } = await supabase.rpc('set_schedule_cell', {
-        p_month_key: monthKey, p_worker_id: workerId, p_day_index: dayIndex, p_shift: shift,
-      });
-      if (error) {
-        console.error('setCellShift error:', error);
-        toast.error('No se pudo guardar el turno. Intenta de nuevo.');
-        return false;
+      // Never overwrite a cell that already has a special day (DESCANSO, LICENCIA, etc.)
+      const existingSpecial = (specialDaysRef.current[monthKey] || {})[workerId]?.[dayIndex];
+      if (existingSpecial) {
+        return Promise.resolve(true); // silently skip — special day takes priority
       }
-      return true;
-    })();
-  }, [selectedMes, supabase]);
 
-  const bulkAssign = useCallback(async (workerIds: string[], dayIndices: number[], shift: ShiftCode): Promise<boolean> => {
-    const monthKey = monthLabelToKey(selectedMes);
-    // Compute updated arrays from current ref snapshot, skipping cells that have special days
-    const currentMonthSched = scheduleDataRef.current[monthKey] || {};
-    const currentSpecialDays = specialDaysRef.current[monthKey] || {};
-    const updatedArrays: Record<string, ShiftCode[]> = {};
-    workerIds.forEach(id => {
-      const arr = [...(currentMonthSched[id] || Array(31).fill(null))];
-      const workerSpecial = currentSpecialDays[id] || {};
-      dayIndices.forEach(di => {
-        // Never overwrite a cell that already has a special day
-        if (!workerSpecial[di]) {
-          arr[di] = shift;
-        }
+      // Read the current array synchronously from the ref BEFORE any async gap.
+      // This is the same pattern used by bulkAssign and avoids the setTimeout race
+      // condition where the ref might not yet reflect the latest optimistic state.
+      const currentArr = [
+        ...((scheduleDataRef.current[monthKey] || {})[workerId] || Array(31).fill(null)),
+      ];
+      currentArr[dayIndex] = shift;
+
+      // Update React state optimistically
+      setScheduleData((prev) => {
+        const monthSched = prev[monthKey] || {};
+        return { ...prev, [monthKey]: { ...monthSched, [workerId]: currentArr } };
       });
-      updatedArrays[id] = arr;
-    });
-    // Update React state
-    setScheduleData(prev => {
-      const monthSched = { ...(prev[monthKey] || {}) };
-      Object.entries(updatedArrays).forEach(([id, arr]) => { monthSched[id] = arr; });
-      return { ...prev, [monthKey]: monthSched };
-    });
 
-    // Persist all to Supabase
-    let hasError = false;
-    await Promise.all(
-      Object.entries(updatedArrays).map(([id, arr]) =>
-        supabase.from('schedule_data').upsert(
-          { month_key: monthKey, worker_id: id, days: arr },
-          { onConflict: 'month_key,worker_id' }
-        ).then(({ error }) => {
-          if (error) { console.error('bulkAssign upsert error:', error); hasError = true; }
-        })
-      )
-    );
-    if (hasError) toast.error('Algunos turnos no se pudieron guardar. Intenta de nuevo.');
+      // Persistir solo esta celda: es atómico en la BD, así dos ediciones simultáneas no se pisan
+      return (async (): Promise<boolean> => {
+        const { error } = await supabase.rpc('set_schedule_cell', {
+          p_month_key: monthKey,
+          p_worker_id: workerId,
+          p_day_index: dayIndex,
+          p_shift: shift,
+        });
+        if (error) {
+          console.error('setCellShift error:', error);
+          toast.error('No se pudo guardar el turno. Intenta de nuevo.');
+          return false;
+        }
+        return true;
+      })();
+    },
+    [selectedMes, supabase]
+  );
 
-    return !hasError;
-  }, [selectedMes, supabase]);
+  const bulkAssign = useCallback(
+    async (workerIds: string[], dayIndices: number[], shift: ShiftCode): Promise<boolean> => {
+      const monthKey = monthLabelToKey(selectedMes);
+      // Compute updated arrays from current ref snapshot, skipping cells that have special days
+      const currentMonthSched = scheduleDataRef.current[monthKey] || {};
+      const currentSpecialDays = specialDaysRef.current[monthKey] || {};
+      const updatedArrays: Record<string, ShiftCode[]> = {};
+      workerIds.forEach((id) => {
+        const arr = [...(currentMonthSched[id] || Array(31).fill(null))];
+        const workerSpecial = currentSpecialDays[id] || {};
+        dayIndices.forEach((di) => {
+          // Never overwrite a cell that already has a special day
+          if (!workerSpecial[di]) {
+            arr[di] = shift;
+          }
+        });
+        updatedArrays[id] = arr;
+      });
+      // Update React state
+      setScheduleData((prev) => {
+        const monthSched = { ...(prev[monthKey] || {}) };
+        Object.entries(updatedArrays).forEach(([id, arr]) => {
+          monthSched[id] = arr;
+        });
+        return { ...prev, [monthKey]: monthSched };
+      });
 
-  const getScheduleForWorker = useCallback((workerId: string): ShiftCode[] => {
-    const monthKey = monthLabelToKey(selectedMes);
-    return (scheduleData[monthKey] || {})[workerId] || Array(31).fill(null);
-  }, [scheduleData, selectedMes]);
+      // Persist all to Supabase
+      let hasError = false;
+      await Promise.all(
+        Object.entries(updatedArrays).map(([id, arr]) =>
+          supabase
+            .from('schedule_data')
+            .upsert(
+              { month_key: monthKey, worker_id: id, days: arr },
+              { onConflict: 'month_key,worker_id' }
+            )
+            .then(({ error }) => {
+              if (error) {
+                console.error('bulkAssign upsert error:', error);
+                hasError = true;
+              }
+            })
+        )
+      );
+      if (hasError) toast.error('Algunos turnos no se pudieron guardar. Intenta de nuevo.');
+
+      return !hasError;
+    },
+    [selectedMes, supabase]
+  );
+
+  const getScheduleForWorker = useCallback(
+    (workerId: string): ShiftCode[] => {
+      const monthKey = monthLabelToKey(selectedMes);
+      return (scheduleData[monthKey] || {})[workerId] || Array(31).fill(null);
+    },
+    [scheduleData, selectedMes]
+  );
 
   // ── Special Days ──
-  const setSpecialDay = useCallback(async (workerId: string, dayIndex: number, typeCode: string | null, overrideMonthKey?: string) => {
-    const monthKey = overrideMonthKey ?? monthLabelToKey(selectedMes);
+  const setSpecialDay = useCallback(
+    async (
+      workerId: string,
+      dayIndex: number,
+      typeCode: string | null,
+      overrideMonthKey?: string
+    ) => {
+      const monthKey = overrideMonthKey ?? monthLabelToKey(selectedMes);
 
-    // Build the updated days object FIRST (before any state updates)
-    // so we have the correct value to persist to DB
-    const currentWorkerDays = { ...((specialDaysRef.current[monthKey] || {})[workerId] || {}) };
-    if (typeCode === null) {
-      delete currentWorkerDays[dayIndex];
-    } else {
-      currentWorkerDays[dayIndex] = typeCode;
-    }
-
-    // Convert numeric keys to string keys for JSONB storage
-    const daysForDb: Record<string, string> = {};
-    Object.entries(currentWorkerDays).forEach(([k, v]) => { daysForDb[String(k)] = v; });
-
-    // Optimistically update React state
-    setSpecialDaysState(prev => {
-      const monthData = { ...(prev[monthKey] || {}) };
-      const workerData = { ...(monthData[workerId] || {}) };
+      // Build the updated days object FIRST (before any state updates)
+      // so we have the correct value to persist to DB
+      const currentWorkerDays = { ...((specialDaysRef.current[monthKey] || {})[workerId] || {}) };
       if (typeCode === null) {
-        delete workerData[dayIndex];
+        delete currentWorkerDays[dayIndex];
       } else {
-        workerData[dayIndex] = typeCode;
+        currentWorkerDays[dayIndex] = typeCode;
       }
-      monthData[workerId] = workerData;
-      return { ...prev, [monthKey]: monthData };
-    });
 
-    // When assigning any special day, also clear any shift for this cell in React state
-    if (typeCode !== null) {
-      setScheduleData(prev => {
-        const monthSched = prev[monthKey] || {};
-        const arr = [...(monthSched[workerId] || Array(31).fill(null))];
-        if (arr[dayIndex] !== null) {
-          arr[dayIndex] = null;
-          return { ...prev, [monthKey]: { ...monthSched, [workerId]: arr } };
-        }
-        return prev;
-      });
-    }
-
-    // Una sola llamada atómica: guarda el día especial y, si se asigna, limpia el turno de esa celda
-    const { error } = await supabase.rpc('set_special_day_cell', {
-      p_month_key: monthKey, p_worker_id: workerId, p_day_index: dayIndex, p_type_code: typeCode,
-    });
-    if (error) {
-      console.error('setSpecialDay error:', error);
-      toast.error('No se pudo guardar el día especial. Intenta de nuevo.');
-    }
-  }, [selectedMes, supabase]);
-
-  const bulkAssignSpecialDay = useCallback(async (workerIds: string[], dayIndices: number[], typeCode: string | null) => {
-    const monthKey = monthLabelToKey(selectedMes);
-
-    // Build all updated days objects FIRST (before any state updates)
-    const updatedWorkerDays: Record<string, Record<string, string>> = {};
-    workerIds.forEach(wId => {
-      const currentWorkerDays = { ...((specialDaysRef.current[monthKey] || {})[wId] || {}) };
-      dayIndices.forEach(di => {
-        if (typeCode === null) { delete currentWorkerDays[di]; } else { currentWorkerDays[di] = typeCode; }
-      });
+      // Convert numeric keys to string keys for JSONB storage
       const daysForDb: Record<string, string> = {};
-      Object.entries(currentWorkerDays).forEach(([k, v]) => { daysForDb[String(k)] = v; });
-      updatedWorkerDays[wId] = daysForDb;
-    });
-
-    // Optimistically update React state
-    setSpecialDaysState(prev => {
-      const monthData = { ...(prev[monthKey] || {}) };
-      workerIds.forEach(wId => {
-        const workerData = { ...(monthData[wId] || {}) };
-        dayIndices.forEach(di => {
-          if (typeCode === null) { delete workerData[di]; } else { workerData[di] = typeCode; }
-        });
-        monthData[wId] = workerData;
+      Object.entries(currentWorkerDays).forEach(([k, v]) => {
+        daysForDb[String(k)] = v;
       });
-      return { ...prev, [monthKey]: monthData };
-    });
 
-    // When assigning any special day, also clear shifts for those cells in state
-    if (typeCode !== null) {
-      setScheduleData(prev => {
-        const monthSched = { ...(prev[monthKey] || {}) };
-        let changed = false;
-        workerIds.forEach(wId => {
-          const arr = [...(monthSched[wId] || Array(31).fill(null))];
-          dayIndices.forEach(di => {
-            if (arr[di] !== null) { arr[di] = null; changed = true; }
-          });
-          if (changed) monthSched[wId] = arr;
-        });
-        return changed ? { ...prev, [monthKey]: monthSched } : prev;
+      // Optimistically update React state
+      setSpecialDaysState((prev) => {
+        const monthData = { ...(prev[monthKey] || {}) };
+        const workerData = { ...(monthData[workerId] || {}) };
+        if (typeCode === null) {
+          delete workerData[dayIndex];
+        } else {
+          workerData[dayIndex] = typeCode;
+        }
+        monthData[workerId] = workerData;
+        return { ...prev, [monthKey]: monthData };
       });
-    }
 
-    // Persist each worker's full days object in one upsert per worker
-    await Promise.all(workerIds.map(async (wId) => {
-      const daysForDb = updatedWorkerDays[wId];
-
-      const { error } = await supabase.from('special_days_v2').upsert(
-        { month_key: monthKey, worker_id: wId, days: daysForDb, updated_at: new Date().toISOString() },
-        { onConflict: 'month_key,worker_id' }
-      );
-      if (error) {
-        console.error('bulkAssignSpecialDay upsert error:', error);
-        toast.error('Algunos días especiales no se pudieron guardar.');
-      }
-
-      // When assigning any special day, always clear shifts in DB for those cells
-      // Unconditionally set target cells to null — no ref check to avoid race conditions
+      // When assigning any special day, also clear any shift for this cell in React state
       if (typeCode !== null) {
-        const currentArr = [...((scheduleDataRef.current[monthKey] || {})[wId] || Array(31).fill(null))];
-        dayIndices.forEach(di => { currentArr[di] = null; }); // always null
-        await dbWrite(supabase.from('schedule_data').upsert(
-          { month_key: monthKey, worker_id: wId, days: currentArr },
-          { onConflict: 'month_key,worker_id' }
-        ), 'la malla');
+        setScheduleData((prev) => {
+          const monthSched = prev[monthKey] || {};
+          const arr = [...(monthSched[workerId] || Array(31).fill(null))];
+          if (arr[dayIndex] !== null) {
+            arr[dayIndex] = null;
+            return { ...prev, [monthKey]: { ...monthSched, [workerId]: arr } };
+          }
+          return prev;
+        });
       }
-    }));
-  }, [selectedMes, supabase]);
 
-  const getSpecialDaysForWorker = useCallback((workerId: string): Record<number, string> => {
-    const monthKey = monthLabelToKey(selectedMes);
-    return (specialDays[monthKey] || {})[workerId] || {};
-  }, [specialDays, selectedMes]);
+      // Una sola llamada atómica: guarda el día especial y, si se asigna, limpia el turno de esa celda
+      const { error } = await supabase.rpc('set_special_day_cell', {
+        p_month_key: monthKey,
+        p_worker_id: workerId,
+        p_day_index: dayIndex,
+        p_type_code: typeCode,
+      });
+      if (error) {
+        console.error('setSpecialDay error:', error);
+        toast.error('No se pudo guardar el día especial. Intenta de nuevo.');
+      }
+    },
+    [selectedMes, supabase]
+  );
+
+  const bulkAssignSpecialDay = useCallback(
+    async (workerIds: string[], dayIndices: number[], typeCode: string | null) => {
+      const monthKey = monthLabelToKey(selectedMes);
+
+      // Build all updated days objects FIRST (before any state updates)
+      const updatedWorkerDays: Record<string, Record<string, string>> = {};
+      workerIds.forEach((wId) => {
+        const currentWorkerDays = { ...((specialDaysRef.current[monthKey] || {})[wId] || {}) };
+        dayIndices.forEach((di) => {
+          if (typeCode === null) {
+            delete currentWorkerDays[di];
+          } else {
+            currentWorkerDays[di] = typeCode;
+          }
+        });
+        const daysForDb: Record<string, string> = {};
+        Object.entries(currentWorkerDays).forEach(([k, v]) => {
+          daysForDb[String(k)] = v;
+        });
+        updatedWorkerDays[wId] = daysForDb;
+      });
+
+      // Optimistically update React state
+      setSpecialDaysState((prev) => {
+        const monthData = { ...(prev[monthKey] || {}) };
+        workerIds.forEach((wId) => {
+          const workerData = { ...(monthData[wId] || {}) };
+          dayIndices.forEach((di) => {
+            if (typeCode === null) {
+              delete workerData[di];
+            } else {
+              workerData[di] = typeCode;
+            }
+          });
+          monthData[wId] = workerData;
+        });
+        return { ...prev, [monthKey]: monthData };
+      });
+
+      // When assigning any special day, also clear shifts for those cells in state
+      if (typeCode !== null) {
+        setScheduleData((prev) => {
+          const monthSched = { ...(prev[monthKey] || {}) };
+          let changed = false;
+          workerIds.forEach((wId) => {
+            const arr = [...(monthSched[wId] || Array(31).fill(null))];
+            dayIndices.forEach((di) => {
+              if (arr[di] !== null) {
+                arr[di] = null;
+                changed = true;
+              }
+            });
+            if (changed) monthSched[wId] = arr;
+          });
+          return changed ? { ...prev, [monthKey]: monthSched } : prev;
+        });
+      }
+
+      // Persist each worker's full days object in one upsert per worker
+      await Promise.all(
+        workerIds.map(async (wId) => {
+          const daysForDb = updatedWorkerDays[wId];
+
+          const { error } = await supabase.from('special_days_v2').upsert(
+            {
+              month_key: monthKey,
+              worker_id: wId,
+              days: daysForDb,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'month_key,worker_id' }
+          );
+          if (error) {
+            console.error('bulkAssignSpecialDay upsert error:', error);
+            toast.error('Algunos días especiales no se pudieron guardar.');
+          }
+
+          // When assigning any special day, always clear shifts in DB for those cells
+          // Unconditionally set target cells to null — no ref check to avoid race conditions
+          if (typeCode !== null) {
+            const currentArr = [
+              ...((scheduleDataRef.current[monthKey] || {})[wId] || Array(31).fill(null)),
+            ];
+            dayIndices.forEach((di) => {
+              currentArr[di] = null;
+            }); // always null
+            await dbWrite(
+              supabase
+                .from('schedule_data')
+                .upsert(
+                  { month_key: monthKey, worker_id: wId, days: currentArr },
+                  { onConflict: 'month_key,worker_id' }
+                ),
+              'la malla'
+            );
+          }
+        })
+      );
+    },
+    [selectedMes, supabase]
+  );
+
+  const getSpecialDaysForWorker = useCallback(
+    (workerId: string): Record<number, string> => {
+      const monthKey = monthLabelToKey(selectedMes);
+      return (specialDays[monthKey] || {})[workerId] || {};
+    },
+    [specialDays, selectedMes]
+  );
 
   // ── Sucursales ──
-  const addSucursal = useCallback(async (name: string, cajas: number = 20) => {
-    setSucursales(prev => prev.some(s => s.name === name) ? prev : [...prev, { name, cajas }]);
-    await dbWrite(supabase.from('sucursales').upsert({ name, cajas }, { onConflict: 'name' }), 'la sucursal');
-  }, [supabase]);
+  const addSucursal = useCallback(
+    async (name: string, cajas: number = 20) => {
+      setSucursales((prev) =>
+        prev.some((s) => s.name === name) ? prev : [...prev, { name, cajas }]
+      );
+      await dbWrite(
+        supabase.from('sucursales').upsert({ name, cajas }, { onConflict: 'name' }),
+        'la sucursal'
+      );
+    },
+    [supabase]
+  );
 
-  const updateSucursal = useCallback(async (oldName: string, newName: string, cajas?: number) => {
-    setSucursales(prev => prev.map(s => s.name === oldName ? { name: newName, cajas: cajas !== undefined ? cajas : s.cajas } : s));
-    setWorkers(prev => prev.map(w => w.sucursal === oldName ? { ...w, sucursal: newName } : w));
-    if (oldName !== newName) {
-      // Crear la nueva primero y borrar la antigua al final: si algo falla no se pierde la sucursal
-      const newCajas = cajas !== undefined ? cajas : 20;
-      const ok =
-        (await dbWrite(supabase.from('sucursales').upsert({ name: newName, cajas: newCajas }, { onConflict: 'name' }), 'la sucursal')) &&
-        (await dbWrite(supabase.from('workers').update({ sucursal: newName }).eq('sucursal', oldName), 'la sucursal de los trabajadores')) &&
-        (await dbWrite(supabase.from('sucursales').delete().eq('name', oldName), 'el cambio de nombre de la sucursal'));
-      if (!ok) toast.error('El cambio de nombre quedó incompleto. Recarga la página y revisa la sucursal.');
-    } else if (cajas !== undefined) {
-      await dbWrite(supabase.from('sucursales').update({ cajas }).eq('name', oldName), 'la sucursal');
-    }
-  }, [supabase]);
+  const updateSucursal = useCallback(
+    async (oldName: string, newName: string, cajas?: number) => {
+      setSucursales((prev) =>
+        prev.map((s) =>
+          s.name === oldName ? { name: newName, cajas: cajas !== undefined ? cajas : s.cajas } : s
+        )
+      );
+      setWorkers((prev) =>
+        prev.map((w) => (w.sucursal === oldName ? { ...w, sucursal: newName } : w))
+      );
+      if (oldName !== newName) {
+        // Crear la nueva primero y borrar la antigua al final: si algo falla no se pierde la sucursal
+        const newCajas = cajas !== undefined ? cajas : 20;
+        const ok =
+          (await dbWrite(
+            supabase
+              .from('sucursales')
+              .upsert({ name: newName, cajas: newCajas }, { onConflict: 'name' }),
+            'la sucursal'
+          )) &&
+          (await dbWrite(
+            supabase.from('workers').update({ sucursal: newName }).eq('sucursal', oldName),
+            'la sucursal de los trabajadores'
+          )) &&
+          (await dbWrite(
+            supabase.from('sucursales').delete().eq('name', oldName),
+            'el cambio de nombre de la sucursal'
+          ));
+        if (!ok)
+          toast.error(
+            'El cambio de nombre quedó incompleto. Recarga la página y revisa la sucursal.'
+          );
+      } else if (cajas !== undefined) {
+        await dbWrite(
+          supabase.from('sucursales').update({ cajas }).eq('name', oldName),
+          'la sucursal'
+        );
+      }
+    },
+    [supabase]
+  );
 
-  const deleteSucursal = useCallback(async (name: string) => {
-    setSucursales(prev => prev.filter(s => s.name !== name));
-    await dbWrite(supabase.from('sucursales').delete().eq('name', name), 'la eliminación de la sucursal');
-  }, [supabase]);
+  const deleteSucursal = useCallback(
+    async (name: string) => {
+      setSucursales((prev) => prev.filter((s) => s.name !== name));
+      await dbWrite(
+        supabase.from('sucursales').delete().eq('name', name),
+        'la eliminación de la sucursal'
+      );
+    },
+    [supabase]
+  );
 
-  const getSucursalCajas = useCallback((name: string): number => {
-    const found = sucursales.find(s => s.name === name);
-    return found ? found.cajas : 20;
-  }, [sucursales]);
+  const getSucursalCajas = useCallback(
+    (name: string): number => {
+      const found = sucursales.find((s) => s.name === name);
+      return found ? found.cajas : 20;
+    },
+    [sucursales]
+  );
 
   // ── Areas ──
-  const addArea = useCallback(async (name: string) => {
-    setAreas(prev => prev.includes(name) ? prev : [...prev, name]);
-    await dbWrite(supabase.from('areas').upsert({ name }, { onConflict: 'name' }), 'el área');
-  }, [supabase]);
+  const addArea = useCallback(
+    async (name: string) => {
+      setAreas((prev) => (prev.includes(name) ? prev : [...prev, name]));
+      await dbWrite(supabase.from('areas').upsert({ name }, { onConflict: 'name' }), 'el área');
+    },
+    [supabase]
+  );
 
-  const updateArea = useCallback(async (oldName: string, newName: string) => {
-    setAreas(prev => prev.map(a => a === oldName ? newName : a));
-    setWorkers(prev => prev.map(w => w.area === oldName ? { ...w, area: newName } : w));
-    setAreaCargosState(prev => {
-      const next = { ...prev };
-      if (next[oldName]) { next[newName] = next[oldName]; delete next[oldName]; }
-      return next;
-    });
-    if (oldName !== newName) {
-      // Crear la nueva primero y borrar la antigua al final: si algo falla no se pierde el área
-      let ok =
-        (await dbWrite(supabase.from('areas').upsert({ name: newName }, { onConflict: 'name' }), 'el área')) &&
-        (await dbWrite(supabase.from('workers').update({ area: newName }).eq('area', oldName), 'el área de los trabajadores'));
-      // Move area_cargos
-      const { data: existing } = await supabase.from('area_cargos').select('cargos').eq('area_name', oldName).maybeSingle();
-      if (ok && existing) {
-        ok =
-          (await dbWrite(supabase.from('area_cargos').upsert({ area_name: newName, cargos: existing.cargos }, { onConflict: 'area_name' }), 'los cargos del área')) &&
-          (await dbWrite(supabase.from('area_cargos').delete().eq('area_name', oldName), 'los cargos del área'));
+  const updateArea = useCallback(
+    async (oldName: string, newName: string) => {
+      setAreas((prev) => prev.map((a) => (a === oldName ? newName : a)));
+      setWorkers((prev) => prev.map((w) => (w.area === oldName ? { ...w, area: newName } : w)));
+      setAreaCargosState((prev) => {
+        const next = { ...prev };
+        if (next[oldName]) {
+          next[newName] = next[oldName];
+          delete next[oldName];
+        }
+        return next;
+      });
+      if (oldName !== newName) {
+        // Crear la nueva primero y borrar la antigua al final: si algo falla no se pierde el área
+        let ok =
+          (await dbWrite(
+            supabase.from('areas').upsert({ name: newName }, { onConflict: 'name' }),
+            'el área'
+          )) &&
+          (await dbWrite(
+            supabase.from('workers').update({ area: newName }).eq('area', oldName),
+            'el área de los trabajadores'
+          ));
+        // Move area_cargos
+        const { data: existing } = await supabase
+          .from('area_cargos')
+          .select('cargos')
+          .eq('area_name', oldName)
+          .maybeSingle();
+        if (ok && existing) {
+          ok =
+            (await dbWrite(
+              supabase
+                .from('area_cargos')
+                .upsert(
+                  { area_name: newName, cargos: existing.cargos },
+                  { onConflict: 'area_name' }
+                ),
+              'los cargos del área'
+            )) &&
+            (await dbWrite(
+              supabase.from('area_cargos').delete().eq('area_name', oldName),
+              'los cargos del área'
+            ));
+        }
+        if (ok)
+          ok = await dbWrite(
+            supabase.from('areas').delete().eq('name', oldName),
+            'el cambio de nombre del área'
+          );
+        if (!ok)
+          toast.error('El cambio de nombre quedó incompleto. Recarga la página y revisa el área.');
       }
-      if (ok) ok = await dbWrite(supabase.from('areas').delete().eq('name', oldName), 'el cambio de nombre del área');
-      if (!ok) toast.error('El cambio de nombre quedó incompleto. Recarga la página y revisa el área.');
-    }
-  }, [supabase]);
+    },
+    [supabase]
+  );
 
-  const deleteArea = useCallback(async (name: string) => {
-    setAreas(prev => prev.filter(a => a !== name));
-    setAreaCargosState(prev => { const next = { ...prev }; delete next[name]; return next; });
-    await dbWrite(supabase.from('area_cargos').delete().eq('area_name', name), 'los cargos del área');
-    await dbWrite(supabase.from('areas').delete().eq('name', name), 'la eliminación del área');
-  }, [supabase]);
+  const deleteArea = useCallback(
+    async (name: string) => {
+      setAreas((prev) => prev.filter((a) => a !== name));
+      setAreaCargosState((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+      await dbWrite(
+        supabase.from('area_cargos').delete().eq('area_name', name),
+        'los cargos del área'
+      );
+      await dbWrite(supabase.from('areas').delete().eq('name', name), 'la eliminación del área');
+    },
+    [supabase]
+  );
 
   // ── Area Cargos ──
-  const setAreaCargos = useCallback(async (area: string, cargos: string[]) => {
-    setAreaCargosState(prev => ({ ...prev, [area]: cargos }));
-    await dbWrite(supabase.from('area_cargos').upsert({ area_name: area, cargos }, { onConflict: 'area_name' }), 'los cargos del área');
-  }, [supabase]);
+  const setAreaCargos = useCallback(
+    async (area: string, cargos: string[]) => {
+      setAreaCargosState((prev) => ({ ...prev, [area]: cargos }));
+      await dbWrite(
+        supabase
+          .from('area_cargos')
+          .upsert({ area_name: area, cargos }, { onConflict: 'area_name' }),
+        'los cargos del área'
+      );
+    },
+    [supabase]
+  );
 
   // ── Custom Non-Working Types ──
-  const addCustomNonWorkingType = useCallback(async (t: NonWorkingType) => {
-    setCustomNonWorkingTypes(prev => [...prev, t]);
-    await dbWrite(supabase.from('custom_non_working_types').upsert(nwtToRow(t), { onConflict: 'code' }), 'el tipo de día especial');
-  }, [supabase]);
+  const addCustomNonWorkingType = useCallback(
+    async (t: NonWorkingType) => {
+      setCustomNonWorkingTypes((prev) => [...prev, t]);
+      await dbWrite(
+        supabase.from('custom_non_working_types').upsert(nwtToRow(t), { onConflict: 'code' }),
+        'el tipo de día especial'
+      );
+    },
+    [supabase]
+  );
 
-  const updateCustomNonWorkingType = useCallback(async (t: NonWorkingType) => {
-    setCustomNonWorkingTypes(prev => prev.map(x => x.code === t.code ? t : x));
-    await dbWrite(supabase.from('custom_non_working_types').upsert(nwtToRow(t), { onConflict: 'code' }), 'el tipo de día especial');
-  }, [supabase]);
+  const updateCustomNonWorkingType = useCallback(
+    async (t: NonWorkingType) => {
+      setCustomNonWorkingTypes((prev) => prev.map((x) => (x.code === t.code ? t : x)));
+      await dbWrite(
+        supabase.from('custom_non_working_types').upsert(nwtToRow(t), { onConflict: 'code' }),
+        'el tipo de día especial'
+      );
+    },
+    [supabase]
+  );
 
-  const deleteCustomNonWorkingType = useCallback(async (code: string) => {
-    setCustomNonWorkingTypes(prev => prev.filter(x => x.code !== code));
-    setSpecialDaysState(prev => {
-      const next: SpecialDaysData = {};
-      Object.entries(prev).forEach(([mk, md]) => {
-        next[mk] = {};
-        Object.entries(md).forEach(([wId, wd]) => {
-          const cleaned: Record<number, string> = {};
-          Object.entries(wd).forEach(([di, tc]) => { if (tc !== code) cleaned[Number(di)] = tc; });
-          next[mk][wId] = cleaned;
+  const deleteCustomNonWorkingType = useCallback(
+    async (code: string) => {
+      setCustomNonWorkingTypes((prev) => prev.filter((x) => x.code !== code));
+      setSpecialDaysState((prev) => {
+        const next: SpecialDaysData = {};
+        Object.entries(prev).forEach(([mk, md]) => {
+          next[mk] = {};
+          Object.entries(md).forEach(([wId, wd]) => {
+            const cleaned: Record<number, string> = {};
+            Object.entries(wd).forEach(([di, tc]) => {
+              if (tc !== code) cleaned[Number(di)] = tc;
+            });
+            next[mk][wId] = cleaned;
+          });
         });
+        return next;
       });
-      return next;
-    });
-    // Quitar el tipo de todas las mallas (special_days_v2 y la tabla antigua) y luego borrarlo
-    if (await dbWrite(supabase.rpc('remove_special_day_type', { p_code: code }), 'la limpieza del tipo de día especial')) {
-      await dbWrite(supabase.from('custom_non_working_types').delete().eq('code', code), 'la eliminación del tipo de día especial');
-    }
-  }, [supabase]);
+      // Quitar el tipo de todas las mallas (special_days_v2 y la tabla antigua) y luego borrarlo
+      if (
+        await dbWrite(
+          supabase.rpc('remove_special_day_type', { p_code: code }),
+          'la limpieza del tipo de día especial'
+        )
+      ) {
+        await dbWrite(
+          supabase.from('custom_non_working_types').delete().eq('code', code),
+          'la eliminación del tipo de día especial'
+        );
+      }
+    },
+    [supabase]
+  );
 
   const getAllNonWorkingTypes = useCallback((): NonWorkingType[] => {
     return [...NON_WORKING_TYPES, ...customNonWorkingTypes];
@@ -1042,19 +1500,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // Fixed holidays: [month (0-based), day]
     const fixed: [number, number][] = [
-      [0, 1],   // 1 Enero - Año Nuevo
-      [4, 1],   // 1 Mayo - Día del Trabajo
-      [4, 21],  // 21 Mayo - Glorias Navales
-      [5, 7],   // 7 Junio - Día de los Pueblos Indígenas (desde 2021)
-      [5, 29],  // 29 Junio - San Pedro y San Pablo
-      [7, 15],  // 15 Agosto - Asunción de la Virgen
-      [8, 18],  // 18 Septiembre - Independencia de Chile
-      [8, 19],  // 19 Septiembre - Día de las Glorias del Ejército
-      [9, 12],  // 12 Octubre - Encuentro de Dos Mundos
-      [9, 31],  // 31 Octubre - Día de las Iglesias Evangélicas y Protestantes
-      [10, 1],  // 1 Noviembre - Día de Todos los Santos
-      [10, 2],  // 2 Noviembre - Día de los Fieles Difuntos (desde 2023)
-      [11, 8],  // 8 Diciembre - Inmaculada Concepción
+      [0, 1], // 1 Enero - Año Nuevo
+      [4, 1], // 1 Mayo - Día del Trabajo
+      [4, 21], // 21 Mayo - Glorias Navales
+      [5, 7], // 7 Junio - Día de los Pueblos Indígenas (desde 2021)
+      [5, 29], // 29 Junio - San Pedro y San Pablo
+      [7, 15], // 15 Agosto - Asunción de la Virgen
+      [8, 18], // 18 Septiembre - Independencia de Chile
+      [8, 19], // 19 Septiembre - Día de las Glorias del Ejército
+      [9, 12], // 12 Octubre - Encuentro de Dos Mundos
+      [9, 31], // 31 Octubre - Día de las Iglesias Evangélicas y Protestantes
+      [10, 1], // 1 Noviembre - Día de Todos los Santos
+      [10, 2], // 2 Noviembre - Día de los Fieles Difuntos (desde 2023)
+      [11, 8], // 8 Diciembre - Inmaculada Concepción
       [11, 25], // 25 Diciembre - Navidad
     ];
 
@@ -1096,23 +1554,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{
-      workers, shifts, scheduleData, specialDays, sucursales, areas, areaCargos,
-      selectedMes, setSelectedMes,
-      globalSucursal, setGlobalSucursal,
-      globalArea, setGlobalArea,
-      customNonWorkingTypes,
-      loading,
-      addWorker, updateWorker, deleteWorker,
-      addShift, updateShift, deleteShift,
-      setCellShift, bulkAssign, getScheduleForWorker,
-      setSpecialDay, bulkAssignSpecialDay, getSpecialDaysForWorker,
-      addSucursal, updateSucursal, deleteSucursal, getSucursalCajas,
-      addArea, updateArea, deleteArea,
-      setAreaCargos,
-      addCustomNonWorkingType, updateCustomNonWorkingType, deleteCustomNonWorkingType,
-      getAllNonWorkingTypes,
-    }}>
+    <AppContext.Provider
+      value={{
+        workers,
+        shifts,
+        scheduleData,
+        specialDays,
+        sucursales,
+        areas,
+        areaCargos,
+        selectedMes,
+        setSelectedMes,
+        globalSucursal,
+        setGlobalSucursal,
+        globalArea,
+        setGlobalArea,
+        customNonWorkingTypes,
+        loading,
+        addWorker,
+        updateWorker,
+        deleteWorker,
+        addShift,
+        updateShift,
+        deleteShift,
+        setCellShift,
+        bulkAssign,
+        getScheduleForWorker,
+        setSpecialDay,
+        bulkAssignSpecialDay,
+        getSpecialDaysForWorker,
+        addSucursal,
+        updateSucursal,
+        deleteSucursal,
+        getSucursalCajas,
+        addArea,
+        updateArea,
+        deleteArea,
+        setAreaCargos,
+        addCustomNonWorkingType,
+        updateCustomNonWorkingType,
+        deleteCustomNonWorkingType,
+        getAllNonWorkingTypes,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );

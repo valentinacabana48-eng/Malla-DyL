@@ -23,7 +23,10 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
   return (
     <header
       className="h-14 bg-card flex items-center px-4 lg:px-6 shrink-0 gap-3"
-      style={{ borderBottom: '1px solid var(--border)', boxShadow: '0 1px 4px 0 rgba(15,39,68,0.06)' }}
+      style={{
+        borderBottom: '1px solid var(--border)',
+        boxShadow: '0 1px 4px 0 rgba(15,39,68,0.06)',
+      }}
     >
       <button
         onClick={onMenuToggle}
@@ -66,7 +69,9 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
           {role === 'lector' && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
               <Eye size={13} className="text-amber-600 shrink-0" />
-              <span className="text-xs font-semibold text-amber-700 hidden sm:block">Solo lectura</span>
+              <span className="text-xs font-semibold text-amber-700 hidden sm:block">
+                Solo lectura
+              </span>
             </div>
           )}
           {role === 'admin' && (

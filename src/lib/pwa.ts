@@ -10,7 +10,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 const listeners = new Set<() => void>();
-const notify = () => listeners.forEach(l => l());
+const notify = () => listeners.forEach((l) => l());
 
 export function setupPwa() {
   if (typeof window === 'undefined') return;
@@ -26,7 +26,9 @@ export function setupPwa() {
   });
 
   if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.error('Service worker:', err));
+    navigator.serviceWorker
+      .register('/sw.js')
+      .catch((err) => console.error('Service worker:', err));
   }
 }
 
@@ -34,9 +36,11 @@ export function setupPwa() {
 export function useInstallPrompt(): (() => Promise<void>) | null {
   const [, force] = useState(0);
   useEffect(() => {
-    const l = () => force(n => n + 1);
+    const l = () => force((n) => n + 1);
     listeners.add(l);
-    return () => { listeners.delete(l); };
+    return () => {
+      listeners.delete(l);
+    };
   }, []);
 
   if (!deferredPrompt) return null;

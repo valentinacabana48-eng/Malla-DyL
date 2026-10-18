@@ -16,20 +16,27 @@ const canUseCookies = (() => {
 })();
 
 const fromCookies = () =>
-  typeof document === 'undefined' ? [] :
-  document.cookie.split(';').filter(Boolean).map((c) => {
-    const parts = c.trim().split('=');
-    const cookieName = parts[0];
-    const rest = parts.slice(1);
-    return { name: cookieName.trim(), value: decodeURIComponent(rest.join('=')) };
-  }).filter((c) => c.name);
+  typeof document === 'undefined'
+    ? []
+    : document.cookie
+        .split(';')
+        .filter(Boolean)
+        .map((c) => {
+          const parts = c.trim().split('=');
+          const cookieName = parts[0];
+          const rest = parts.slice(1);
+          return { name: cookieName.trim(), value: decodeURIComponent(rest.join('=')) };
+        })
+        .filter((c) => c.name);
 
 const fromStorage = () => {
   try {
     return Object.keys(localStorage)
       .filter((k) => k.startsWith(PFX))
       .map((k) => ({ name: k.slice(PFX.length), value: localStorage.getItem(k) || '' }));
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 };
 
 const setCookie = (name: string, value: string, options?: Record<string, unknown>) => {
@@ -63,19 +70,21 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => canUseCookies() ? fromCookies() : fromStorage(),
+        getAll: () => (canUseCookies() ? fromCookies() : fromStorage()),
         setAll(cookiesToSet) {
           if (typeof document === 'undefined') return;
           if (canUseCookies()) {
             cookiesToSet.forEach(({ name, value, options }) =>
-              value ? setCookie(name, value, options as Record<string, unknown>)
-                    : deleteCookie(name)
+              value
+                ? setCookie(name, value, options as Record<string, unknown>)
+                : deleteCookie(name)
             );
           } else {
             cookiesToSet.forEach(({ name, value, options }) => {
               try {
-                value ? localStorage.setItem(`${PFX}${name}`, value)
-                      : localStorage.removeItem(`${PFX}${name}`);
+                value
+                  ? localStorage.setItem(`${PFX}${name}`, value)
+                  : localStorage.removeItem(`${PFX}${name}`);
               } catch {}
               if (value) setCookie(name, value, options as Record<string, unknown>);
             });

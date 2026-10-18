@@ -1,6 +1,13 @@
 'use client';
 import React, { useMemo, useState } from 'react';
-import { BarChart2, ArrowDownToLine, ArrowUpFromLine, Package, CalendarDays, Printer } from 'lucide-react';
+import {
+  BarChart2,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Package,
+  CalendarDays,
+  Printer,
+} from 'lucide-react';
 import { type ShiftCode, type Shift, type Worker } from '@/context/AppContext';
 
 interface Props {
@@ -30,9 +37,27 @@ interface WorkerShiftDetail {
   colacion: number;
 }
 
-const HOUR_SLOTS = ['06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];
-const MANANA_HOURS = ['06:00','07:00','08:00','09:00','10:00'];
-const TARDE_HOURS  = ['11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
+const HOUR_SLOTS = [
+  '06:00',
+  '07:00',
+  '08:00',
+  '09:00',
+  '10:00',
+  '11:00',
+  '12:00',
+  '13:00',
+  '14:00',
+  '15:00',
+  '16:00',
+  '17:00',
+  '18:00',
+  '19:00',
+  '20:00',
+  '21:00',
+  '22:00',
+];
+const MANANA_HOURS = ['06:00', '07:00', '08:00', '09:00', '10:00'];
+const TARDE_HOURS = ['11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
 function buildDayOptions(daysInMonth: number, monthLabel: string) {
   const options: { label: string; value: number }[] = [{ label: 'Todo el mes', value: -1 }];
@@ -42,10 +67,23 @@ function buildDayOptions(daysInMonth: number, monthLabel: string) {
   return options;
 }
 
-function buildWeekOptions(daysInMonth: number, monthLabel: string): { label: string; startDay: number; endDay: number }[] {
+function buildWeekOptions(
+  daysInMonth: number,
+  monthLabel: string
+): { label: string; startDay: number; endDay: number }[] {
   const MONTH_NAMES_MAP: Record<string, number> = {
-    'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-    'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+    Enero: 0,
+    Febrero: 1,
+    Marzo: 2,
+    Abril: 3,
+    Mayo: 4,
+    Junio: 5,
+    Julio: 6,
+    Agosto: 7,
+    Septiembre: 8,
+    Octubre: 9,
+    Noviembre: 10,
+    Diciembre: 11,
   };
   const parts = (monthLabel || '').split(' ');
   const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 0;
@@ -61,7 +99,11 @@ function buildWeekOptions(daysInMonth: number, monthLabel: string): { label: str
     const weekSunday = weekMonday + 6;
     const startDay = Math.max(1, weekMonday);
     const endDay = Math.min(daysInMonth, weekSunday);
-    weeks.push({ label: `Semana ${weekNum} (${startDay}–${endDay} ${parts[0]})`, startDay, endDay });
+    weeks.push({
+      label: `Semana ${weekNum} (${startDay}–${endDay} ${parts[0]})`,
+      startDay,
+      endDay,
+    });
     weekNum++;
     d = endDay + 1;
   }
@@ -82,21 +124,26 @@ function buildWeeklySummary(
   for (let d = startDay; d <= endDay; d++) {
     const dayIdx = d - 1;
     const hourMap: Record<string, number> = {};
-    HOUR_SLOTS.forEach(h => { hourMap[h] = 0; });
+    HOUR_SLOTS.forEach((h) => {
+      hourMap[h] = 0;
+    });
     let descanso = 0;
 
-    workers.forEach(w => {
+    workers.forEach((w) => {
       const sched = scheduleData[w.id] || [];
       const workerSpecialDays = specialDaysData[w.id] || {};
       const shiftCode = sched[dayIdx];
       const specialDay = workerSpecialDays[dayIdx];
-      if (shiftCode === 'DESC' || specialDay === 'DESCANSO') { descanso++; return; }
+      if (shiftCode === 'DESC' || specialDay === 'DESCANSO') {
+        descanso++;
+        return;
+      }
       if (specialDay) return;
       if (!shiftCode) return;
       const shift = shifts[shiftCode];
       if (!shift) return;
       const startH = slotHour(shift.start);
-      HOUR_SLOTS.forEach(h => {
+      HOUR_SLOTS.forEach((h) => {
         if (slotHour(h) === startH) hourMap[h]++;
       });
     });
@@ -110,8 +157,18 @@ const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 function getDayName(day: number, monthLabel: string): string {
   const MONTH_NAMES_MAP: Record<string, number> = {
-    'Enero': 0, 'Febrero': 1, 'Marzo': 2, 'Abril': 3, 'Mayo': 4, 'Junio': 5,
-    'Julio': 6, 'Agosto': 7, 'Septiembre': 8, 'Octubre': 9, 'Noviembre': 10, 'Diciembre': 11,
+    Enero: 0,
+    Febrero: 1,
+    Marzo: 2,
+    Abril: 3,
+    Mayo: 4,
+    Junio: 5,
+    Julio: 6,
+    Agosto: 7,
+    Septiembre: 8,
+    Octubre: 9,
+    Noviembre: 10,
+    Diciembre: 11,
   };
   const parts = (monthLabel || '').split(' ');
   const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 0;
@@ -120,13 +177,28 @@ function getDayName(day: number, monthLabel: string): string {
   return DAY_NAMES[(date.getDay() + 6) % 7];
 }
 
-export default function MallaSummary({ workers, scheduleData, specialDaysData, shifts, totalCajas, daysInMonth, monthLabel, selectedCargo = 'Todos' }: Props) {
+export default function MallaSummary({
+  workers,
+  scheduleData,
+  specialDaysData,
+  shifts,
+  totalCajas,
+  daysInMonth,
+  monthLabel,
+  selectedCargo = 'Todos',
+}: Props) {
   const [selectedDay, setSelectedDay] = useState<number>(-1);
   const [printMode, setPrintMode] = useState<'day' | 'week'>('week');
   const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
 
-  const dayOptions = useMemo(() => buildDayOptions(daysInMonth, monthLabel), [daysInMonth, monthLabel]);
-  const weekOptions = useMemo(() => buildWeekOptions(daysInMonth, monthLabel), [daysInMonth, monthLabel]);
+  const dayOptions = useMemo(
+    () => buildDayOptions(daysInMonth, monthLabel),
+    [daysInMonth, monthLabel]
+  );
+  const weekOptions = useMemo(
+    () => buildWeekOptions(daysInMonth, monthLabel),
+    [daysInMonth, monthLabel]
+  );
 
   const showCajas = selectedCargo === 'Cajera' || selectedCargo === 'Todos';
   const cajasOnlyCargo = selectedCargo === 'Cajera';
@@ -135,13 +207,13 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
     const targetWorkers = workers;
     const slotHour = (time: string) => parseInt(time.split(':')[0], 10);
 
-    const rows: HourRow[] = HOUR_SLOTS.map(hour => {
+    const rows: HourRow[] = HOUR_SLOTS.map((hour) => {
       const slotH = slotHour(hour);
       let entering = 0;
       let exiting = 0;
       let active = 0;
 
-      targetWorkers.forEach(w => {
+      targetWorkers.forEach((w) => {
         const sched = scheduleData[w.id] || [];
         const workerSpecialDays = specialDaysData[w.id] || {};
 
@@ -179,19 +251,23 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
       return { hour, entering, exiting, active, vacantCajas };
     });
 
-    return rows.filter(r => r.entering > 0 || r.exiting > 0);
+    return rows.filter((r) => r.entering > 0 || r.exiting > 0);
   }, [workers, scheduleData, specialDaysData, shifts, totalCajas, selectedDay, cajasOnlyCargo]);
 
   const descansoCount = useMemo((): number => {
     let count = 0;
-    workers.forEach(w => {
+    workers.forEach((w) => {
       const sched = scheduleData[w.id] || [];
       const workerSpecialDays = specialDaysData[w.id] || {};
       if (selectedDay >= 0) {
         if (sched[selectedDay] === 'DESC' || workerSpecialDays[selectedDay] === 'DESCANSO') count++;
       } else {
-        sched.forEach((code) => { if (code === 'DESC') count++; });
-        Object.values(workerSpecialDays).forEach(code => { if (code === 'DESCANSO') count++; });
+        sched.forEach((code) => {
+          if (code === 'DESC') count++;
+        });
+        Object.values(workerSpecialDays).forEach((code) => {
+          if (code === 'DESCANSO') count++;
+        });
       }
     });
     return count;
@@ -201,9 +277,9 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
     const result: { day: number; count: number }[] = [];
     for (let d = 0; d < daysInMonth; d++) {
       let count = 0;
-      workers.forEach(w => {
+      workers.forEach((w) => {
         const sched = scheduleData[w.id] || [];
-        const workerSpecialDays = (specialDaysData[w.id] || {});
+        const workerSpecialDays = specialDaysData[w.id] || {};
         if (sched[d] === 'DESC' || workerSpecialDays[d] === 'DESCANSO') count++;
       });
       if (count > 0) result.push({ day: d + 1, count });
@@ -211,23 +287,38 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
     return result;
   }, [workers, scheduleData, specialDaysData, daysInMonth]);
 
-  const perDayMTD = useMemo((): { day: number; manana: number; tarde: number; descanso: number; colaciones: number[] }[] => {
+  const perDayMTD = useMemo((): {
+    day: number;
+    manana: number;
+    tarde: number;
+    descanso: number;
+    colaciones: number[];
+  }[] => {
     const toMins = (t: string) => {
       const [h, m] = (t || '00:00').split(':').map(Number);
       return h * 60 + (m || 0);
     };
-    const result: { day: number; manana: number; tarde: number; descanso: number; colaciones: number[] }[] = [];
+    const result: {
+      day: number;
+      manana: number;
+      tarde: number;
+      descanso: number;
+      colaciones: number[];
+    }[] = [];
     for (let d = 0; d < daysInMonth; d++) {
       let manana = 0;
       let tarde = 0;
       let descanso = 0;
       const colacionSet = new Set<number>();
-      workers.forEach(w => {
+      workers.forEach((w) => {
         const sched = scheduleData[w.id] || [];
         const workerSpecialDays = specialDaysData[w.id] || {};
         const shiftCode = sched[d];
         const specialDay = workerSpecialDays[d];
-        if (shiftCode === 'DESC' || specialDay === 'DESCANSO') { descanso++; return; }
+        if (shiftCode === 'DESC' || specialDay === 'DESCANSO') {
+          descanso++;
+          return;
+        }
         if (specialDay) return;
         if (!shiftCode) return;
         const shift = shifts[shiftCode];
@@ -237,7 +328,13 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
         else tarde++;
         if ((shift.colacion || 0) > 0) colacionSet.add(shift.colacion);
       });
-      result.push({ day: d + 1, manana, tarde, descanso, colaciones: Array.from(colacionSet).sort((a, b) => a - b) });
+      result.push({
+        day: d + 1,
+        manana,
+        tarde,
+        descanso,
+        colaciones: Array.from(colacionSet).sort((a, b) => a - b),
+      });
     }
     return result;
   }, [workers, scheduleData, specialDaysData, shifts, daysInMonth]);
@@ -245,7 +342,7 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
   const workerDetails = useMemo((): WorkerShiftDetail[] => {
     if (selectedDay < 0) return [];
     const details: WorkerShiftDetail[] = [];
-    workers.forEach(w => {
+    workers.forEach((w) => {
       const sched = scheduleData[w.id] || [];
       const workerSpecialDays = specialDaysData[w.id] || {};
       // Skip workers with any special day (DESCANSO, VACACIONES, LICENCIA, etc.)
@@ -255,10 +352,19 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
       if (!shiftCode || shiftCode === 'DESC') return;
       const shift = shifts[shiftCode];
       if (!shift) return;
-      details.push({ name: w.name, shiftLabel: shift.label, start: shift.start, end: shift.end, colacion: (shift as { colacion?: number }).colacion ?? 0 });
+      details.push({
+        name: w.name,
+        shiftLabel: shift.label,
+        start: shift.start,
+        end: shift.end,
+        colacion: (shift as { colacion?: number }).colacion ?? 0,
+      });
     });
     details.sort((a, b) => {
-      const toMins = (t: string) => { const [h, m] = (t || '00:00').split(':').map(Number); return h * 60 + (m || 0); };
+      const toMins = (t: string) => {
+        const [h, m] = (t || '00:00').split(':').map(Number);
+        return h * 60 + (m || 0);
+      };
       const diff = toMins(a.start) - toMins(b.start);
       return diff !== 0 ? diff : a.name.localeCompare(b.name);
     });
@@ -272,7 +378,7 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
     for (let d = wk.startDay; d <= wk.endDay; d++) {
       const dayIdx = d - 1;
       const dayWorkers: WorkerShiftDetail[] = [];
-      workers.forEach(w => {
+      workers.forEach((w) => {
         const sched = scheduleData[w.id] || [];
         const workerSpecialDays = specialDaysData[w.id] || {};
         // Skip workers with any special day (DESCANSO, VACACIONES, LICENCIA, etc.)
@@ -282,10 +388,19 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
         if (!shiftCode || shiftCode === 'DESC') return;
         const shift = shifts[shiftCode];
         if (!shift) return;
-        dayWorkers.push({ name: w.name, shiftLabel: shift.label, start: shift.start, end: shift.end, colacion: (shift as { colacion?: number }).colacion ?? 0 });
+        dayWorkers.push({
+          name: w.name,
+          shiftLabel: shift.label,
+          start: shift.start,
+          end: shift.end,
+          colacion: (shift as { colacion?: number }).colacion ?? 0,
+        });
       });
       dayWorkers.sort((a, b) => {
-        const toMins = (t: string) => { const [h, m] = (t || '00:00').split(':').map(Number); return h * 60 + (m || 0); };
+        const toMins = (t: string) => {
+          const [h, m] = (t || '00:00').split(':').map(Number);
+          return h * 60 + (m || 0);
+        };
         const diff = toMins(a.start) - toMins(b.start);
         return diff !== 0 ? diff : a.name.localeCompare(b.name);
       });
@@ -297,22 +412,38 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
   const weeklySummary = useMemo(() => {
     const wk = weekOptions[selectedWeekIdx];
     if (!wk) return [];
-    return buildWeeklySummary(workers, scheduleData, specialDaysData, shifts, wk.startDay, wk.endDay);
+    return buildWeeklySummary(
+      workers,
+      scheduleData,
+      specialDaysData,
+      shifts,
+      wk.startDay,
+      wk.endDay
+    );
   }, [workers, scheduleData, specialDaysData, shifts, weekOptions, selectedWeekIdx]);
 
-  const handlePrint = () => { window.print(); };
+  const handlePrint = () => {
+    window.print();
+  };
 
   if (workers.length === 0) return null;
 
-  const cargoLabel = selectedCargo === 'Cajera' ? 'Cajeras' : selectedCargo === 'Jefa de Caja' ? 'Jefas de Caja' : 'Todos los cargos';
+  const cargoLabel =
+    selectedCargo === 'Cajera'
+      ? 'Cajeras'
+      : selectedCargo === 'Jefa de Caja'
+        ? 'Jefas de Caja'
+        : 'Todos los cargos';
 
   // ── Weekly grouped table helpers ──
   const wk = weekOptions[selectedWeekIdx];
-  const weekDays = wk ? Array.from({ length: wk.endDay - wk.startDay + 1 }, (_, i) => wk.startDay + i) : [];
+  const weekDays = wk
+    ? Array.from({ length: wk.endDay - wk.startDay + 1 }, (_, i) => wk.startDay + i)
+    : [];
 
   // For each hour and day, get entry count
   const getCount = (day: number, hour: string): number => {
-    const dayData = weeklySummary.find(d => d.day === day);
+    const dayData = weeklySummary.find((d) => d.day === day);
     return dayData ? (dayData.hourMap[hour] ?? 0) : 0;
   };
 
@@ -337,13 +468,13 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
 
   // Descanso per day
   const getDescanso = (day: number): number => {
-    const dayData = weeklySummary.find(d => d.day === day);
+    const dayData = weeklySummary.find((d) => d.day === day);
     return dayData ? dayData.descanso : 0;
   };
 
   // Filter hours that have at least one entry across the week
-  const activeMananaHours = MANANA_HOURS.filter(h => getHourTotal(h) > 0);
-  const activeTardeHours = TARDE_HOURS.filter(h => getHourTotal(h) > 0);
+  const activeMananaHours = MANANA_HOURS.filter((h) => getHourTotal(h) > 0);
+  const activeTardeHours = TARDE_HOURS.filter((h) => getHourTotal(h) > 0);
 
   return (
     <>
@@ -393,51 +524,194 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
               </h1>
               <p style={{ fontSize: '11px', color: '#555', marginBottom: '12px' }}>{monthLabel}</p>
               {workerDetails.length === 0 ? (
-                <p style={{ fontSize: '12px', color: '#888' }}>No hay turnos asignados para este día.</p>
+                <p style={{ fontSize: '12px', color: '#888' }}>
+                  No hay turnos asignados para este día.
+                </p>
               ) : (
                 <>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                     <thead>
                       <tr style={{ background: '#f3f4f6' }}>
-                        <th style={{ textAlign: 'center', padding: '4px 6px', borderBottom: '2px solid #d1d5db', fontWeight: '700', fontSize: '10px', color: '#9ca3af', width: '28px' }}>#</th>
-                        <th style={{ textAlign: 'left', padding: '4px 10px', borderBottom: '2px solid #d1d5db', fontWeight: '700', fontSize: '10px', textTransform: 'uppercase' }}>Nombre</th>
-                        <th style={{ textAlign: 'center', padding: '4px 10px', borderBottom: '2px solid #d1d5db', fontWeight: '700', fontSize: '10px', textTransform: 'uppercase', color: '#16a34a' }}>Entrada</th>
-                        <th style={{ textAlign: 'center', padding: '4px 10px', borderBottom: '2px solid #d1d5db', fontWeight: '700', fontSize: '10px', textTransform: 'uppercase', color: '#dc2626' }}>Salida</th>
-                        <th style={{ textAlign: 'center', padding: '4px 10px', borderBottom: '2px solid #d1d5db', fontWeight: '700', fontSize: '10px', textTransform: 'uppercase', color: '#7c3aed' }}>Colación</th>
+                        <th
+                          style={{
+                            textAlign: 'center',
+                            padding: '4px 6px',
+                            borderBottom: '2px solid #d1d5db',
+                            fontWeight: '700',
+                            fontSize: '10px',
+                            color: '#9ca3af',
+                            width: '28px',
+                          }}
+                        >
+                          #
+                        </th>
+                        <th
+                          style={{
+                            textAlign: 'left',
+                            padding: '4px 10px',
+                            borderBottom: '2px solid #d1d5db',
+                            fontWeight: '700',
+                            fontSize: '10px',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          Nombre
+                        </th>
+                        <th
+                          style={{
+                            textAlign: 'center',
+                            padding: '4px 10px',
+                            borderBottom: '2px solid #d1d5db',
+                            fontWeight: '700',
+                            fontSize: '10px',
+                            textTransform: 'uppercase',
+                            color: '#16a34a',
+                          }}
+                        >
+                          Entrada
+                        </th>
+                        <th
+                          style={{
+                            textAlign: 'center',
+                            padding: '4px 10px',
+                            borderBottom: '2px solid #d1d5db',
+                            fontWeight: '700',
+                            fontSize: '10px',
+                            textTransform: 'uppercase',
+                            color: '#dc2626',
+                          }}
+                        >
+                          Salida
+                        </th>
+                        <th
+                          style={{
+                            textAlign: 'center',
+                            padding: '4px 10px',
+                            borderBottom: '2px solid #d1d5db',
+                            fontWeight: '700',
+                            fontSize: '10px',
+                            textTransform: 'uppercase',
+                            color: '#7c3aed',
+                          }}
+                        >
+                          Colación
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {workerDetails.map((wd, i) => {
-                        const toMins = (t: string) => { const [h, m] = (t || '00:00').split(':').map(Number); return h * 60 + (m || 0); };
+                        const toMins = (t: string) => {
+                          const [h, m] = (t || '00:00').split(':').map(Number);
+                          return h * 60 + (m || 0);
+                        };
                         const isTarde = toMins(wd.start) >= 11 * 60;
-                        const mananaWorkers = workerDetails.filter(w => toMins(w.start) < 11 * 60);
-                        const tardeWorkers = workerDetails.filter(w => toMins(w.start) >= 11 * 60);
+                        const mananaWorkers = workerDetails.filter(
+                          (w) => toMins(w.start) < 11 * 60
+                        );
+                        const tardeWorkers = workerDetails.filter(
+                          (w) => toMins(w.start) >= 11 * 60
+                        );
                         const rowNum = isTarde
-                          ? tardeWorkers.findIndex(w => w === wd) + 1
-                          : mananaWorkers.findIndex(w => w === wd) + 1;
-                        const isFirstTarde = isTarde && tardeWorkers.findIndex(w => w === wd) === 0;
+                          ? tardeWorkers.findIndex((w) => w === wd) + 1
+                          : mananaWorkers.findIndex((w) => w === wd) + 1;
+                        const isFirstTarde =
+                          isTarde && tardeWorkers.findIndex((w) => w === wd) === 0;
                         return (
                           <React.Fragment key={`day-row-${i}`}>
                             {isFirstTarde && (
                               <tr>
-                                <td colSpan={5} style={{ padding: '6px 10px', background: '#fff7ed', borderBottom: '1px solid #fed7aa', borderTop: '2px solid #fb923c', fontWeight: '700', fontSize: '10px', color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                <td
+                                  colSpan={5}
+                                  style={{
+                                    padding: '6px 10px',
+                                    background: '#fff7ed',
+                                    borderBottom: '1px solid #fed7aa',
+                                    borderTop: '2px solid #fb923c',
+                                    fontWeight: '700',
+                                    fontSize: '10px',
+                                    color: '#c2410c',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em',
+                                  }}
+                                >
                                   — Tarde (desde 11:00) —
                                 </td>
                               </tr>
                             )}
                             <tr style={{ background: rowNum % 2 === 1 ? '#fff' : '#f9fafb' }}>
-                              <td style={{ padding: '4px 6px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#6b7280', fontSize: '11px' }}>{rowNum}</td>
-                              <td style={{ padding: '4px 10px', borderBottom: '1px solid #e5e7eb', fontWeight: '600', fontSize: '11px' }}>{wd.name}</td>
-                              <td style={{ padding: '4px 10px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#16a34a', fontSize: '11px' }}>{wd.start}</td>
-                              <td style={{ padding: '4px 10px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#dc2626', fontSize: '11px' }}>{wd.end}</td>
-                              <td style={{ padding: '4px 10px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#7c3aed', fontSize: '11px' }}>{wd.colacion === 0 ? '0' : `${wd.colacion} min`}</td>
+                              <td
+                                style={{
+                                  padding: '4px 6px',
+                                  borderBottom: '1px solid #e5e7eb',
+                                  textAlign: 'center',
+                                  fontWeight: '700',
+                                  color: '#6b7280',
+                                  fontSize: '11px',
+                                }}
+                              >
+                                {rowNum}
+                              </td>
+                              <td
+                                style={{
+                                  padding: '4px 10px',
+                                  borderBottom: '1px solid #e5e7eb',
+                                  fontWeight: '600',
+                                  fontSize: '11px',
+                                }}
+                              >
+                                {wd.name}
+                              </td>
+                              <td
+                                style={{
+                                  padding: '4px 10px',
+                                  borderBottom: '1px solid #e5e7eb',
+                                  textAlign: 'center',
+                                  fontWeight: '700',
+                                  color: '#16a34a',
+                                  fontSize: '11px',
+                                }}
+                              >
+                                {wd.start}
+                              </td>
+                              <td
+                                style={{
+                                  padding: '4px 10px',
+                                  borderBottom: '1px solid #e5e7eb',
+                                  textAlign: 'center',
+                                  fontWeight: '700',
+                                  color: '#dc2626',
+                                  fontSize: '11px',
+                                }}
+                              >
+                                {wd.end}
+                              </td>
+                              <td
+                                style={{
+                                  padding: '4px 10px',
+                                  borderBottom: '1px solid #e5e7eb',
+                                  textAlign: 'center',
+                                  fontWeight: '700',
+                                  color: '#7c3aed',
+                                  fontSize: '11px',
+                                }}
+                              >
+                                {wd.colacion === 0 ? '0' : `${wd.colacion} min`}
+                              </td>
                             </tr>
                           </React.Fragment>
                         );
                       })}
                     </tbody>
                   </table>
-                  <div style={{ marginTop: '8px', fontSize: '10px', color: '#6b7280', borderTop: '2px solid #d1d5db', paddingTop: '6px' }}>
+                  <div
+                    style={{
+                      marginTop: '8px',
+                      fontSize: '10px',
+                      color: '#6b7280',
+                      borderTop: '2px solid #d1d5db',
+                      paddingTop: '6px',
+                    }}
+                  >
                     Total trabajadoras con turno: <strong>{workerDetails.length}</strong>
                   </div>
                 </>
@@ -450,57 +724,273 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
               </h1>
               <p style={{ fontSize: '11px', color: '#555', marginBottom: '12px' }}>{monthLabel}</p>
               {weekWorkerDetails.map(({ day, workers: dayWorkers }) => {
-                const toMins = (t: string) => { const [h, m] = (t || '00:00').split(':').map(Number); return h * 60 + (m || 0); };
-                const mananaWorkers = dayWorkers.filter(w => toMins(w.start) < 11 * 60);
-                const tardeWorkers = dayWorkers.filter(w => toMins(w.start) >= 11 * 60);
+                const toMins = (t: string) => {
+                  const [h, m] = (t || '00:00').split(':').map(Number);
+                  return h * 60 + (m || 0);
+                };
+                const mananaWorkers = dayWorkers.filter((w) => toMins(w.start) < 11 * 60);
+                const tardeWorkers = dayWorkers.filter((w) => toMins(w.start) >= 11 * 60);
                 return (
-                  <div key={`week-day-${day}`} className="week-day-block" style={{ marginBottom: '18px' }}>
-                    <h2 style={{ fontSize: '13px', fontWeight: '700', marginBottom: '6px', borderBottom: '2px solid #e5e7eb', paddingBottom: '3px' }}>
+                  <div
+                    key={`week-day-${day}`}
+                    className="week-day-block"
+                    style={{ marginBottom: '18px' }}
+                  >
+                    <h2
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        marginBottom: '6px',
+                        borderBottom: '2px solid #e5e7eb',
+                        paddingBottom: '3px',
+                      }}
+                    >
                       {getDayName(day, monthLabel)} {day} — {monthLabel}
                     </h2>
                     {dayWorkers.length === 0 ? (
-                      <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '6px' }}>Sin turnos asignados</p>
+                      <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '6px' }}>
+                        Sin turnos asignados
+                      </p>
                     ) : (
                       <>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', marginBottom: '4px' }}>
+                        <table
+                          style={{
+                            width: '100%',
+                            borderCollapse: 'collapse',
+                            fontSize: '10px',
+                            marginBottom: '4px',
+                          }}
+                        >
                           <thead>
                             <tr style={{ background: '#f3f4f6' }}>
-                              <th style={{ textAlign: 'center', padding: '3px 4px', borderBottom: '1px solid #d1d5db', fontWeight: '700', fontSize: '9px', color: '#9ca3af', width: '22px' }}>#</th>
-                              <th style={{ textAlign: 'left', padding: '3px 8px', borderBottom: '1px solid #d1d5db', fontWeight: '700', fontSize: '9px', textTransform: 'uppercase' }}>Nombre</th>
-                              <th style={{ textAlign: 'center', padding: '3px 8px', borderBottom: '1px solid #d1d5db', fontWeight: '700', fontSize: '9px', textTransform: 'uppercase', color: '#16a34a' }}>Entrada</th>
-                              <th style={{ textAlign: 'center', padding: '3px 8px', borderBottom: '1px solid #d1d5db', fontWeight: '700', fontSize: '9px', textTransform: 'uppercase', color: '#dc2626' }}>Salida</th>
-                              <th style={{ textAlign: 'center', padding: '3px 8px', borderBottom: '1px solid #d1d5db', fontWeight: '700', fontSize: '9px', textTransform: 'uppercase', color: '#7c3aed' }}>Colación</th>
+                              <th
+                                style={{
+                                  textAlign: 'center',
+                                  padding: '3px 4px',
+                                  borderBottom: '1px solid #d1d5db',
+                                  fontWeight: '700',
+                                  fontSize: '9px',
+                                  color: '#9ca3af',
+                                  width: '22px',
+                                }}
+                              >
+                                #
+                              </th>
+                              <th
+                                style={{
+                                  textAlign: 'left',
+                                  padding: '3px 8px',
+                                  borderBottom: '1px solid #d1d5db',
+                                  fontWeight: '700',
+                                  fontSize: '9px',
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                Nombre
+                              </th>
+                              <th
+                                style={{
+                                  textAlign: 'center',
+                                  padding: '3px 8px',
+                                  borderBottom: '1px solid #d1d5db',
+                                  fontWeight: '700',
+                                  fontSize: '9px',
+                                  textTransform: 'uppercase',
+                                  color: '#16a34a',
+                                }}
+                              >
+                                Entrada
+                              </th>
+                              <th
+                                style={{
+                                  textAlign: 'center',
+                                  padding: '3px 8px',
+                                  borderBottom: '1px solid #d1d5db',
+                                  fontWeight: '700',
+                                  fontSize: '9px',
+                                  textTransform: 'uppercase',
+                                  color: '#dc2626',
+                                }}
+                              >
+                                Salida
+                              </th>
+                              <th
+                                style={{
+                                  textAlign: 'center',
+                                  padding: '3px 8px',
+                                  borderBottom: '1px solid #d1d5db',
+                                  fontWeight: '700',
+                                  fontSize: '9px',
+                                  textTransform: 'uppercase',
+                                  color: '#7c3aed',
+                                }}
+                              >
+                                Colación
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
                             {mananaWorkers.map((wd, i) => (
-                              <tr key={`wk-m-row-${day}-${i}`} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
-                                <td style={{ padding: '3px 4px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#6b7280', fontSize: '9px' }}>{i + 1}</td>
-                                <td style={{ padding: '3px 8px', borderBottom: '1px solid #e5e7eb', fontWeight: '600', fontSize: '10px' }}>{wd.name}</td>
-                                <td style={{ padding: '3px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#16a34a', fontSize: '10px' }}>{wd.start}</td>
-                                <td style={{ padding: '3px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#dc2626', fontSize: '10px' }}>{wd.end}</td>
-                                <td style={{ padding: '3px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#7c3aed', fontSize: '10px' }}>{wd.colacion === 0 ? '0' : `${wd.colacion} min`}</td>
+                              <tr
+                                key={`wk-m-row-${day}-${i}`}
+                                style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}
+                              >
+                                <td
+                                  style={{
+                                    padding: '3px 4px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    textAlign: 'center',
+                                    fontWeight: '700',
+                                    color: '#6b7280',
+                                    fontSize: '9px',
+                                  }}
+                                >
+                                  {i + 1}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '3px 8px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    fontWeight: '600',
+                                    fontSize: '10px',
+                                  }}
+                                >
+                                  {wd.name}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '3px 8px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    textAlign: 'center',
+                                    fontWeight: '700',
+                                    color: '#16a34a',
+                                    fontSize: '10px',
+                                  }}
+                                >
+                                  {wd.start}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '3px 8px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    textAlign: 'center',
+                                    fontWeight: '700',
+                                    color: '#dc2626',
+                                    fontSize: '10px',
+                                  }}
+                                >
+                                  {wd.end}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '3px 8px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    textAlign: 'center',
+                                    fontWeight: '700',
+                                    color: '#7c3aed',
+                                    fontSize: '10px',
+                                  }}
+                                >
+                                  {wd.colacion === 0 ? '0' : `${wd.colacion} min`}
+                                </td>
                               </tr>
                             ))}
                             {tardeWorkers.length > 0 && (
                               <tr>
-                                <td colSpan={5} style={{ padding: '5px 8px', background: '#fff7ed', borderBottom: '1px solid #fed7aa', borderTop: '2px solid #fb923c', fontWeight: '700', fontSize: '9px', color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                <td
+                                  colSpan={5}
+                                  style={{
+                                    padding: '5px 8px',
+                                    background: '#fff7ed',
+                                    borderBottom: '1px solid #fed7aa',
+                                    borderTop: '2px solid #fb923c',
+                                    fontWeight: '700',
+                                    fontSize: '9px',
+                                    color: '#c2410c',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em',
+                                  }}
+                                >
                                   — Tarde (desde 11:00) —
                                 </td>
                               </tr>
                             )}
                             {tardeWorkers.map((wd, i) => (
-                              <tr key={`wk-t-row-${day}-${i}`} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
-                                <td style={{ padding: '3px 4px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#6b7280', fontSize: '9px' }}>{i + 1}</td>
-                                <td style={{ padding: '3px 8px', borderBottom: '1px solid #e5e7eb', fontWeight: '600', fontSize: '10px' }}>{wd.name}</td>
-                                <td style={{ padding: '3px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#16a34a', fontSize: '10px' }}>{wd.start}</td>
-                                <td style={{ padding: '3px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#dc2626', fontSize: '10px' }}>{wd.end}</td>
-                                <td style={{ padding: '3px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontWeight: '700', color: '#7c3aed', fontSize: '10px' }}>{wd.colacion === 0 ? '0' : `${wd.colacion} min`}</td>
+                              <tr
+                                key={`wk-t-row-${day}-${i}`}
+                                style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}
+                              >
+                                <td
+                                  style={{
+                                    padding: '3px 4px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    textAlign: 'center',
+                                    fontWeight: '700',
+                                    color: '#6b7280',
+                                    fontSize: '9px',
+                                  }}
+                                >
+                                  {i + 1}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '3px 8px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    fontWeight: '600',
+                                    fontSize: '10px',
+                                  }}
+                                >
+                                  {wd.name}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '3px 8px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    textAlign: 'center',
+                                    fontWeight: '700',
+                                    color: '#16a34a',
+                                    fontSize: '10px',
+                                  }}
+                                >
+                                  {wd.start}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '3px 8px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    textAlign: 'center',
+                                    fontWeight: '700',
+                                    color: '#dc2626',
+                                    fontSize: '10px',
+                                  }}
+                                >
+                                  {wd.end}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '3px 8px',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    textAlign: 'center',
+                                    fontWeight: '700',
+                                    color: '#7c3aed',
+                                    fontSize: '10px',
+                                  }}
+                                >
+                                  {wd.colacion === 0 ? '0' : `${wd.colacion} min`}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
-                        <div style={{ fontSize: '9px', color: '#6b7280', borderTop: '1px solid #e5e7eb', paddingTop: '3px', marginBottom: '4px' }}>
+                        <div
+                          style={{
+                            fontSize: '9px',
+                            color: '#6b7280',
+                            borderTop: '1px solid #e5e7eb',
+                            paddingTop: '3px',
+                            marginBottom: '4px',
+                          }}
+                        >
                           Total: <strong>{dayWorkers.length}</strong>
                         </div>
                       </>
@@ -517,12 +1007,19 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
       <div className="bg-card rounded-xl border border-border shadow-sm">
         <div className="px-5 py-3 border-b border-border flex flex-wrap items-center gap-3">
           <BarChart2 size={16} className="text-secondary" />
-          <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Resumen por Horario</h2>
+          <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
+            Resumen por Horario
+          </h2>
 
-          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
-            selectedCargo === 'Cajera' ? 'bg-blue-50 text-blue-700 border-blue-200'
-              : selectedCargo === 'Jefa de Caja' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-muted text-muted-foreground border-border'
-          }`}>
+          <span
+            className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+              selectedCargo === 'Cajera'
+                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                : selectedCargo === 'Jefa de Caja'
+                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                  : 'bg-muted text-muted-foreground border-border'
+            }`}
+          >
             {cargoLabel}
           </span>
 
@@ -546,11 +1043,13 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
             {printMode === 'week' && (
               <select
                 value={selectedWeekIdx}
-                onChange={e => setSelectedWeekIdx(Number(e.target.value))}
+                onChange={(e) => setSelectedWeekIdx(Number(e.target.value))}
                 className="pl-2 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
               >
                 {weekOptions.map((wk, idx) => (
-                  <option key={`wk-opt-${idx}`} value={idx}>{wk.label}</option>
+                  <option key={`wk-opt-${idx}`} value={idx}>
+                    {wk.label}
+                  </option>
                 ))}
               </select>
             )}
@@ -560,11 +1059,13 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
                 <CalendarDays size={14} className="text-muted-foreground" />
                 <select
                   value={selectedDay}
-                  onChange={e => setSelectedDay(Number(e.target.value))}
+                  onChange={(e) => setSelectedDay(Number(e.target.value))}
                   className="pl-2 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
                 >
-                  {dayOptions.map(opt => (
-                    <option key={`day-opt-${opt.value}`} value={opt.value}>{opt.label}</option>
+                  {dayOptions.map((opt) => (
+                    <option key={`day-opt-${opt.value}`} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -599,7 +1100,7 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
                     >
                       Hora
                     </th>
-                    {weekDays.map(day => (
+                    {weekDays.map((day) => (
                       <th
                         key={`hd-${day}`}
                         className="text-center px-2 py-1 font-bold text-blue-800 border-r border-blue-200"
@@ -624,24 +1125,38 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
                         <td
                           rowSpan={activeMananaHours.length}
                           className="text-center font-bold text-blue-700 border-r border-blue-200 align-middle"
-                          style={{ background: '#bfdbfe', writingMode: 'vertical-rl', transform: 'rotate(180deg)', padding: '8px 6px', fontSize: '12px', letterSpacing: '0.05em' }}
+                          style={{
+                            background: '#bfdbfe',
+                            writingMode: 'vertical-rl',
+                            transform: 'rotate(180deg)',
+                            padding: '8px 6px',
+                            fontSize: '12px',
+                            letterSpacing: '0.05em',
+                          }}
                         >
                           Mañana
                         </td>
                       )}
                       {/* Hour number */}
-                      <td className="text-center px-3 py-2 font-bold text-blue-800 border-r border-blue-200" style={{ background: '#dbeafe' }}>
+                      <td
+                        className="text-center px-3 py-2 font-bold text-blue-800 border-r border-blue-200"
+                        style={{ background: '#dbeafe' }}
+                      >
                         {hour.replace(':00', '')}
                       </td>
                       {/* Day counts */}
-                      {weekDays.map(day => {
+                      {weekDays.map((day) => {
                         const val = getCount(day, hour);
                         return (
-                          <td key={`mc-${day}-${hour}`} className="text-center px-2 py-2 border-r border-blue-100">
-                            {val > 0
-                              ? <span className="font-bold text-blue-900 text-[13px]">{val}</span>
-                              : <span className="text-blue-200 text-[11px]">—</span>
-                            }
+                          <td
+                            key={`mc-${day}-${hour}`}
+                            className="text-center px-2 py-2 border-r border-blue-100"
+                          >
+                            {val > 0 ? (
+                              <span className="font-bold text-blue-900 text-[13px]">{val}</span>
+                            ) : (
+                              <span className="text-blue-200 text-[11px]">—</span>
+                            )}
                           </td>
                         );
                       })}
@@ -649,12 +1164,20 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
                   ))}
                   {/* Mañana subtotal row */}
                   <tr className="border-b-2 border-blue-300" style={{ background: '#bfdbfe' }}>
-                    <td colSpan={2} className="text-center px-3 py-2 font-bold text-blue-800 text-[11px] uppercase tracking-wide border-r border-blue-300">
+                    <td
+                      colSpan={2}
+                      className="text-center px-3 py-2 font-bold text-blue-800 text-[11px] uppercase tracking-wide border-r border-blue-300"
+                    >
                       Total Mañana
                     </td>
-                    {weekDays.map(day => (
-                      <td key={`mst-${day}`} className="text-center px-2 py-2 border-r border-blue-200">
-                        <span className="font-bold text-blue-900 text-[13px]">{getBlockDayTotal(day, MANANA_HOURS)}</span>
+                    {weekDays.map((day) => (
+                      <td
+                        key={`mst-${day}`}
+                        className="text-center px-2 py-2 border-r border-blue-200"
+                      >
+                        <span className="font-bold text-blue-900 text-[13px]">
+                          {getBlockDayTotal(day, MANANA_HOURS)}
+                        </span>
                       </td>
                     ))}
                   </tr>
@@ -670,22 +1193,36 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
                         <td
                           rowSpan={activeTardeHours.length}
                           className="text-center font-bold text-orange-700 border-r border-orange-200 align-middle"
-                          style={{ background: '#fed7aa', writingMode: 'vertical-rl', transform: 'rotate(180deg)', padding: '8px 6px', fontSize: '12px', letterSpacing: '0.05em' }}
+                          style={{
+                            background: '#fed7aa',
+                            writingMode: 'vertical-rl',
+                            transform: 'rotate(180deg)',
+                            padding: '8px 6px',
+                            fontSize: '12px',
+                            letterSpacing: '0.05em',
+                          }}
                         >
                           Tarde
                         </td>
                       )}
-                      <td className="text-center px-3 py-2 font-bold text-orange-800 border-r border-orange-200" style={{ background: '#ffedd5' }}>
+                      <td
+                        className="text-center px-3 py-2 font-bold text-orange-800 border-r border-orange-200"
+                        style={{ background: '#ffedd5' }}
+                      >
                         {hour.replace(':00', '')}
                       </td>
-                      {weekDays.map(day => {
+                      {weekDays.map((day) => {
                         const val = getCount(day, hour);
                         return (
-                          <td key={`tc-${day}-${hour}`} className="text-center px-2 py-2 border-r border-orange-100">
-                            {val > 0
-                              ? <span className="font-bold text-orange-900 text-[13px]">{val}</span>
-                              : <span className="text-orange-200 text-[11px]">—</span>
-                            }
+                          <td
+                            key={`tc-${day}-${hour}`}
+                            className="text-center px-2 py-2 border-r border-orange-100"
+                          >
+                            {val > 0 ? (
+                              <span className="font-bold text-orange-900 text-[13px]">{val}</span>
+                            ) : (
+                              <span className="text-orange-200 text-[11px]">—</span>
+                            )}
                           </td>
                         );
                       })}
@@ -693,29 +1230,44 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
                   ))}
                   {/* Tarde subtotal row */}
                   <tr className="border-b-2 border-orange-300" style={{ background: '#fed7aa' }}>
-                    <td colSpan={2} className="text-center px-3 py-2 font-bold text-orange-800 text-[11px] uppercase tracking-wide border-r border-orange-300">
+                    <td
+                      colSpan={2}
+                      className="text-center px-3 py-2 font-bold text-orange-800 text-[11px] uppercase tracking-wide border-r border-orange-300"
+                    >
                       Total Tarde
                     </td>
-                    {weekDays.map(day => (
-                      <td key={`tst-${day}`} className="text-center px-2 py-2 border-r border-orange-200">
-                        <span className="font-bold text-orange-900 text-[13px]">{getBlockDayTotal(day, TARDE_HOURS)}</span>
+                    {weekDays.map((day) => (
+                      <td
+                        key={`tst-${day}`}
+                        className="text-center px-2 py-2 border-r border-orange-200"
+                      >
+                        <span className="font-bold text-orange-900 text-[13px]">
+                          {getBlockDayTotal(day, TARDE_HOURS)}
+                        </span>
                       </td>
                     ))}
                   </tr>
 
                   {/* ── DESCANSO ROW ── */}
                   <tr className="border-b border-slate-200" style={{ background: '#f1f5f9' }}>
-                    <td colSpan={2} className="text-center px-3 py-2 font-bold text-slate-600 text-[11px] uppercase tracking-wide border-r border-slate-300">
+                    <td
+                      colSpan={2}
+                      className="text-center px-3 py-2 font-bold text-slate-600 text-[11px] uppercase tracking-wide border-r border-slate-300"
+                    >
                       🌙 Descanso
                     </td>
-                    {weekDays.map(day => {
+                    {weekDays.map((day) => {
                       const val = getDescanso(day);
                       return (
-                        <td key={`desc-${day}`} className="text-center px-2 py-2 border-r border-slate-200">
-                          {val > 0
-                            ? <span className="font-bold text-slate-700 text-[13px]">{val}</span>
-                            : <span className="text-slate-300 text-[11px]">—</span>
-                          }
+                        <td
+                          key={`desc-${day}`}
+                          className="text-center px-2 py-2 border-r border-slate-200"
+                        >
+                          {val > 0 ? (
+                            <span className="font-bold text-slate-700 text-[13px]">{val}</span>
+                          ) : (
+                            <span className="text-slate-300 text-[11px]">—</span>
+                          )}
                         </td>
                       );
                     })}
@@ -723,12 +1275,20 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
 
                   {/* ── GRAND TOTAL ROW ── */}
                   <tr style={{ background: '#fef9c3' }}>
-                    <td colSpan={2} className="text-center px-3 py-2.5 font-bold text-yellow-800 text-[12px] uppercase tracking-wide border-r border-yellow-300">
+                    <td
+                      colSpan={2}
+                      className="text-center px-3 py-2.5 font-bold text-yellow-800 text-[12px] uppercase tracking-wide border-r border-yellow-300"
+                    >
                       Total
                     </td>
-                    {weekDays.map(day => (
-                      <td key={`gt-${day}`} className="text-center px-2 py-2.5 border-r border-yellow-200">
-                        <span className="font-bold text-yellow-900 text-[14px]">{getDayGrandTotal(day)}</span>
+                    {weekDays.map((day) => (
+                      <td
+                        key={`gt-${day}`}
+                        className="text-center px-2 py-2.5 border-r border-yellow-200"
+                      >
+                        <span className="font-bold text-yellow-900 text-[14px]">
+                          {getDayGrandTotal(day)}
+                        </span>
                       </td>
                     ))}
                   </tr>
@@ -738,48 +1298,77 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
           </div>
         ) : summary.length === 0 ? (
           <div className="px-5 py-8 text-center text-sm text-muted-foreground">
-            No hay turnos asignados {selectedDay >= 0 ? `para el día ${selectedDay + 1}` : 'este mes'}.
+            No hay turnos asignados{' '}
+            {selectedDay >= 0 ? `para el día ${selectedDay + 1}` : 'este mes'}.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-muted/20 border-b border-border">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hora</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Hora
+                  </th>
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-green-600 uppercase tracking-wider">
-                    <span className="flex items-center justify-center gap-1"><ArrowDownToLine size={12} />Entran</span>
+                    <span className="flex items-center justify-center gap-1">
+                      <ArrowDownToLine size={12} />
+                      Entran
+                    </span>
                   </th>
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-red-500 uppercase tracking-wider">
-                    <span className="flex items-center justify-center gap-1"><ArrowUpFromLine size={12} />Salen</span>
+                    <span className="flex items-center justify-center gap-1">
+                      <ArrowUpFromLine size={12} />
+                      Salen
+                    </span>
                   </th>
-                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-blue-600 uppercase tracking-wider">Activas</th>
+                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-blue-600 uppercase tracking-wider">
+                    Activas
+                  </th>
                   {cajasOnlyCargo && (
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-orange-500 uppercase tracking-wider">
-                      <span className="flex items-center justify-center gap-1"><Package size={12} />Cajas vacías</span>
+                      <span className="flex items-center justify-center gap-1">
+                        <Package size={12} />
+                        Cajas vacías
+                      </span>
                     </th>
                   )}
                 </tr>
               </thead>
               <tbody>
                 {summary.map((row, i) => (
-                  <tr key={row.hour} className={`border-b border-border/50 ${i % 2 === 0 ? '' : 'bg-muted/5'}`}>
+                  <tr
+                    key={row.hour}
+                    className={`border-b border-border/50 ${i % 2 === 0 ? '' : 'bg-muted/5'}`}
+                  >
                     <td className="px-4 py-2.5 font-bold text-foreground">{row.hour}</td>
                     <td className="px-4 py-2.5 text-center">
                       {row.entering > 0 ? (
-                        <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-lg bg-green-100 text-green-700 font-bold text-sm">{row.entering}</span>
-                      ) : <span className="text-muted-foreground/30">—</span>}
+                        <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-lg bg-green-100 text-green-700 font-bold text-sm">
+                          {row.entering}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/30">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-center">
                       {row.exiting > 0 ? (
-                        <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-lg bg-red-100 text-red-600 font-bold text-sm">{row.exiting}</span>
-                      ) : <span className="text-muted-foreground/30">—</span>}
+                        <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-lg bg-red-100 text-red-600 font-bold text-sm">
+                          {row.exiting}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/30">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-center">
-                      <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-lg bg-blue-100 text-blue-700 font-bold text-sm">{row.active}</span>
+                      <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-lg bg-blue-100 text-blue-700 font-bold text-sm">
+                        {row.active}
+                      </span>
                     </td>
                     {cajasOnlyCargo && (
                       <td className="px-4 py-2.5 text-center">
-                        <span className={`inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-lg font-bold text-sm ${row.vacantCajas > 5 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-600'}`}>
+                        <span
+                          className={`inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-lg font-bold text-sm ${row.vacantCajas > 5 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-600'}`}
+                        >
                           {row.vacantCajas}
                         </span>
                       </td>
@@ -787,20 +1376,29 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
                   </tr>
                 ))}
                 <tr className="border-t-2 border-border bg-slate-50/60">
-                  <td className="px-4 py-2.5 font-bold text-slate-600 text-xs uppercase tracking-wide">🌙 Descanso</td>
+                  <td className="px-4 py-2.5 font-bold text-slate-600 text-xs uppercase tracking-wide">
+                    🌙 Descanso
+                  </td>
                   <td colSpan={cajasOnlyCargo ? 4 : 3} className="px-4 py-2.5">
                     {selectedDay >= 0 ? (
-                      <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-lg bg-slate-200 text-slate-700 font-bold text-sm">{descansoCount}</span>
+                      <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-lg bg-slate-200 text-slate-700 font-bold text-sm">
+                        {descansoCount}
+                      </span>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {perDayDescanso.length === 0 ? (
                           <span className="text-xs text-muted-foreground/50">—</span>
-                        ) : perDayDescanso.map(({ day, count }) => (
-                          <span key={`desc-day-${day}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 text-[11px] font-semibold">
-                            <span className="text-slate-500 font-normal">d{day}</span>
-                            <span>{count}</span>
-                          </span>
-                        ))}
+                        ) : (
+                          perDayDescanso.map(({ day, count }) => (
+                            <span
+                              key={`desc-day-${day}`}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 text-[11px] font-semibold"
+                            >
+                              <span className="text-slate-500 font-normal">d{day}</span>
+                              <span>{count}</span>
+                            </span>
+                          ))
+                        )}
                       </div>
                     )}
                   </td>
@@ -813,20 +1411,24 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
               <div className="px-4 py-2 bg-muted/10 border-b border-border flex items-center gap-2">
                 <CalendarDays size={13} className="text-muted-foreground" />
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  {selectedDay >= 0 ? `Distribución — Día ${selectedDay + 1}` : 'Distribución por día'}
+                  {selectedDay >= 0
+                    ? `Distribución — Día ${selectedDay + 1}`
+                    : 'Distribución por día'}
                 </span>
               </div>
               {selectedDay >= 0 ? (
                 <div className="px-4 py-3 flex flex-wrap gap-3">
                   {(() => {
-                    let d = perDayMTD[selectedDay];
+                    const d = perDayMTD[selectedDay];
                     if (!d) return null;
                     return (
                       <>
                         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
                           <span className="text-sm">🌅</span>
                           <div>
-                            <div className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">Mañana</div>
+                            <div className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">
+                              Mañana
+                            </div>
                             <div className="text-lg font-bold text-amber-700">{d.manana}</div>
                             <div className="text-[9px] text-amber-500">hasta 10:00</div>
                           </div>
@@ -834,7 +1436,9 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
                         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-50 border border-orange-200">
                           <span className="text-sm">🌇</span>
                           <div>
-                            <div className="text-[10px] font-semibold text-orange-600 uppercase tracking-wide">Tarde</div>
+                            <div className="text-[10px] font-semibold text-orange-600 uppercase tracking-wide">
+                              Tarde
+                            </div>
                             <div className="text-lg font-bold text-orange-700">{d.tarde}</div>
                             <div className="text-[9px] text-orange-500">desde 11:00</div>
                           </div>
@@ -842,7 +1446,9 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
                         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
                           <span className="text-sm">🌙</span>
                           <div>
-                            <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Descanso</div>
+                            <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                              Descanso
+                            </div>
                             <div className="text-lg font-bold text-slate-600">{d.descanso}</div>
                           </div>
                         </div>
@@ -850,8 +1456,12 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
                           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 border border-purple-200">
                             <span className="text-sm">🍽</span>
                             <div>
-                              <div className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide">Colación</div>
-                              <div className="text-lg font-bold text-purple-700">{d.colaciones.map(c => `${c}m`).join(' / ')}</div>
+                              <div className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide">
+                                Colación
+                              </div>
+                              <div className="text-lg font-bold text-purple-700">
+                                {d.colaciones.map((c) => `${c}m`).join(' / ')}
+                              </div>
                             </div>
                           </div>
                         )}
@@ -864,38 +1474,67 @@ export default function MallaSummary({ workers, scheduleData, specialDaysData, s
                   <table className="w-full border-collapse text-xs">
                     <thead>
                       <tr className="bg-muted/10 border-b border-border">
-                        <th className="text-left px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide w-10 border-r border-border/50">Día</th>
-                        <th className="text-center px-2 py-2 text-[10px] font-semibold text-amber-600 uppercase tracking-wide">🌅 Mañana</th>
-                        <th className="text-center px-2 py-2 text-[10px] font-semibold text-orange-600 uppercase tracking-wide">🌇 Tarde</th>
-                        <th className="text-center px-2 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">🌙 Descanso</th>
-                        <th className="text-center px-2 py-2 text-[10px] font-semibold text-purple-600 uppercase tracking-wide">🍽 Colación</th>
+                        <th className="text-left px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide w-10 border-r border-border/50">
+                          Día
+                        </th>
+                        <th className="text-center px-2 py-2 text-[10px] font-semibold text-amber-600 uppercase tracking-wide">
+                          🌅 Mañana
+                        </th>
+                        <th className="text-center px-2 py-2 text-[10px] font-semibold text-orange-600 uppercase tracking-wide">
+                          🌇 Tarde
+                        </th>
+                        <th className="text-center px-2 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                          🌙 Descanso
+                        </th>
+                        <th className="text-center px-2 py-2 text-[10px] font-semibold text-purple-600 uppercase tracking-wide">
+                          🍽 Colación
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {perDayMTD.map(({ day, manana, tarde, descanso, colaciones }, i) => (
-                        <tr key={`mtd-${day}`} className={`border-b border-border/30 ${i % 2 === 0 ? '' : 'bg-muted/5'}`}>
-                          <td className="px-3 py-1.5 font-bold text-foreground text-[11px] border-r border-border/50">{day}</td>
+                        <tr
+                          key={`mtd-${day}`}
+                          className={`border-b border-border/30 ${i % 2 === 0 ? '' : 'bg-muted/5'}`}
+                        >
+                          <td className="px-3 py-1.5 font-bold text-foreground text-[11px] border-r border-border/50">
+                            {day}
+                          </td>
                           <td className="px-2 py-1.5 text-center">
                             {manana > 0 ? (
-                              <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-amber-100 text-amber-700 font-bold text-[11px]">{manana}</span>
-                            ) : <span className="text-muted-foreground/30 text-[10px]">—</span>}
+                              <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-amber-100 text-amber-700 font-bold text-[11px]">
+                                {manana}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/30 text-[10px]">—</span>
+                            )}
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             {tarde > 0 ? (
-                              <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-orange-100 text-orange-700 font-bold text-[11px]">{tarde}</span>
-                            ) : <span className="text-muted-foreground/30 text-[10px]">—</span>}
+                              <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-orange-100 text-orange-700 font-bold text-[11px]">
+                                {tarde}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/30 text-[10px]">—</span>
+                            )}
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             {descanso > 0 ? (
-                              <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-slate-200 text-slate-600 font-bold text-[11px]">{descanso}</span>
-                            ) : <span className="text-muted-foreground/30 text-[10px]">—</span>}
+                              <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-slate-200 text-slate-600 font-bold text-[11px]">
+                                {descanso}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/30 text-[10px]">—</span>
+                            )}
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             {colaciones.length > 0 ? (
                               <span className="inline-flex items-center justify-center h-6 px-1.5 rounded-md bg-purple-100 text-purple-700 font-bold text-[11px]">
-                                {colaciones.map(c => `${c}m`).join(' / ')}
+                                {colaciones.map((c) => `${c}m`).join(' / ')}
                               </span>
-                            ) : <span className="text-muted-foreground/30 text-[10px]">—</span>}
+                            ) : (
+                              <span className="text-muted-foreground/30 text-[10px]">—</span>
+                            )}
                           </td>
                         </tr>
                       ))}
