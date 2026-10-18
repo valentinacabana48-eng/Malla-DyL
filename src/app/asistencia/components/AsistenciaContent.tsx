@@ -2099,7 +2099,7 @@ interface PeriodOverviewProps {
   onToggleLock: (dt: string) => void;
 }
 
-function PeriodOverview({
+export function PeriodOverview({
   dates,
   workers,
   attendance,
@@ -2128,11 +2128,12 @@ function PeriodOverview({
             Selecciona un día en la barra superior para ver el detalle o usar el control diario
           </p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+        {/* Desplazamiento propio: al bajar quedan fijas las fechas y al moverse al lado, los nombres */}
+        <div className="overflow-auto max-h-[calc(100dvh-240px)] min-h-[240px]">
+          <table className="w-full text-xs border-separate border-spacing-0">
             <thead>
               <tr className="bg-gray-50">
-                <th className="text-left px-4 py-2.5 font-semibold text-gray-600 sticky left-0 bg-gray-50 min-w-[160px]">
+                <th className="text-left px-4 py-2.5 font-semibold text-gray-600 sticky left-0 top-0 z-30 bg-gray-50 min-w-[160px] border-b border-r border-gray-200">
                   Trabajadora
                 </th>
                 {visibleDates.map((dt) => {
@@ -2141,7 +2142,7 @@ function PeriodOverview({
                   return (
                     <th
                       key={dt}
-                      className="px-1 py-2 font-medium text-gray-500 min-w-[36px] text-center"
+                      className="px-1 py-2 font-medium text-gray-500 min-w-[36px] text-center sticky top-0 z-20 bg-gray-50 border-b border-gray-200"
                     >
                       <button
                         onClick={() => onSelectDate(dt)}
@@ -2156,25 +2157,25 @@ function PeriodOverview({
                     </th>
                   );
                 })}
-                <th className="px-3 py-2.5 font-semibold text-gray-600 text-center min-w-[60px]">
+                <th className="px-3 py-2.5 font-semibold text-gray-600 text-center min-w-[60px] sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                   P
                 </th>
-                <th className="px-3 py-2.5 font-semibold text-gray-600 text-center min-w-[60px]">
+                <th className="px-3 py-2.5 font-semibold text-gray-600 text-center min-w-[60px] sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                   A
                 </th>
-                <th className="px-3 py-2.5 font-semibold text-amber-600 text-center min-w-[60px]">
+                <th className="px-3 py-2.5 font-semibold text-amber-600 text-center min-w-[60px] sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                   HE
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {workers.map((w) => {
                 let totalP = 0,
                   totalA = 0,
                   totalHE = 0;
                 return (
-                  <tr key={w.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-2 sticky left-0 bg-white">
+                  <tr key={w.id} className="group hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-2 sticky left-0 z-10 bg-white group-hover:bg-gray-50 border-b border-r border-gray-100">
                       <div className="flex items-center gap-2">
                         <div
                           className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${w.avatarColor || 'bg-blue-100 text-blue-700'}`}
@@ -2201,6 +2202,8 @@ function PeriodOverview({
                         PERMISO: 'bg-teal-400',
                         PERMISO_CG: 'bg-teal-400',
                         PERMISO_SG: 'bg-orange-400',
+                        FALTA_JUSTIFICADA: 'bg-amber-400',
+                        ENFERMEDAD: 'bg-rose-400',
                         VACACIONES: 'bg-blue-400',
                         CUMPLEANOS: 'bg-pink-400',
                       };
@@ -2213,6 +2216,8 @@ function PeriodOverview({
                         PERMISO: 'M',
                         PERMISO_CG: 'M',
                         PERMISO_SG: 'S',
+                        FALTA_JUSTIFICADA: 'J',
+                        ENFERMEDAD: 'E',
                         VACACIONES: 'V',
                         CUMPLEANOS: 'C',
                       };
@@ -2225,11 +2230,13 @@ function PeriodOverview({
                         PERMISO: 'text-white',
                         PERMISO_CG: 'text-white',
                         PERMISO_SG: 'text-white',
+                        FALTA_JUSTIFICADA: 'text-white',
+                        ENFERMEDAD: 'text-white',
                         VACACIONES: 'text-white',
                         CUMPLEANOS: 'text-white',
                       };
                       return (
-                        <td key={dt} className="px-1 py-2 text-center">
+                        <td key={dt} className="px-1 py-2 text-center border-b border-gray-100">
                           <button
                             onClick={() => onSelectDate(dt)}
                             title={getStatusLabel(status)}
@@ -2247,9 +2254,13 @@ function PeriodOverview({
                         </td>
                       );
                     })}
-                    <td className="px-3 py-2 text-center font-bold text-green-600">{totalP}</td>
-                    <td className="px-3 py-2 text-center font-bold text-red-500">{totalA}</td>
-                    <td className="px-3 py-2 text-center font-bold text-amber-500">
+                    <td className="px-3 py-2 text-center border-b border-gray-100 font-bold text-green-600">
+                      {totalP}
+                    </td>
+                    <td className="px-3 py-2 text-center border-b border-gray-100 font-bold text-red-500">
+                      {totalA}
+                    </td>
+                    <td className="px-3 py-2 text-center border-b border-gray-100 font-bold text-amber-500">
                       {totalHE > 0 ? totalHE : '-'}
                     </td>
                   </tr>
@@ -2271,6 +2282,8 @@ function PeriodOverview({
           PERMISO: 'M',
           PERMISO_CG: 'M',
           PERMISO_SG: 'S',
+          FALTA_JUSTIFICADA: 'J',
+          ENFERMEDAD: 'E',
           VACACIONES: 'V',
           CUMPLEANOS: 'C',
         };
@@ -2283,6 +2296,8 @@ function PeriodOverview({
           PERMISO: 'bg-teal-400',
           PERMISO_CG: 'bg-teal-400',
           PERMISO_SG: 'bg-orange-400',
+          FALTA_JUSTIFICADA: 'bg-amber-400',
+          ENFERMEDAD: 'bg-rose-400',
           VACACIONES: 'bg-blue-400',
           CUMPLEANOS: 'bg-pink-400',
         };
@@ -2295,6 +2310,8 @@ function PeriodOverview({
           PERMISO: 'text-white',
           PERMISO_CG: 'text-white',
           PERMISO_SG: 'text-white',
+          FALTA_JUSTIFICADA: 'text-white',
+          ENFERMEDAD: 'text-white',
           VACACIONES: 'text-white',
           CUMPLEANOS: 'text-white',
         };
