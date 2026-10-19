@@ -229,10 +229,12 @@ function getDayName(day: number, monthLabel: string): string {
 
 // Hoja de un día: lista de trabajadoras con turno, casillas para marcar y HE.
 // La usan la impresión por día y la por semana (una hoja por día), para que sean iguales.
-const isTardeShift = (w: WorkerShiftDetail) => {
+const startMins = (w: WorkerShiftDetail) => {
   const [h, m] = (w.start || '00:00').split(':').map(Number);
-  return h * 60 + (m || 0) >= 11 * 60;
+  return h * 60 + (m || 0);
 };
+const isTardeShift = (w: WorkerShiftDetail) => startMins(w) >= 11 * 60;
+const HOUR_GROUP_ROW_STYLE: React.CSSProperties = { borderTop: '2px solid #374151' };
 const TOTAL_ROW_STYLE: React.CSSProperties = {
   padding: '4px 10px',
   textAlign: 'right',
@@ -302,6 +304,9 @@ function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
             const isFirstTarde = isTarde && tardeCount > 0 && i === mananaCount;
             const isLastManana = !isTarde && i === mananaCount - 1;
             const isLast = i === workerDetails.length - 1;
+            // Línea más marcada cuando cambia la hora de entrada (agrupa los de la misma hora)
+            const newHour =
+              i > 0 && !isFirstTarde && startMins(workerDetails[i - 1]) !== startMins(wd);
             const times: Record<string, string> = {
               entrada: wd.start,
               colacion: wd.colacion === 0 ? '0' : `${wd.colacion} min`,
@@ -329,7 +334,7 @@ function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
                     </td>
                   </tr>
                 )}
-                <tr>
+                <tr style={newHour ? HOUR_GROUP_ROW_STYLE : undefined}>
                   <td style={{ ...TD, textAlign: 'center' }}>
                     <span style={ORDER_BOX_STYLE} />
                   </td>
