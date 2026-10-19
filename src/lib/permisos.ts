@@ -11,6 +11,7 @@ export type Perm =
   | 'asistencia_marcar'
   | 'asistencia_aprobar'
   | 'horas_extra'
+  | 'horas_extra_aprobar'
   | 'rrhh';
 
 export type UserRole = 'admin' | 'lector' | 'asistencia' | 'personalizado' | 'pendiente';
@@ -38,7 +39,13 @@ export const PERM_GROUPS: { modulo: string; perms: { perm: Perm; label: string }
       { perm: 'asistencia_ver', label: 'Ver' },
       { perm: 'asistencia_marcar', label: 'Marcar (por aprobar)' },
       { perm: 'asistencia_aprobar', label: 'Aprobar' },
-      { perm: 'horas_extra', label: 'Horas extra' },
+    ],
+  },
+  {
+    modulo: 'Horas extra',
+    perms: [
+      { perm: 'horas_extra', label: 'Anotar (por aprobar)' },
+      { perm: 'horas_extra_aprobar', label: 'Aprobar' },
     ],
   },
   { modulo: 'RRHH', perms: [{ perm: 'rrhh', label: 'Ver y editar' }] },

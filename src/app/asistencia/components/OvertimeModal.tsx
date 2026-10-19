@@ -6,6 +6,11 @@ interface OvertimeModalProps {
   workerName: string;
   dateLabel: string;
   currentHours: number;
+  currentNotes?: string;
+  /** Si están por aprobar: quién las anotó */
+  pendingBy?: string | null;
+  /** Quien guarda puede aprobar: al guardar quedan aprobadas */
+  canApprove: boolean;
   onSave: (hours: number, notes: string) => void;
   onClose: () => void;
 }
@@ -14,11 +19,14 @@ export default function OvertimeModal({
   workerName,
   dateLabel,
   currentHours,
+  currentNotes = '',
+  pendingBy = null,
+  canApprove,
   onSave,
   onClose,
 }: OvertimeModalProps) {
   const [hours, setHours] = useState<number>(currentHours);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(currentNotes);
 
   function adjust(delta: number) {
     setHours((prev) => Math.max(0, Math.min(12, Math.round((prev + delta) * 2) / 2)));
@@ -79,6 +87,17 @@ export default function OvertimeModal({
             />
           </div>
 
+          {pendingBy !== null && (
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              Por aprobar{pendingBy ? ` · anotó ${pendingBy}` : ''}.
+            </p>
+          )}
+          {!canApprove && (
+            <p className="text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2">
+              Quedan <strong>por aprobar</strong> hasta que una administradora las revise.
+            </p>
+          )}
+
           <div className="flex gap-3 pt-1">
             <button
               onClick={onClose}
@@ -90,7 +109,7 @@ export default function OvertimeModal({
               onClick={() => onSave(hours, notes)}
               className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors"
             >
-              Guardar HE
+              {canApprove && pendingBy !== null ? 'Aprobar HE' : 'Guardar HE'}
             </button>
           </div>
         </div>
