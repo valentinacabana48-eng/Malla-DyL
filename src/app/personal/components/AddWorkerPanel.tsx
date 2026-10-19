@@ -42,7 +42,7 @@ function getInitials(name: string): string {
 
 export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Props) {
   const { sucursales, areas, areaCargos } = useAppContext();
-  const isReadonly = useReadonly();
+  const isReadonly = useReadonly('personal');
   const {
     register,
     handleSubmit,

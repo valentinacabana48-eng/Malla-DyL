@@ -19,7 +19,8 @@ export default function LockToggle({
   onToggle,
   disabledReason,
 }: LockToggleProps) {
-  const { isAdmin } = useAuth();
+  // Bloquear afecta a toda la sucursal: solo quien maneja la sucursal completa
+  const { canManageSucursal: isAdmin } = useAuth();
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -36,7 +37,8 @@ export default function LockToggle({
         onClick={() => setConfirming(true)}
         disabled={!isAdmin || !!disabledReason}
         title={
-          disabledReason ?? (isAdmin ? undefined : 'Solo un administrador puede cambiar el bloqueo')
+          disabledReason ??
+          (isAdmin ? undefined : 'Solo quien administra toda la sucursal puede cambiar el bloqueo')
         }
         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed ${
           isLocked

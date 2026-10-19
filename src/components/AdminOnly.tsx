@@ -2,6 +2,7 @@
 import React from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import type { Perm } from '@/lib/permisos';
 
 /**
  * Renderiza el contenido solo para administradores (la base de datos también lo impone).
@@ -10,12 +11,16 @@ import { useAuth } from '@/context/AuthContext';
 export default function AdminOnly({
   children,
   global = false,
+  perm,
 }: {
   children: React.ReactNode;
   global?: boolean;
+  /** En vez de ser administradora, basta con tener este permiso */
+  perm?: Perm;
 }) {
-  const { isAdmin, isGlobalAdmin } = useAuth();
-  if (global ? isGlobalAdmin : isAdmin) return <>{children}</>;
+  const { isAdmin, isGlobalAdmin, canManageSucursal, can } = useAuth();
+  if (perm ? can(perm) : global ? isGlobalAdmin : isAdmin && canManageSucursal)
+    return <>{children}</>;
   if (global && isAdmin) {
     return (
       <div className="flex items-center justify-center h-full p-8">
@@ -40,8 +45,8 @@ export default function AdminOnly({
         </div>
         <h2 className="text-lg font-bold text-foreground">Solo administradores</h2>
         <p className="text-sm text-muted-foreground">
-          Tu cuenta tiene acceso de solo lectura. Pide a un administrador que cambie tu rol si
-          necesitas entrar a esta sección.
+          Tu cuenta no tiene acceso a esta sección. Pide a la administración que cambie tus permisos
+          si necesitas entrar.
         </p>
       </div>
     </div>

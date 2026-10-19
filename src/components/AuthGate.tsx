@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { ROUTE_PERMS, routePerm } from '@/lib/permisos';
 import {
   Lock,
   Eye,
@@ -399,20 +400,20 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
   if (role === 'pendiente') return <PendingApproval />;
-  if (role === 'asistencia') return <AsistenciaOnly>{children}</AsistenciaOnly>;
-  return <>{children}</>;
+  return <AllowedRoute>{children}</AllowedRoute>;
 }
 
-// Nivel "asistencia" (jefas de caja): solo entra a Malla y Asistencia
-const ASISTENCIA_PATHS = ['/malla-de-turnos', '/asistencia'];
-
-function AsistenciaOnly({ children }: { children: React.ReactNode }) {
+// Si no tiene permiso para esta sección, va a la primera a la que sí tiene acceso
+function AllowedRoute({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const allowed = ASISTENCIA_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const { can } = useAuth();
+  const perm = routePerm(pathname);
+  const allowed = !perm || can(perm);
+  const fallback = ROUTE_PERMS.find((r) => can(r.perm))?.href ?? null;
   useEffect(() => {
-    if (!allowed) router.replace('/asistencia');
-  }, [allowed, router]);
-  if (!allowed) return null;
+    if (!allowed && fallback && fallback !== pathname) router.replace(fallback);
+  }, [allowed, fallback, pathname, router]);
+  if (!allowed && fallback) return null;
   return <>{children}</>;
 }

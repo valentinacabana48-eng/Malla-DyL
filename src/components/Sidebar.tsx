@@ -20,6 +20,7 @@ import {
 import Icon from '@/components/ui/AppIcon';
 import { useAuth } from '@/context/AuthContext';
 import { setVista, useVistaActual } from '@/lib/vista';
+import { routePerm } from '@/lib/permisos';
 
 const navItems: {
   label: string;
@@ -27,14 +28,12 @@ const navItems: {
   href: string;
   adminOnly?: boolean;
   globalAdminOnly?: boolean;
-  /** Lo ve también el nivel "asistencia" (jefas de caja) */
-  asistencia?: boolean;
 }[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
-  { label: 'Malla', icon: CalendarDays, href: '/malla-de-turnos', asistencia: true },
+  { label: 'Malla', icon: CalendarDays, href: '/malla-de-turnos' },
   { label: 'Cumplimiento', icon: ShieldCheck, href: '/cumplimiento' },
   { label: 'Personal', icon: Users, href: '/personal' },
-  { label: 'Asistencia', icon: CalendarCheck, href: '/asistencia', asistencia: true },
+  { label: 'Asistencia', icon: CalendarCheck, href: '/asistencia' },
   { label: 'RRHH', icon: UserCog, href: '/rrhh', adminOnly: true },
   { label: 'Vista previa', icon: Eye, href: '/vista-previa' },
   { label: 'Ajustes', icon: Settings, href: '/ajustes', adminOnly: true },
@@ -47,13 +46,16 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const { isAdmin, isGlobalAdmin, isAsistencia } = useAuth();
+  const { isAdmin, isGlobalAdmin, canManageSucursal, can } = useAuth();
   const vista = useVistaActual();
   const visibleItems = navItems.filter(
     (item) =>
-      (!item.adminOnly || isAdmin) &&
+      (!item.adminOnly || (isAdmin && canManageSucursal)) &&
       (!item.globalAdminOnly || isGlobalAdmin) &&
-      (!isAsistencia || item.asistencia)
+      (() => {
+        const perm = routePerm(item.href);
+        return !perm || can(perm);
+      })()
   );
 
   return (

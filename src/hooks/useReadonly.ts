@@ -2,10 +2,10 @@
 import { useAuth } from '@/context/AuthContext';
 
 /**
- * Returns true when the current user only has read-only access.
- * Use this to disable edit/delete/save buttons throughout the app.
+ * true cuando esta persona no puede editar ese módulo (por defecto, la malla).
+ * Úsalo para desactivar botones de editar, borrar y guardar.
  * (La base de datos también lo impone mediante RLS.)
  */
-export function useReadonly(): boolean {
-  return useAuth().isReadonly;
+export function useReadonly(modulo: 'malla' | 'personal' = 'malla'): boolean {
+  return !useAuth().can(modulo === 'personal' ? 'personal_editar' : 'malla_editar');
 }

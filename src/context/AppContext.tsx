@@ -628,7 +628,8 @@ function loadSelectedMes(): string {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const supabase = getSupabase();
-  const { isAdmin, allowedSucursales } = useAuth();
+  const { can, allowedSucursales, allowedAreas, allowedCargos } = useAuth();
+  const canEditMalla = can('malla_editar');
 
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [shifts, setShifts] = useState<Record<string, Shift>>({});
@@ -651,6 +652,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       allowedSucursales ? sucursales.filter((s) => allowedSucursales.includes(s.name)) : sucursales,
     [sucursales, allowedSucursales]
   );
+
+  // Áreas que esta persona puede ver (null = todas). Si solo ve algunos cargos, solo las
+  // áreas que tienen esos cargos (p. ej. una jefa de caja que ve cajeras → Cajas).
+  const visibleAreas = useMemo(() => {
+    let list = allowedAreas ? areas.filter((a) => allowedAreas.includes(a)) : areas;
+    if (allowedCargos) {
+      const withCargo = list.filter((a) =>
+        (areaCargos[a] || []).some((c) => allowedCargos.includes(c))
+      );
+      if (withCargo.length > 0) list = withCargo;
+    }
+    return list;
+  }, [areas, allowedAreas, allowedCargos, areaCargos]);
 
   // ── Initial data load ──
   useEffect(() => {
@@ -848,7 +862,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Arrastre: el turno del último día del mes anterior pasa al día 1 del mes nuevo,
       // solo si ese día está vacío. Lo hace la BD de forma atómica y solo para los
       // trabajadores que esta persona puede editar, así no pisa a nadie.
-      if (!isAdmin || prevMonthKey === newMonthKey) return;
+      if (!canEditMalla || prevMonthKey === newMonthKey) return;
       const [prevYear, prevMonth] = prevMonthKey.split('-').map(Number);
       const lastDayIdx = new Date(prevYear, prevMonth, 0).getDate() - 1;
       const { data, error } = await supabase.rpc('carry_over_month', {
@@ -870,7 +884,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { ...prev, [newMonthKey]: monthSched };
       });
     },
-    [selectedMes, supabase, isAdmin]
+    [selectedMes, supabase, canEditMalla]
   );
 
   // ── Workers ──
@@ -1564,7 +1578,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         scheduleData,
         specialDays,
         sucursales: visibleSucursales,
-        areas,
+        areas: visibleAreas,
         areaCargos,
         selectedMes,
         setSelectedMes,

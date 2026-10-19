@@ -5,7 +5,7 @@ import RRHHContent from './components/RRHHContent';
 export default function RRHHPage() {
   return (
     <AppLayout>
-      <AdminOnly>
+      <AdminOnly perm="rrhh">
         <RRHHContent />
       </AdminOnly>
     </AppLayout>
