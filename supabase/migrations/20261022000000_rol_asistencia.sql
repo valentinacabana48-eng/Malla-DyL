@@ -76,12 +76,16 @@ CREATE TABLE IF NOT EXISTS public.attendance_proposals (
 CREATE INDEX IF NOT EXISTS attendance_proposals_date ON public.attendance_proposals (record_date);
 
 ALTER TABLE public.attendance_proposals ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS attendance_proposals_read ON public.attendance_proposals;
 CREATE POLICY attendance_proposals_read ON public.attendance_proposals FOR SELECT TO authenticated
   USING (public.can_see_worker(worker_id));
+DROP POLICY IF EXISTS attendance_proposals_insert ON public.attendance_proposals;
 CREATE POLICY attendance_proposals_insert ON public.attendance_proposals FOR INSERT TO authenticated
   WITH CHECK (public.can_propose_attendance(worker_id));
+DROP POLICY IF EXISTS attendance_proposals_update ON public.attendance_proposals;
 CREATE POLICY attendance_proposals_update ON public.attendance_proposals FOR UPDATE TO authenticated
   USING (public.can_propose_attendance(worker_id)) WITH CHECK (public.can_propose_attendance(worker_id));
+DROP POLICY IF EXISTS attendance_proposals_delete ON public.attendance_proposals;
 CREATE POLICY attendance_proposals_delete ON public.attendance_proposals FOR DELETE TO authenticated
   USING (public.can_propose_attendance(worker_id));
 
