@@ -146,8 +146,6 @@ async function exportToExcel(
     views: [{ state: 'frozen', xSplit: FIXED_COLS, ySplit: 2 }],
   });
 
-  const totalCols = FIXED_COLS + days.length;
-
   // Column widths
   ws.getColumn(1).width = 26;
   ws.getColumn(2).width = 9;
@@ -213,15 +211,11 @@ async function exportToExcel(
   // ── Data rows ─────────────────────────────────────────────────────────────
   let currentRow = 3;
 
-  // Per-day shift counts for summary
-  const shiftCountsPerDay: Record<number, Record<string, number>> = {};
-  for (let d = 0; d < days.length; d++) shiftCountsPerDay[d] = {};
-
   for (let wi = 0; wi < workers.length; wi++) {
     const worker = workers[wi];
     const isEven = wi % 2 === 0;
     const rowBg = isEven ? C.rowEven : C.rowOdd;
-    ws.getRow(currentRow).height = 16;
+    ws.getRow(currentRow).height = 26;
 
     applyCell(ws.getCell(currentRow, 1), worker.name, {
       bgArgb: rowBg,
@@ -300,115 +294,30 @@ async function exportToExcel(
           displayVal = special;
           bold = true;
         }
-
-        // Count for summary
-        shiftCountsPerDay[d][displayVal] = (shiftCountsPerDay[d][displayVal] || 0) + 1;
       } else if (shiftCode) {
         const shiftInfo = shifts[shiftCode as string];
         if (shiftInfo?.start && shiftInfo?.end) {
+          // Debajo del horario, los minutos de colación del turno
           displayVal = `${shiftInfo.start} - ${shiftInfo.end}`;
+          if ((shiftInfo.colacion || 0) > 0) displayVal += `\ncol. ${shiftInfo.colacion} min`;
         } else {
           displayVal = String(shiftCode).toUpperCase();
         }
         fg = '1A1A1A';
-
-        // Count for summary
-        const countKey = String(shiftCode).toUpperCase();
-        shiftCountsPerDay[d][countKey] = (shiftCountsPerDay[d][countKey] || 0) + 1;
       }
 
-      applyCell(ws.getCell(currentRow, FIXED_COLS + 1 + d), displayVal, {
+      const dayCell = ws.getCell(currentRow, FIXED_COLS + 1 + d);
+      applyCell(dayCell, displayVal, {
         bgArgb: bg,
         fgArgb: fg,
         bold,
         sz: 9,
         halign: 'center',
       });
+      dayCell.alignment = { ...dayCell.alignment, wrapText: true };
     }
 
     currentRow++;
-  }
-
-  // ── Blank separator ───────────────────────────────────────────────────────
-  ws.getRow(currentRow).height = 8;
-  currentRow++;
-
-  // ── Summary section ───────────────────────────────────────────────────────
-  ws.getRow(currentRow).height = 18;
-  applyCell(ws.getCell(currentRow, 1), 'TURNO', {
-    bgArgb: C.sumHdrBg,
-    fgArgb: 'FFFFFF',
-    bold: true,
-    sz: 9,
-    halign: 'left',
-  });
-  applyCell(ws.getCell(currentRow, 2), '', {
-    bgArgb: C.sumHdrBg,
-    fgArgb: 'FFFFFF',
-    bold: true,
-    sz: 9,
-  });
-  for (let d = 0; d < days.length; d++) {
-    const date = days[d];
-    applyCell(ws.getCell(currentRow, FIXED_COLS + 1 + d), date.getDate(), {
-      bgArgb: C.sumHdrBg,
-      fgArgb: 'FFFFFF',
-      bold: true,
-      sz: 9,
-    });
-  }
-  currentRow++;
-
-  const allCodes = new Set<string>();
-  for (let d = 0; d < days.length; d++)
-    Object.keys(shiftCountsPerDay[d]).forEach((c) => allCodes.add(c));
-  const summaryCodes = Array.from(allCodes).sort();
-
-  for (const code of summaryCodes) {
-    ws.getRow(currentRow).height = 15;
-    applyCell(ws.getCell(currentRow, 1), code, {
-      bgArgb: 'FFFFFF',
-      fgArgb: '1A1A1A',
-      bold: true,
-      sz: 9,
-      halign: 'left',
-    });
-    applyCell(ws.getCell(currentRow, 2), '', { bgArgb: 'FFFFFF', fgArgb: '1A1A1A', sz: 9 });
-    for (let d = 0; d < days.length; d++) {
-      const count = shiftCountsPerDay[d][code] || 0;
-      applyCell(ws.getCell(currentRow, FIXED_COLS + 1 + d), count > 0 ? count : '', {
-        bgArgb: 'FFFFFF',
-        fgArgb: '1A1A1A',
-        bold: count > 0,
-        sz: 9,
-      });
-    }
-    currentRow++;
-  }
-
-  // Total row
-  ws.getRow(currentRow).height = 18;
-  applyCell(ws.getCell(currentRow, 1), 'TOTAL TRABAJADORES', {
-    bgArgb: C.sumHdrBg,
-    fgArgb: 'FFFFFF',
-    bold: true,
-    sz: 9,
-    halign: 'left',
-  });
-  applyCell(ws.getCell(currentRow, 2), '', {
-    bgArgb: C.sumHdrBg,
-    fgArgb: 'FFFFFF',
-    bold: true,
-    sz: 9,
-  });
-  for (let d = 0; d < days.length; d++) {
-    const dayTotal = Object.values(shiftCountsPerDay[d]).reduce((a, b) => a + b, 0);
-    applyCell(ws.getCell(currentRow, FIXED_COLS + 1 + d), dayTotal, {
-      bgArgb: C.sumHdrBg,
-      fgArgb: 'FFFFFF',
-      bold: true,
-      sz: 9,
-    });
   }
 
   // ── Download ──────────────────────────────────────────────────────────────
