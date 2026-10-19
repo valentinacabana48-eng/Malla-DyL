@@ -1818,6 +1818,12 @@ const ROLE_OPTIONS: { value: UserRole; label: string; description: string }[] = 
     label: 'Solo lectura',
     description: 'Ve sus sucursales, pero no modifica nada',
   },
+  {
+    value: 'asistencia',
+    label: 'Asistencia',
+    description:
+      'Ve sus sucursales y marca quién vino y quién no. No anota horas extra ni modifica nada más',
+  },
   { value: 'pendiente', label: 'Sin acceso', description: 'No puede entrar a la app' },
 ];
 

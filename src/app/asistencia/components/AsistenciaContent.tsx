@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
 import { useAppContext } from '@/context/AppContext';
-import { useReadonly } from '@/hooks/useReadonly';
 import {
   getDatesInRange,
   getTodayStr,
@@ -271,7 +270,6 @@ export default function AsistenciaContent() {
     globalSucursal,
     globalArea,
   } = useAppContext();
-  const isReadonly = useReadonly();
 
   const defaultStart = getDefaultStartDate();
   const defaultEnd = getDefaultEndDate(defaultStart);
@@ -347,7 +345,7 @@ export default function AsistenciaContent() {
   const { isLocked: isPanelLocked, setLocked: setPanelLocked } = useSharedLock(
     lockSucursal ? `asistencia_locked:${lockSucursal}` : null
   );
-  const { isAdmin } = useAuth();
+  const { isAdmin, canMarkAttendance } = useAuth();
   const lockedDates = useMemo(
     () =>
       new Set(
@@ -615,6 +613,7 @@ export default function AsistenciaContent() {
 
   // Open daily alert for a date
   function openDailyAlert(dateStr: string) {
+    if (!canMarkAttendance) return;
     const { day, dow, monthShort } = formatDateLabel(dateStr);
     const workersForDate = getWorkersForDate(dateStr);
     if (workersForDate.length === 0) return;
@@ -1635,7 +1634,7 @@ export default function AsistenciaContent() {
             </button>
             <button
               onClick={saveReport}
-              disabled={loading || filteredWorkers.length === 0 || isReadonly}
+              disabled={loading || filteredWorkers.length === 0 || !canMarkAttendance}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold transition-colors"
             >
               <Download size={13} />
@@ -1961,7 +1960,7 @@ export default function AsistenciaContent() {
             isMallaNT={isMallaNT}
             onChangeStatus={changeStatus}
             onOpenOvertime={(w) => {
-              if (lockedDates.has(selectedDate)) return;
+              if (lockedDates.has(selectedDate) || !isAdmin) return;
               const { day, dow, monthShort } = formatDateLabel(selectedDate);
               setOvertimeModal({
                 workerId: w.id,
@@ -1992,6 +1991,9 @@ export default function AsistenciaContent() {
             isLocked={lockedDates.has(selectedDate)}
             onToggleLock={() => openLockModal(selectedDate)}
             savingCells={savingCells}
+            canMark={canMarkAttendance}
+            canEditOvertime={isAdmin}
+            canLock={isAdmin}
           />
         ) : (
           <PeriodOverview
@@ -2109,6 +2111,12 @@ interface DayViewProps {
   isLocked: boolean;
   onToggleLock: () => void;
   savingCells: Set<string>;
+  /** Puede marcar asistencia (admin o rol asistencia) */
+  canMark: boolean;
+  /** Puede anotar horas extra (solo admin) */
+  canEditOvertime: boolean;
+  /** Puede bloquear y desbloquear el día (solo admin) */
+  canLock: boolean;
 }
 
 function DayView({
@@ -2129,7 +2137,11 @@ function DayView({
   isLocked,
   onToggleLock,
   savingCells,
+  canMark,
+  canEditOvertime,
+  canLock,
 }: DayViewProps) {
+  const editable = !isLocked && canMark;
   const presentCount = workers.filter((w) => getEffectiveStatus(w.id, date) === 'PRESENTE').length;
   const absentCount = workers.filter((w) => getEffectiveStatus(w.id, date) === 'AUSENTE').length;
   const totalHE = workers.reduce((sum, w) => sum + (overtime[w.id]?.[date]?.hours ?? 0), 0);
@@ -2141,12 +2153,14 @@ function DayView({
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-medium">
           <Lock size={14} />
           <span>Este día está bloqueado. No se pueden modificar los registros.</span>
-          <button
-            onClick={onToggleLock}
-            className="ml-auto flex items-center gap-1 text-xs underline hover:no-underline"
-          >
-            <Unlock size={12} /> Desbloquear
-          </button>
+          {canLock && (
+            <button
+              onClick={onToggleLock}
+              className="ml-auto flex items-center gap-1 text-xs underline hover:no-underline"
+            >
+              <Unlock size={12} /> Desbloquear
+            </button>
+          )}
         </div>
       )}
 
@@ -2167,7 +2181,7 @@ function DayView({
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 w-full lg:w-auto lg:flex lg:items-center lg:flex-wrap">
-          {!isLocked && (
+          {editable && (
             <>
               <button
                 onClick={onMarkAllPresent}
@@ -2187,19 +2201,21 @@ function DayView({
             </>
           )}
           {/* Lock / Unlock button */}
-          <button
-            onClick={onToggleLock}
-            className={`flex items-center justify-center gap-2 px-4 py-3 lg:py-2.5 rounded-xl text-sm lg:text-xs font-semibold transition-colors ${
-              isLocked ? 'col-span-2' : ''
-            } ${
-              isLocked
-                ? 'bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200'
-                : 'bg-red-500 hover:bg-red-600 text-white'
-            }`}
-          >
-            {isLocked ? <Unlock size={14} /> : <Lock size={14} />}
-            {isLocked ? 'Desbloquear' : 'Guardar y bloquear'}
-          </button>
+          {canLock && (
+            <button
+              onClick={onToggleLock}
+              className={`flex items-center justify-center gap-2 px-4 py-3 lg:py-2.5 rounded-xl text-sm lg:text-xs font-semibold transition-colors ${
+                isLocked ? 'col-span-2' : ''
+              } ${
+                isLocked
+                  ? 'bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200'
+                  : 'bg-red-500 hover:bg-red-600 text-white'
+              }`}
+            >
+              {isLocked ? <Unlock size={14} /> : <Lock size={14} />}
+              {isLocked ? 'Desbloquear' : 'Guardar y bloquear'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -2236,7 +2252,7 @@ function DayView({
                   </p>
                 </div>
                 {/* Celular: botones grandes para los dos estados más usados */}
-                {!isLocked && !isNT && !savingCells.has(`${w.id}_${date}`) && (
+                {editable && !isNT && !savingCells.has(`${w.id}_${date}`) && (
                   <div className="lg:hidden w-full grid grid-cols-2 gap-2">
                     {(['PRESENTE', 'AUSENTE'] as const).map((code) => {
                       const active = status === code;
@@ -2277,9 +2293,9 @@ function DayView({
                       <select
                         value={status}
                         onChange={(e) => onChangeStatus(w.id, date, e.target.value)}
-                        disabled={isLocked || isNT}
+                        disabled={!editable || isNT}
                         aria-label={`Estado de ${w.name}`}
-                        className={`w-full lg:w-auto appearance-none text-base lg:text-xs font-medium px-3 lg:px-2.5 py-2.5 lg:py-1.5 rounded-xl lg:rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-300 pr-6 ${getStatusStyle(status)} ${isLocked || isNT ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+                        className={`w-full lg:w-auto appearance-none text-base lg:text-xs font-medium px-3 lg:px-2.5 py-2.5 lg:py-1.5 rounded-xl lg:rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-300 pr-6 ${getStatusStyle(status)} ${!editable || isNT ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
                       >
                         {SELECTABLE_STATUSES.map((s) => (
                           <option key={s.code} value={s.code}>
@@ -2291,7 +2307,7 @@ function DayView({
                           <option value={status}>{getStatusLabel(status)}</option>
                         )}
                       </select>
-                      {!(isLocked || isNT) && (
+                      {editable && !isNT && (
                         <ChevronDown
                           size={10}
                           className="absolute right-3 lg:right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60"
@@ -2306,28 +2322,33 @@ function DayView({
                 {!isNT && isAuto && (
                   <span className="text-xs lg:text-[9px] text-gray-400 shrink-0">auto</span>
                 )}
-                {/* HE button */}
-                <button
-                  onClick={() => onOpenOvertime(w)}
-                  disabled={isLocked}
-                  className={`flex flex-1 lg:flex-none justify-center items-center gap-1 px-2 py-3 lg:py-1.5 rounded-xl lg:rounded-lg text-sm lg:text-xs font-medium transition-colors shrink-0 ${
-                    he > 0
-                      ? 'bg-amber-100 text-amber-700 border border-amber-300'
-                      : isLocked
-                        ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                        : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-amber-50 hover:text-amber-600'
-                  }`}
-                >
-                  <Clock size={11} />
-                  {he > 0 ? `${he}h` : 'HE'}
-                </button>
+                {/* HE button (las horas extra las anota solo un admin) */}
+                {(canEditOvertime || he > 0) && (
+                  <button
+                    onClick={() => onOpenOvertime(w)}
+                    disabled={isLocked || !canEditOvertime}
+                    title={
+                      canEditOvertime ? undefined : 'Las horas extra las anota un administrador'
+                    }
+                    className={`flex flex-1 lg:flex-none justify-center items-center gap-1 px-2 py-3 lg:py-1.5 rounded-xl lg:rounded-lg text-sm lg:text-xs font-medium transition-colors shrink-0 ${
+                      he > 0
+                        ? `bg-amber-100 text-amber-700 border border-amber-300 ${canEditOvertime ? '' : 'cursor-default'}`
+                        : isLocked
+                          ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                          : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-amber-50 hover:text-amber-600'
+                    }`}
+                  >
+                    <Clock size={11} />
+                    {he > 0 ? `${he}h` : 'HE'}
+                  </button>
+                )}
                 {/* Retiro anticipado */}
                 {(() => {
                   const retiro = attendance[w.id]?.[date]?.retiroHoras ?? 0;
                   return (
                     <button
                       onClick={() => onOpenRetiro(w)}
-                      disabled={isLocked}
+                      disabled={!editable}
                       title={
                         retiro > 0
                           ? `Se retiró antes: -${retiro}h${attendance[w.id]?.[date]?.retiroMotivo ? ` (${attendance[w.id]?.[date]?.retiroMotivo})` : ''}`
@@ -2336,7 +2357,7 @@ function DayView({
                       className={`flex flex-1 lg:flex-none justify-center items-center gap-1 px-2 py-3 lg:py-1.5 rounded-xl lg:rounded-lg text-sm lg:text-xs font-medium transition-colors shrink-0 ${
                         retiro > 0
                           ? 'bg-rose-100 text-rose-700 border border-rose-300'
-                          : isLocked
+                          : !editable
                             ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
                             : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-rose-50 hover:text-rose-600'
                       }`}

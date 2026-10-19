@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase/client';
 
-export type UserRole = 'admin' | 'lector' | 'pendiente';
+export type UserRole = 'admin' | 'lector' | 'asistencia' | 'pendiente';
 
 interface AuthContextValue {
   user: User | null;
@@ -14,6 +14,8 @@ interface AuthContextValue {
   /** Admin sin sucursales asignadas: puede usar Ajustes y administrar usuarios */
   isGlobalAdmin: boolean;
   isReadonly: boolean;
+  /** Puede marcar asistencia (admin o rol "asistencia"); las horas extra son solo de admin */
+  canMarkAttendance: boolean;
   /** Sucursales que puede ver esta persona; null = todas */
   allowedSucursales: string[] | null;
   /** true cuando el usuario llegó desde el enlace de "olvidé mi contraseña" */
@@ -170,6 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isGlobalAdmin: role === 'admin' && allowedSucursales === null,
         allowedSucursales,
         isReadonly: role !== 'admin',
+        canMarkAttendance: role === 'admin' || role === 'asistencia',
         recoveringPassword,
         signIn,
         signUp,

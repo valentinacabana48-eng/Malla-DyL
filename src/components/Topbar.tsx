@@ -1,6 +1,16 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Menu, MapPin, Layers, RefreshCw, Lock, Eye, LogOut, Download } from 'lucide-react';
+import {
+  Menu,
+  MapPin,
+  Layers,
+  RefreshCw,
+  Lock,
+  Eye,
+  LogOut,
+  Download,
+  ClipboardCheck,
+} from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { useInstallPrompt, useIosInstallable } from '@/lib/pwa';
@@ -76,6 +86,14 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
               <Eye className="w-[18px] h-[18px] lg:w-[13px] lg:h-[13px] text-amber-600 shrink-0" />
               <span className="text-xs font-semibold text-amber-700 hidden lg:block">
                 Solo lectura
+              </span>
+            </div>
+          )}
+          {role === 'asistencia' && (
+            <div className="flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+              <ClipboardCheck className="w-[18px] h-[18px] lg:w-[13px] lg:h-[13px] text-blue-600 shrink-0" />
+              <span className="text-xs font-semibold text-blue-700 hidden lg:block">
+                Asistencia
               </span>
             </div>
           )}
