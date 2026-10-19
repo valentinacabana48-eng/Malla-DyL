@@ -334,7 +334,9 @@ export default function AsistenciaContent() {
 
   // ── Per-day lock state ────────────────────────────────────────────────────
   // Días bloqueados por sucursal (sucursal '' = bloqueo antiguo, aplica a todas)
-  const [lockRows, setLockRows] = useState<{ record_date: string; sucursal: string }[]>([]);
+  const [lockRows, setLockRows] = useState<
+    { record_date: string; sucursal: string; area?: string }[]
+  >([]);
   const [lockModal, setLockModal] = useState<{
     date: string;
     dateLabel: string;
@@ -349,20 +351,33 @@ export default function AsistenciaContent() {
   const { isLocked: isPanelLocked, setLocked: setPanelLocked } = useSharedLock(
     lockSucursal ? `asistencia_locked:${lockSucursal}` : null
   );
-  const { isAdmin, canMarkAttendance, isAsistencia } = useAuth();
+  const { can, canManageSucursal, allowedAreas, canMarkAttendance, isAsistencia } = useAuth();
+  const canApprove = can('asistencia_aprobar');
+  const canOvertime = can('horas_extra');
+  // Área que se bloquea: '' = toda la sucursal (quien la maneja completa); si no, su área
+  const lockArea: string | null = canManageSucursal
+    ? ''
+    : allowedAreas?.length === 1
+      ? allowedAreas[0]
+      : filterArea !== 'Todas'
+        ? filterArea
+        : null;
   const lockedDates = useMemo(
     () =>
       new Set(
         lockRows
           .filter(
             (r) =>
-              r.sucursal === '' ||
-              filterSucursal.length === 0 ||
-              filterSucursal.includes(r.sucursal)
+              (r.sucursal === '' ||
+                filterSucursal.length === 0 ||
+                filterSucursal.includes(r.sucursal)) &&
+              (!r.area ||
+                r.area === filterArea ||
+                (allowedAreas?.length === 1 && r.area === allowedAreas[0]))
           )
           .map((r) => r.record_date)
       ),
-    [lockRows, filterSucursal]
+    [lockRows, filterSucursal, filterArea, allowedAreas]
   );
 
   // Sync global sucursal and area on mount/change
@@ -467,7 +482,7 @@ export default function AsistenciaContent() {
         ),
         supabase
           .from('attendance_locked_dates')
-          .select('record_date, sucursal')
+          .select('*')
           .gte('record_date', startDate)
           .lte('record_date', endDate),
         supabase
@@ -577,7 +592,7 @@ export default function AsistenciaContent() {
 
       // Load locked dates (ignore errors — table may not exist yet)
       if (!lockRes.error && lockRes.data) {
-        setLockRows(lockRes.data as { record_date: string; sucursal: string }[]);
+        setLockRows(lockRes.data as { record_date: string; sucursal: string; area?: string }[]);
       }
     } catch (err) {
       console.error('Error loading attendance:', err);
@@ -719,7 +734,7 @@ export default function AsistenciaContent() {
 
   // Aprobar: lo marcado pasa a la asistencia oficial y el día queda bloqueado
   async function approveDay(dateStr: string) {
-    if (!isAdmin) return;
+    if (!canApprove) return;
     setApproving(dateStr);
     const { data, error } = await supabase.rpc('approve_attendance_day', { p_date: dateStr });
     setApproving(null);
@@ -741,16 +756,23 @@ export default function AsistenciaContent() {
     const { day, dow, monthShort } = formatDateLabel(dateStr);
     const label = `${dow} ${day} ${monthShort}`;
     setLockError('');
-    if (!isAdmin) return;
-    if (!lockSucursal) {
-      setSaveError('Elige una sola sucursal en los filtros para bloquear o desbloquear días.');
+    if (!canApprove) return;
+    if (!lockSucursal || lockArea === null) {
+      setSaveError(
+        lockSucursal
+          ? 'Elige un área en los filtros para bloquear o desbloquear días.'
+          : 'Elige una sola sucursal en los filtros para bloquear o desbloquear días.'
+      );
       setTimeout(() => setSaveError(null), 5000);
       return;
     }
     setLockModal({
       date: dateStr,
       dateLabel: label,
-      mode: lockRows.some((r) => r.record_date === dateStr && r.sucursal === lockSucursal)
+      mode: lockRows.some(
+        (r) =>
+          r.record_date === dateStr && r.sucursal === lockSucursal && (r.area ?? '') === lockArea
+      )
         ? 'unlock'
         : 'lock',
     });
@@ -769,34 +791,44 @@ export default function AsistenciaContent() {
   }
 
   async function lockDate(dateStr: string): Promise<boolean> {
-    if (!lockSucursal) return false;
-    const { error } = await supabase
-      .from('attendance_locked_dates')
-      .upsert(
-        { record_date: dateStr, sucursal: lockSucursal, locked_at: new Date().toISOString() },
-        { onConflict: 'record_date,sucursal' }
-      );
+    if (!lockSucursal || lockArea === null) return false;
+    const { error } = await supabase.from('attendance_locked_dates').upsert(
+      {
+        record_date: dateStr,
+        sucursal: lockSucursal,
+        area: lockArea,
+        locked_at: new Date().toISOString(),
+      },
+      { onConflict: 'record_date,sucursal,area' }
+    );
     if (error) {
       console.error('Error locking date:', error);
       return false;
     }
-    setLockRows((prev) => [...prev, { record_date: dateStr, sucursal: lockSucursal }]);
+    setLockRows((prev) => [
+      ...prev,
+      { record_date: dateStr, sucursal: lockSucursal, area: lockArea },
+    ]);
     return true;
   }
 
   async function unlockDate(dateStr: string): Promise<boolean> {
-    if (!lockSucursal) return false;
+    if (!lockSucursal || lockArea === null) return false;
     const { error } = await supabase
       .from('attendance_locked_dates')
       .delete()
       .eq('record_date', dateStr)
-      .eq('sucursal', lockSucursal);
+      .eq('sucursal', lockSucursal)
+      .eq('area', lockArea);
     if (error) {
       console.error('Error unlocking date:', error);
       return false;
     }
     setLockRows((prev) =>
-      prev.filter((r) => !(r.record_date === dateStr && r.sucursal === lockSucursal))
+      prev.filter(
+        (r) =>
+          !(r.record_date === dateStr && r.sucursal === lockSucursal && (r.area ?? '') === lockArea)
+      )
     );
     return true;
   }
@@ -2053,7 +2085,7 @@ export default function AsistenciaContent() {
       {/* Main content */}
       <div className="flex-1 p-4 lg:p-6">
         {/* Administradora: días con asistencia por aprobar */}
-        {isAdmin && Object.keys(pendingByDate).length > 0 && (
+        {canApprove && Object.keys(pendingByDate).length > 0 && (
           <div className="mb-4 flex items-center gap-2 flex-wrap bg-amber-50 border border-amber-300 rounded-xl px-4 py-3">
             <span className="text-sm font-semibold text-amber-900 mr-1">Por aprobar:</span>
             {Object.keys(pendingByDate)
@@ -2122,7 +2154,7 @@ export default function AsistenciaContent() {
             isMallaNT={isMallaNT}
             onChangeStatus={changeStatus}
             onOpenOvertime={(w) => {
-              if (lockedDates.has(selectedDate) || !isAdmin) return;
+              if (lockedDates.has(selectedDate) || !canOvertime) return;
               const { day, dow, monthShort } = formatDateLabel(selectedDate);
               setOvertimeModal({
                 workerId: w.id,
@@ -2154,12 +2186,12 @@ export default function AsistenciaContent() {
             onToggleLock={() => openLockModal(selectedDate)}
             savingCells={savingCells}
             canMark={canMarkAttendance}
-            canEditOvertime={isAdmin}
-            canLock={isAdmin}
+            canEditOvertime={canOvertime}
+            canLock={canApprove}
             isAsistencia={isAsistencia}
             pendingCount={pendingByDate[selectedDate]?.count ?? 0}
             pendingBy={pendingByDate[selectedDate]?.by ?? []}
-            onApprove={isAdmin ? () => approveDay(selectedDate) : undefined}
+            onApprove={canApprove ? () => approveDay(selectedDate) : undefined}
             approving={approving === selectedDate}
             getShiftText={(wid: string) => {
               const code = getShiftForDate(wid, selectedDate);

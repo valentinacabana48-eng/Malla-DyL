@@ -1,9 +1,10 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase/client';
+import { permsFor, type Perm, type UserRole } from '@/lib/permisos';
 
-export type UserRole = 'admin' | 'lector' | 'asistencia' | 'pendiente';
+export type { UserRole } from '@/lib/permisos';
 
 interface AuthContextValue {
   user: User | null;
@@ -13,12 +14,19 @@ interface AuthContextValue {
   isAdmin: boolean;
   /** Admin sin sucursales asignadas: puede usar Ajustes y administrar usuarios */
   isGlobalAdmin: boolean;
+  /** No puede editar la malla */
   isReadonly: boolean;
-  /** Puede marcar asistencia (admin o nivel "asistencia"); las horas extra son solo de admin */
+  /** Tiene este permiso (dentro de su alcance) */
+  can: (perm: Perm) => boolean;
+  /** Edita la malla de la sucursal completa (sin áreas ni cargos limitados): bloqueos y turnos propios */
+  canManageSucursal: boolean;
+  /** Puede marcar asistencia (directo o por aprobar) */
   canMarkAttendance: boolean;
-  /** Nivel "asistencia" (jefas de caja): lo que marca queda por aprobar */
+  /** Marca asistencia, pero no la aprueba: lo que marca queda por aprobar */
   isAsistencia: boolean;
-  /** Cargos que ve el nivel asistencia; null = todos */
+  /** Áreas que ve; null = todas */
+  allowedAreas: string[] | null;
+  /** Cargos que ve; null = todos */
   allowedCargos: string[] | null;
   /** Sucursales que puede ver esta persona; null = todas */
   allowedSucursales: string[] | null;
@@ -62,6 +70,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<UserRole | null>(null);
   const [allowedSucursales, setAllowedSucursales] = useState<string[] | null>(null);
   const [allowedCargos, setAllowedCargos] = useState<string[] | null>(null);
+  const [allowedAreas, setAllowedAreas] = useState<string[] | null>(null);
+  const [permisos, setPermisos] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [recoveringPassword, setRecoveringPassword] = useState(false);
 
@@ -71,6 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRole(null);
         setAllowedSucursales(null);
         setAllowedCargos(null);
+        setAllowedAreas(null);
+        setPermisos(null);
         return;
       }
       const { data, error } = await supabase
@@ -88,6 +100,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAllowedSucursales(sucursales && sucursales.length > 0 ? sucursales : null);
       const cargos = (data?.cargos as string[] | null) ?? null;
       setAllowedCargos(cargos && cargos.length > 0 ? cargos : null);
+      const areas = (data?.areas as string[] | null) ?? null;
+      setAllowedAreas(areas && areas.length > 0 ? areas : null);
+      setPermisos((data?.permisos as string[] | null) ?? null);
       setRole((data?.role as UserRole) ?? 'pendiente');
     },
     [supabase]
@@ -169,6 +184,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loadRole(session?.user.id);
   }, [loadRole, session]);
 
+  const perms = useMemo(() => permsFor(role, permisos), [role, permisos]);
+  const can = useCallback((perm: Perm) => perms.has(perm), [perms]);
+  const fullScope = allowedSucursales === null && allowedAreas === null && allowedCargos === null;
+
   return (
     <AuthContext.Provider
       value={{
@@ -177,12 +196,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role,
         loading,
         isAdmin: role === 'admin',
-        isGlobalAdmin: role === 'admin' && allowedSucursales === null,
+        isGlobalAdmin: role === 'admin' && fullScope,
         allowedSucursales,
-        isReadonly: role !== 'admin',
-        canMarkAttendance: role === 'admin' || role === 'asistencia',
-        isAsistencia: role === 'asistencia',
-        allowedCargos: role === 'asistencia' ? allowedCargos : null,
+        isReadonly: !perms.has('malla_editar'),
+        can,
+        canManageSucursal:
+          perms.has('malla_editar') && allowedAreas === null && allowedCargos === null,
+        canMarkAttendance: perms.has('asistencia_marcar') || perms.has('asistencia_aprobar'),
+        isAsistencia: perms.has('asistencia_marcar') && !perms.has('asistencia_aprobar'),
+        allowedAreas,
+        allowedCargos,
         recoveringPassword,
         signIn,
         signUp,

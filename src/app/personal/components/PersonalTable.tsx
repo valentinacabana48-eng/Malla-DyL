@@ -38,7 +38,7 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
   const [sortField, setSortField] = useState<keyof Worker>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const isReadonly = useReadonly();
+  const isReadonly = useReadonly('personal');
 
   const handleSort = (field: keyof Worker) => {
     if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));

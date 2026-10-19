@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CalendarDays, CalendarCheck, Users, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { routePerm } from '@/lib/permisos';
 
 // Menú inferior para celulares: accesos directos a los módulos más usados y
 // un botón "Más" que abre el menú lateral con el resto.
@@ -19,15 +20,18 @@ interface MobileNavProps {
 
 export default function MobileNav({ onOpenMenu }: MobileNavProps) {
   const pathname = usePathname();
-  // Las jefas de caja (nivel asistencia) no entran a Personal
-  const { isAsistencia } = useAuth();
-  const visibleTabs = isAsistencia ? tabs.filter((t) => t.href !== '/personal') : tabs;
+  // Solo las secciones a las que tiene permiso
+  const { can } = useAuth();
+  const visibleTabs = tabs.filter((t) => {
+    const perm = routePerm(t.href);
+    return !perm || can(perm);
+  });
   const itemClass = 'flex flex-col items-center justify-center gap-0.5 min-h-[52px] text-xs';
 
   return (
     <nav
       aria-label="Menú principal"
-      className={`lg:hidden grid ${visibleTabs.length === 3 ? 'grid-cols-4' : 'grid-cols-3'} bg-card border-t border-border shrink-0`}
+      className={`lg:hidden grid ${['grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4'][visibleTabs.length]} bg-card border-t border-border shrink-0`}
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       {visibleTabs.map(({ label, icon: TabIcon, href }) => {

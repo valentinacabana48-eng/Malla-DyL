@@ -23,7 +23,7 @@ interface TopbarProps {
 
 export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
   const { globalSucursal, globalArea } = useAppContext();
-  const { role, user, signOut } = useAuth();
+  const { role, user, signOut, allowedAreas } = useAuth();
   const installApp = useInstallPrompt();
   // En iPhone no hay botón de instalar del navegador: se muestran los pasos a mano
   const iosInstallable = useIosInstallable();
@@ -86,6 +86,14 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
               <Eye className="w-[18px] h-[18px] lg:w-[13px] lg:h-[13px] text-amber-600 shrink-0" />
               <span className="text-xs font-semibold text-amber-700 hidden lg:block">
                 Solo lectura
+              </span>
+            </div>
+          )}
+          {role === 'personalizado' && (
+            <div className="flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+              <ClipboardCheck className="w-[18px] h-[18px] lg:w-[13px] lg:h-[13px] text-blue-600 shrink-0" />
+              <span className="text-xs font-semibold text-blue-700 hidden lg:block">
+                {allowedAreas?.length ? allowedAreas.join(', ') : 'Acceso limitado'}
               </span>
             </div>
           )}

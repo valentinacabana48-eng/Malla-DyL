@@ -67,7 +67,7 @@ export default function MallaContent() {
     globalArea,
   } = useAppContext();
   const isReadonly = useReadonly();
-  const { isAdmin, allowedSucursales } = useAuth();
+  const { can, allowedSucursales } = useAuth();
 
   const [selectedArea, setSelectedArea] = useState('Todas');
   // Sucursales y cargos elegidos ([] = todas / todos)
@@ -112,7 +112,7 @@ export default function MallaContent() {
         ? allowedSucursales[0]
         : null;
   const canPublish =
-    isAdmin &&
+    can('malla_publicar') &&
     !!publishSucursal &&
     (!allowedSucursales || allowedSucursales.includes(publishSucursal));
   const publishState = usePublishState(selectedMes, canPublish ? publishSucursal : null);
@@ -447,7 +447,7 @@ export default function MallaContent() {
               lockSucursal ? undefined : 'Elige una sola sucursal para bloquear su malla'
             }
           />
-          {isAdmin && (
+          {can('malla_publicar') && (
             <button
               type="button"
               onClick={() => setShowPublishModal(true)}

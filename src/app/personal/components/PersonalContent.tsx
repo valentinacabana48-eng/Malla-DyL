@@ -13,7 +13,7 @@ import AddWorkerPanel from './AddWorkerPanel';
 export default function PersonalContent() {
   const { workers, addWorker, updateWorker, deleteWorker, sucursales, globalSucursal, globalArea } =
     useAppContext();
-  const isReadonly = useReadonly();
+  const isReadonly = useReadonly('personal');
   const [filterSucursal, setFilterSucursal] = useState('Todas');
   const [filterArea, setFilterArea] = useState('Todas');
   const [filterEstado, setFilterEstado] = useState('Activos');
