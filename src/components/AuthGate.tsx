@@ -238,6 +238,7 @@ function PendingApproval() {
 function LoginScreen() {
   const { signIn, signUp, sendPasswordReset } = useAuth();
   const [step, setStep] = useState<Step>('login');
+  const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -255,6 +256,10 @@ function LoginScreen() {
     e.preventDefault();
     setError('');
     setInfo('');
+    if (step === 'signup' && nombre.trim().length < 3) {
+      setError('Escribe tu nombre y apellido.');
+      return;
+    }
     if (step === 'signup' && password.length < MIN_PASSWORD) {
       setError(`La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`);
       return;
@@ -264,7 +269,7 @@ function LoginScreen() {
       const err = await signIn(email, password);
       if (err) setError(err);
     } else if (step === 'signup') {
-      const err = await signUp(email, password);
+      const err = await signUp(email, password, nombre);
       if (err) setError(err);
       else setInfo('Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.');
     } else {
@@ -298,6 +303,25 @@ function LoginScreen() {
           >
             <ChevronLeft size={14} /> Volver
           </button>
+        )}
+
+        {step === 'signup' && (
+          <div className="flex flex-col gap-1.5">
+            <Label>Nombre y apellido</Label>
+            <input
+              type="text"
+              value={nombre}
+              onChange={(e) => {
+                setNombre(e.target.value);
+                setError('');
+              }}
+              placeholder="Ej: María González"
+              autoComplete="name"
+              maxLength={80}
+              required
+              className={inputClass}
+            />
+          </div>
         )}
 
         <div className="flex flex-col gap-1.5">

@@ -69,6 +69,10 @@ interface OvertimeRecord {
   recordDate: string;
   hours: number;
   notes: string;
+  /** Anotadas por alguien sin permiso de aprobar: no cuentan hasta que se aprueben */
+  pending?: boolean;
+  proposedBy?: string;
+  approvedBy?: string;
 }
 
 interface DailyAlertState {
@@ -351,9 +355,10 @@ export default function AsistenciaContent() {
   const { isLocked: isPanelLocked, setLocked: setPanelLocked } = useSharedLock(
     lockSucursal ? `asistencia_locked:${lockSucursal}` : null
   );
-  const { can, canManageSucursal, allowedAreas, canMarkAttendance, isAsistencia } = useAuth();
+  const { user, can, canManageSucursal, allowedAreas, canMarkAttendance, isAsistencia } = useAuth();
   const canApprove = can('asistencia_aprobar');
-  const canOvertime = can('horas_extra');
+  const canApproveOvertime = can('horas_extra_aprobar');
+  const canOvertime = can('horas_extra') || canApproveOvertime;
   // Área que se bloquea: '' = toda la sucursal (quien la maneja completa); si no, su área
   const lockArea: string | null = canManageSucursal
     ? ''
@@ -586,6 +591,9 @@ export default function AsistenciaContent() {
           recordDate: dt,
           hours: r.hours as number,
           notes: (r.notes as string) || '',
+          pending: r.status === 'pendiente',
+          proposedBy: (r.proposed_by_email as string) || '',
+          approvedBy: (r.approved_by_email as string) || '',
         };
       });
       setOvertime(otMap);
@@ -719,22 +727,28 @@ export default function AsistenciaContent() {
     const out: Record<string, { count: number; by: string[] }> = {};
     for (const w of filteredWorkers) {
       const byDate = attendance[w.id];
-      if (!byDate) continue;
-      for (const [dt, rec] of Object.entries(byDate)) {
+      for (const [dt, rec] of Object.entries(byDate ?? {})) {
         if (!rec.pending || dt < startDate || dt > endDate) continue;
         if (!out[dt]) out[dt] = { count: 0, by: [] };
         out[dt].count++;
         if (rec.proposedBy && !out[dt].by.includes(rec.proposedBy)) out[dt].by.push(rec.proposedBy);
       }
+      // Horas extra por aprobar
+      for (const [dt, ot] of Object.entries(overtime[w.id] ?? {})) {
+        if (!ot.pending || dt < startDate || dt > endDate) continue;
+        if (!out[dt]) out[dt] = { count: 0, by: [] };
+        if (!byDate?.[dt]?.pending) out[dt].count++;
+        if (ot.proposedBy && !out[dt].by.includes(ot.proposedBy)) out[dt].by.push(ot.proposedBy);
+      }
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attendance, filteredWorkers.map((w) => w.id).join(','), startDate, endDate]);
+  }, [attendance, overtime, filteredWorkers.map((w) => w.id).join(','), startDate, endDate]);
   const [approving, setApproving] = useState<string | null>(null);
 
   // Aprobar: lo marcado pasa a la asistencia oficial y el día queda bloqueado
   async function approveDay(dateStr: string) {
-    if (!canApprove) return;
+    if (!canApprove && !canApproveOvertime) return;
     setApproving(dateStr);
     const { data, error } = await supabase.rpc('approve_attendance_day', { p_date: dateStr });
     setApproving(null);
@@ -745,7 +759,7 @@ export default function AsistenciaContent() {
       return;
     }
     setSaveNotice(
-      `Asistencia aprobada (${Number(data) || 0} trabajador(es)). El día quedó bloqueado.`
+      `Aprobado: ${Number(data) || 0} registro(s) de asistencia y horas extra. El día quedó bloqueado.`
     );
     setTimeout(() => setSaveNotice(null), 5000);
     await loadData();
@@ -1131,10 +1145,19 @@ export default function AsistenciaContent() {
       notes,
       updated_at: new Date().toISOString(),
     };
+    const myEmail = user?.email ?? '';
     setOvertime((prev) => {
       const next = { ...prev };
       if (!next[workerId]) next[workerId] = {};
-      next[workerId][dateStr] = { workerId, recordDate: dateStr, hours, notes };
+      next[workerId][dateStr] = {
+        workerId,
+        recordDate: dateStr,
+        hours,
+        notes,
+        pending: !canApproveOvertime,
+        proposedBy: myEmail,
+        approvedBy: canApproveOvertime ? myEmail : '',
+      };
       return next;
     });
     setOvertimeModal(null);
@@ -1407,6 +1430,8 @@ export default function AsistenciaContent() {
       'Permisos',
       'Licencias',
       'Hrs. descontadas',
+      'Horas extra',
+      'HE por aprobar',
     ];
     // RETIRO = suma de horas descontadas por retiro anticipado
     const TOTAL_KEYS = [
@@ -1418,6 +1443,8 @@ export default function AsistenciaContent() {
       'PERMISO',
       'LICENCIA',
       'RETIRO',
+      'HE',
+      'HE_PEND',
     ];
     const totalCols = FIXED_COLS + dates.length + TOTAL_LABELS.length;
 
@@ -1560,6 +1587,8 @@ export default function AsistenciaContent() {
         PERMISO: 0,
         LICENCIA: 0,
         RETIRO: 0,
+        HE: 0,
+        HE_PEND: 0,
       };
 
       dates.forEach((dt, i) => {
@@ -1569,8 +1598,12 @@ export default function AsistenciaContent() {
         if (bucket && counts[bucket] !== undefined) counts[bucket]++;
         const retiro = freshAttendance[w.id]?.[dt]?.retiroHoras ?? 0;
         counts.RETIRO += retiro;
+        const ot = overtime[w.id]?.[dt];
+        const he = ot?.hours ?? 0;
+        if (he > 0) counts[ot?.pending ? 'HE_PEND' : 'HE'] += he;
         const baseVal = getCellDisplayValue(w.id, dt);
-        const displayVal = retiro > 0 ? `${baseVal} (-${retiro}h)` : baseVal;
+        let displayVal = retiro > 0 ? `${baseVal} (-${retiro}h)` : baseVal;
+        if (he > 0) displayVal += ` +${he}h HE${ot?.pending ? ' (por aprobar)' : ''}`;
         const colNum = FIXED_COLS + 1 + i;
         const colors = STATUS_COLORS[status] ?? { bg: rowBgHex, fg: '000000' };
 
@@ -1603,7 +1636,11 @@ export default function AsistenciaContent() {
           size: 10,
           color: {
             argb:
-              (key === 'AUSENTE' || key === 'RETIRO') && val > 0 ? argb('843C0C') : argb('000000'),
+              (key === 'AUSENTE' || key === 'RETIRO') && val > 0
+                ? argb('843C0C')
+                : key === 'HE_PEND' && val > 0
+                  ? argb('B45309')
+                  : argb('000000'),
           },
         };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb('F2F2F2') } };
@@ -1611,6 +1648,64 @@ export default function AsistenciaContent() {
         cell.border = thinBorder;
       });
     });
+
+    // Hoja 2: detalle de horas extra (aprobadas y por aprobar)
+    const wsHE = wb.addWorksheet('Horas extra', { views: [{ state: 'frozen', ySplit: 1 }] });
+    const heCols = [
+      { header: 'Trabajadora', width: 32 },
+      { header: 'Área', width: 16 },
+      { header: 'Sucursal', width: 20 },
+      { header: 'Fecha', width: 12 },
+      { header: 'Horas', width: 8 },
+      { header: 'Motivo', width: 30 },
+      { header: 'Estado', width: 14 },
+      { header: 'Anotó', width: 28 },
+      { header: 'Aprobó', width: 28 },
+    ];
+    heCols.forEach((c, i) => {
+      wsHE.getColumn(i + 1).width = c.width;
+      const cell = wsHE.getCell(1, i + 1);
+      cell.value = c.header;
+      cell.font = { bold: true, color: { argb: argb('FFFFFF') } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb('1F4E79') } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = thinBorder;
+    });
+    let heRow = 2;
+    reportWorkers.forEach((w) => {
+      dates.forEach((dt) => {
+        const ot = overtime[w.id]?.[dt];
+        if (!ot || !(ot.hours > 0)) return;
+        const [y, m, d] = dt.split('-');
+        const values = [
+          w.name,
+          w.area,
+          w.sucursal,
+          `${d}-${m}-${y}`,
+          ot.hours,
+          ot.notes || '',
+          ot.pending ? 'Por aprobar' : 'Aprobada',
+          ot.proposedBy || '',
+          ot.pending ? '' : ot.approvedBy || '',
+        ];
+        values.forEach((v, i) => {
+          const cell = wsHE.getCell(heRow, i + 1);
+          cell.value = v;
+          cell.border = thinBorder;
+          cell.alignment = { vertical: 'middle', horizontal: i === 4 ? 'center' : 'left' };
+          if (i === 6) {
+            cell.font = { bold: true, color: { argb: argb(ot.pending ? 'B45309' : '375623') } };
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: argb(ot.pending ? 'FFF2CC' : 'E2EFDA') },
+            };
+          }
+        });
+        heRow++;
+      });
+    });
+    if (heRow === 2) wsHE.getCell(2, 1).value = 'Sin horas extra en el período.';
 
     // Sheet 2: Legend
     const wsL = wb.addWorksheet('Leyenda');
@@ -2068,7 +2163,7 @@ export default function AsistenciaContent() {
                   ) : pendingByDate[dt] ? (
                     <div
                       className="w-2 h-2 rounded-full mt-0.5 bg-amber-500 ring-2 ring-amber-200"
-                      title="Tiene asistencia por aprobar"
+                      title="Tiene asistencia u horas extra por aprobar"
                     />
                   ) : hasData ? (
                     <div
@@ -2085,7 +2180,7 @@ export default function AsistenciaContent() {
       {/* Main content */}
       <div className="flex-1 p-4 lg:p-6">
         {/* Administradora: días con asistencia por aprobar */}
-        {canApprove && Object.keys(pendingByDate).length > 0 && (
+        {(canApprove || canApproveOvertime) && Object.keys(pendingByDate).length > 0 && (
           <div className="mb-4 flex items-center gap-2 flex-wrap bg-amber-50 border border-amber-300 rounded-xl px-4 py-3">
             <span className="text-sm font-semibold text-amber-900 mr-1">Por aprobar:</span>
             {Object.keys(pendingByDate)
@@ -2191,7 +2286,9 @@ export default function AsistenciaContent() {
             isAsistencia={isAsistencia}
             pendingCount={pendingByDate[selectedDate]?.count ?? 0}
             pendingBy={pendingByDate[selectedDate]?.by ?? []}
-            onApprove={canApprove ? () => approveDay(selectedDate) : undefined}
+            onApprove={
+              canApprove || canApproveOvertime ? () => approveDay(selectedDate) : undefined
+            }
             approving={approving === selectedDate}
             getShiftText={(wid: string) => {
               const code = getShiftForDate(wid, selectedDate);
@@ -2260,6 +2357,13 @@ export default function AsistenciaContent() {
           workerName={overtimeModal.workerName}
           dateLabel={overtimeModal.dateLabel}
           currentHours={overtimeModal.currentHours}
+          currentNotes={overtime[overtimeModal.workerId]?.[overtimeModal.date]?.notes ?? ''}
+          pendingBy={
+            overtime[overtimeModal.workerId]?.[overtimeModal.date]?.pending
+              ? (overtime[overtimeModal.workerId]?.[overtimeModal.date]?.proposedBy ?? '')
+              : null
+          }
+          canApprove={canApproveOvertime}
           onSave={(hours, notes) =>
             saveOvertime(overtimeModal.workerId, overtimeModal.date, hours, notes)
           }
@@ -2405,8 +2509,8 @@ function DayView({
               {pendingBy.length > 0 && ` · marcado por ${pendingBy.join(', ')}`}
             </p>
             <p className="text-xs mt-0.5">
-              Revisa la lista y corrige lo que no esté bien. Al aprobar, se guarda como asistencia
-              oficial y el día queda bloqueado.
+              Revisa la asistencia y las horas extra, y corrige lo que no esté bien. Al aprobar,
+              queda como oficial y el día se bloquea.
             </p>
           </div>
           <button
@@ -2491,6 +2595,7 @@ function DayView({
             const isNT = isMallaNT(w.id, date);
             const isAuto = !attendance[w.id]?.[date] && autoStatus !== null;
             const he = overtime[w.id]?.[date]?.hours ?? 0;
+            const hePending = he > 0 && !!overtime[w.id]?.[date]?.pending;
 
             return (
               <div
@@ -2593,18 +2698,24 @@ function DayView({
                     onClick={() => onOpenOvertime(w)}
                     disabled={isLocked || !canEditOvertime}
                     title={
-                      canEditOvertime ? undefined : 'Las horas extra las anota un administrador'
+                      hePending
+                        ? `Horas extra por aprobar${overtime[w.id]?.[date]?.proposedBy ? ` · anotó ${overtime[w.id]?.[date]?.proposedBy}` : ''}`
+                        : canEditOvertime
+                          ? undefined
+                          : 'Las horas extra las anota un administrador'
                     }
                     className={`flex flex-1 lg:flex-none justify-center items-center gap-1 px-2 py-3 lg:py-1.5 rounded-xl lg:rounded-lg text-sm lg:text-xs font-medium transition-colors shrink-0 ${
-                      he > 0
-                        ? `bg-amber-100 text-amber-700 border border-amber-300 ${canEditOvertime ? '' : 'cursor-default'}`
-                        : isLocked
-                          ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                          : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-amber-50 hover:text-amber-600'
+                      hePending
+                        ? `bg-white text-amber-700 border-2 border-dashed border-amber-400 ${canEditOvertime ? '' : 'cursor-default'}`
+                        : he > 0
+                          ? `bg-amber-100 text-amber-700 border border-amber-300 ${canEditOvertime ? '' : 'cursor-default'}`
+                          : isLocked
+                            ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                            : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-amber-50 hover:text-amber-600'
                     }`}
                   >
                     <Clock size={11} />
-                    {he > 0 ? `${he}h` : 'HE'}
+                    {he > 0 ? `${he}h${hePending ? ' · por aprobar' : ''}` : 'HE'}
                   </button>
                 )}
                 {/* Retiro anticipado */}
@@ -2815,7 +2926,16 @@ export function PeriodOverview({
                             </span>
                           </button>
                           {he > 0 && (
-                            <span className="text-[9px] text-amber-600 font-bold block">{he}h</span>
+                            <span
+                              className="text-[9px] text-amber-600 font-bold block"
+                              title={
+                                overtime[w.id]?.[dt]?.pending
+                                  ? 'Horas extra por aprobar'
+                                  : undefined
+                              }
+                            >
+                              {he}h{overtime[w.id]?.[dt]?.pending ? '*' : ''}
+                            </span>
                           )}
                           {retiro > 0 && (
                             <span

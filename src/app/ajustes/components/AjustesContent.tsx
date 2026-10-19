@@ -1810,11 +1810,12 @@ interface UserRoleRow {
   cargos?: string[] | null;
   /** Solo rol personalizado: qué puede hacer */
   permisos?: string[] | null;
+  nombre?: string;
   created_at: string;
 }
 
 type UserChanges = Partial<
-  Pick<UserRoleRow, 'role' | 'sucursales' | 'areas' | 'cargos' | 'permisos'>
+  Pick<UserRoleRow, 'role' | 'sucursales' | 'areas' | 'cargos' | 'permisos' | 'nombre'>
 >;
 
 const emptyToNull = (list: string[] | null | undefined) => (list && list.length > 0 ? list : null);
@@ -1826,6 +1827,8 @@ function UsersPanel() {
   const [rows, setRows] = useState<UserRoleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const allCargos = useMemo(() => {
     const set = new Set<string>();
     Object.values(areaCargos).forEach((list) => list.forEach((c) => c && set.add(c)));
@@ -1864,7 +1867,24 @@ function UsersPanel() {
       return;
     }
     setRows((prev) => prev.map((r) => (r.user_id === userId ? { ...r, ...changes } : r)));
-    toast.success('Permisos actualizados');
+    toast.success(changes.nombre !== undefined ? 'Nombre guardado' : 'Permisos actualizados');
+  }
+
+  async function saveNombre(row: UserRoleRow, value: string) {
+    const nombre = value.trim();
+    if (nombre === (row.nombre ?? '')) return;
+    if (row.user_id !== user?.id) {
+      saveUser(row.user_id, { nombre });
+      return;
+    }
+    // El propio nombre se guarda aparte (nadie puede cambiar sus propios permisos)
+    const { error } = await supabase.rpc('set_my_name', { p_nombre: nombre });
+    if (error) {
+      toast.error('No se pudo guardar el nombre.');
+      return;
+    }
+    setRows((prev) => prev.map((r) => (r.user_id === row.user_id ? { ...r, nombre } : r)));
+    toast.success('Nombre guardado');
   }
 
   function toggleIn(list: string[] | null | undefined, name: string) {
@@ -1895,6 +1915,21 @@ function UsersPanel() {
   }
 
   const pending = rows.filter((r) => r.role === 'pendiente').length;
+  const displayName = (r: UserRoleRow) => r.nombre?.trim() || r.email || r.user_id;
+  // Primero las cuentas sin acceso (las nuevas), luego por nombre
+  const visibleRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows
+      .filter(
+        (r) => !q || (r.nombre ?? '').toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
+      )
+      .sort((a, b) => {
+        const pa = a.role === 'pendiente' ? 0 : 1;
+        const pb = b.role === 'pendiente' ? 0 : 1;
+        return pa - pb || displayName(a).localeCompare(displayName(b), 'es');
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, search]);
 
   const chip = (active: boolean) =>
     `text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors disabled:opacity-60 ${
@@ -1929,169 +1964,242 @@ function UsersPanel() {
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando usuarios...</p>
       ) : (
-        <div className="flex flex-col divide-y divide-border border border-border rounded-xl overflow-hidden">
-          {rows.map((r) => {
-            const isMe = r.user_id === user?.id;
-            const busy = isMe || savingId === r.user_id;
-            const isAdminRow = r.role === 'admin';
-            const perms = permsFor(r.role, r.permisos ?? null);
-            const status =
-              r.role === 'pendiente'
-                ? { text: 'Sin acceso', cls: 'text-amber-800 bg-amber-50 border-amber-200' }
-                : isAdminRow
-                  ? {
-                      text: r.sucursales ? 'Administración de sucursal' : 'Administración general',
-                      cls: 'text-secondary bg-blue-50 border-blue-200',
-                    }
-                  : {
-                      text: perms.size === 1 ? '1 permiso' : `${perms.size} permisos`,
-                      cls: 'text-muted-foreground bg-muted border-border',
-                    };
-            return (
-              <div key={r.user_id} className="flex flex-col gap-2.5 px-4 py-3">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Mail size={14} className="text-muted-foreground shrink-0" />
-                    <span className="text-sm font-medium text-foreground truncate">
-                      {r.email || r.user_id}
-                    </span>
-                    {isMe && (
-                      <span className="text-[10px] font-bold uppercase text-secondary bg-blue-50 px-1.5 py-0.5 rounded">
-                        Tú
-                      </span>
-                    )}
-                  </div>
-                  <span
-                    className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${status.cls}`}
-                  >
-                    {status.text}
-                  </span>
-                </div>
-                {isMe && (
-                  <p className="text-xs text-muted-foreground -mt-1">
-                    No puedes cambiar tus propios permisos.
-                  </p>
-                )}
-
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-xs text-muted-foreground mr-1 w-[60px]">Sucursales:</span>
+        <>
+          {rows.length > 5 && (
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nombre o correo..."
+              className="text-sm border border-border rounded-lg px-3 py-2 bg-card focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          )}
+          <div className="flex flex-col divide-y divide-border border border-border rounded-xl overflow-hidden">
+            {visibleRows.length === 0 && (
+              <p className="text-sm text-muted-foreground px-4 py-3">
+                No hay usuarios con ese nombre.
+              </p>
+            )}
+            {visibleRows.map((r) => {
+              const isMe = r.user_id === user?.id;
+              const busy = isMe || savingId === r.user_id;
+              const isAdminRow = r.role === 'admin';
+              const perms = permsFor(r.role, r.permisos ?? null);
+              const status =
+                r.role === 'pendiente'
+                  ? { text: 'Sin acceso', cls: 'text-amber-800 bg-amber-50 border-amber-200' }
+                  : isAdminRow
+                    ? {
+                        text: r.sucursales
+                          ? 'Administración de sucursal'
+                          : 'Administración general',
+                        cls: 'text-secondary bg-blue-50 border-blue-200',
+                      }
+                    : {
+                        text: perms.size === 1 ? '1 permiso' : `${perms.size} permisos`,
+                        cls: 'text-muted-foreground bg-muted border-border',
+                      };
+              const isOpen = openId === r.user_id;
+              const hasName = !!r.nombre?.trim();
+              return (
+                <div key={r.user_id} className="flex flex-col">
                   <button
                     type="button"
-                    disabled={busy}
-                    onClick={() => saveUser(r.user_id, { sucursales: null })}
-                    className={chip(r.sucursales === null)}
+                    onClick={() => setOpenId(isOpen ? null : r.user_id)}
+                    aria-expanded={isOpen}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
                   >
-                    Todas
-                  </button>
-                  {allSucursales.map((s) => (
-                    <button
-                      key={s.name}
-                      type="button"
-                      disabled={busy}
-                      onClick={() =>
-                        saveUser(r.user_id, { sucursales: toggleIn(r.sucursales, s.name) })
-                      }
-                      className={chip(!!r.sucursales?.includes(s.name))}
-                    >
-                      {s.name}
-                    </button>
-                  ))}
-                </div>
-                {!isAdminRow && (
-                  <>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs text-muted-foreground mr-1 w-[60px]">Áreas:</span>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => saveUser(r.user_id, { areas: null })}
-                        className={chip(!r.areas)}
-                      >
-                        Todas
-                      </button>
-                      {allAreas.map((a) => (
-                        <button
-                          key={a}
-                          type="button"
-                          disabled={busy}
-                          onClick={() => saveUser(r.user_id, { areas: toggleIn(r.areas, a) })}
-                          className={chip(!!r.areas?.includes(a))}
-                        >
-                          {a}
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-8 h-8 rounded-full bg-blue-50 text-secondary text-sm font-bold flex items-center justify-center shrink-0">
+                        {displayName(r).charAt(0).toUpperCase()}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-foreground truncate">
+                            {hasName ? r.nombre : r.email || r.user_id}
+                          </span>
+                          {isMe && (
+                            <span className="text-[10px] font-bold uppercase text-secondary bg-blue-50 px-1.5 py-0.5 rounded">
+                              Tú
+                            </span>
+                          )}
+                        </div>
+                        {hasName && (
+                          <span className="text-xs text-muted-foreground truncate block">
+                            {r.email}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs text-muted-foreground mr-1 w-[60px]">Cargos:</span>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => saveUser(r.user_id, { cargos: null })}
-                        className={chip(!r.cargos)}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${status.cls}`}
                       >
-                        Todos
-                      </button>
-                      {allCargos.map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          disabled={busy}
-                          onClick={() => saveUser(r.user_id, { cargos: toggleIn(r.cargos, c) })}
-                          className={chip(!!r.cargos?.includes(c))}
-                        >
-                          {c}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
-                  {PERM_GROUPS.map((g) => (
-                    <fieldset
-                      key={g.modulo}
-                      className="border border-border rounded-lg px-3 py-2 flex flex-col gap-1"
-                    >
-                      <legend className="text-[11px] font-bold uppercase text-muted-foreground px-1">
-                        {g.modulo}
-                      </legend>
-                      {g.perms.map(({ perm, label }) => (
-                        <label
-                          key={perm}
-                          className="flex items-center gap-2 text-xs text-foreground cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={perms.has(perm)}
-                            disabled={busy || isAdminRow}
-                            onChange={() => togglePerm(r, perm)}
-                            className="w-4 h-4 accent-blue-600"
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </fieldset>
-                  ))}
-                  <fieldset className="border border-border rounded-lg px-3 py-2 flex flex-col gap-1">
-                    <legend className="text-[11px] font-bold uppercase text-muted-foreground px-1">
-                      Administración
-                    </legend>
-                    <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isAdminRow}
-                        disabled={busy}
-                        onChange={() => toggleAdmin(r)}
-                        className="w-4 h-4 accent-blue-600"
+                        {status.text}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
                       />
-                      Todo, con Ajustes y usuarios
-                    </label>
-                  </fieldset>
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="flex flex-col gap-2.5 px-4 pb-4 pt-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs text-muted-foreground mr-1 w-[60px]">Nombre:</span>
+                        <input
+                          key={`${r.user_id}-${r.nombre ?? ''}`}
+                          type="text"
+                          defaultValue={r.nombre ?? ''}
+                          maxLength={80}
+                          placeholder="Nombre y apellido"
+                          disabled={savingId === r.user_id}
+                          onBlur={(e) => saveNombre(r, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          className="flex-1 min-w-[180px] max-w-sm text-sm border border-border rounded-lg px-3 py-1.5 bg-card focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Mail size={12} /> {r.email}
+                        </span>
+                      </div>
+                      {isMe && (
+                        <p className="text-xs text-muted-foreground -mt-1">
+                          No puedes cambiar tus propios permisos.
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs text-muted-foreground mr-1 w-[60px]">
+                          Sucursales:
+                        </span>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => saveUser(r.user_id, { sucursales: null })}
+                          className={chip(r.sucursales === null)}
+                        >
+                          Todas
+                        </button>
+                        {allSucursales.map((s) => (
+                          <button
+                            key={s.name}
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              saveUser(r.user_id, { sucursales: toggleIn(r.sucursales, s.name) })
+                            }
+                            className={chip(!!r.sucursales?.includes(s.name))}
+                          >
+                            {s.name}
+                          </button>
+                        ))}
+                      </div>
+                      {!isAdminRow && (
+                        <>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs text-muted-foreground mr-1 w-[60px]">
+                              Áreas:
+                            </span>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => saveUser(r.user_id, { areas: null })}
+                              className={chip(!r.areas)}
+                            >
+                              Todas
+                            </button>
+                            {allAreas.map((a) => (
+                              <button
+                                key={a}
+                                type="button"
+                                disabled={busy}
+                                onClick={() => saveUser(r.user_id, { areas: toggleIn(r.areas, a) })}
+                                className={chip(!!r.areas?.includes(a))}
+                              >
+                                {a}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs text-muted-foreground mr-1 w-[60px]">
+                              Cargos:
+                            </span>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => saveUser(r.user_id, { cargos: null })}
+                              className={chip(!r.cargos)}
+                            >
+                              Todos
+                            </button>
+                            {allCargos.map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                  saveUser(r.user_id, { cargos: toggleIn(r.cargos, c) })
+                                }
+                                className={chip(!!r.cargos?.includes(c))}
+                              >
+                                {c}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
+                        {PERM_GROUPS.map((g) => (
+                          <fieldset
+                            key={g.modulo}
+                            className="border border-border rounded-lg px-3 py-2 flex flex-col gap-1"
+                          >
+                            <legend className="text-[11px] font-bold uppercase text-muted-foreground px-1">
+                              {g.modulo}
+                            </legend>
+                            {g.perms.map(({ perm, label }) => (
+                              <label
+                                key={perm}
+                                className="flex items-center gap-2 text-xs text-foreground cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={perms.has(perm)}
+                                  disabled={busy || isAdminRow}
+                                  onChange={() => togglePerm(r, perm)}
+                                  className="w-4 h-4 accent-blue-600"
+                                />
+                                {label}
+                              </label>
+                            ))}
+                          </fieldset>
+                        ))}
+                        <fieldset className="border border-border rounded-lg px-3 py-2 flex flex-col gap-1">
+                          <legend className="text-[11px] font-bold uppercase text-muted-foreground px-1">
+                            Administración
+                          </legend>
+                          <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isAdminRow}
+                              disabled={busy}
+                              onChange={() => toggleAdmin(r)}
+                              className="w-4 h-4 accent-blue-600"
+                            />
+                            Todo, con Ajustes y usuarios
+                          </label>
+                        </fieldset>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );

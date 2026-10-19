@@ -33,7 +33,7 @@ interface AuthContextValue {
   /** true cuando el usuario llegó desde el enlace de "olvidé mi contraseña" */
   recoveringPassword: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
-  signUp: (email: string, password: string) => Promise<string | null>;
+  signUp: (email: string, password: string, nombre: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<string | null>;
   updatePassword: (password: string) => Promise<string | null>;
@@ -148,11 +148,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signUp = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, nombre: string) => {
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: window.location.origin, data: { nombre: nombre.trim() } },
       });
       return error ? translateAuthError(error.message) : null;
     },
