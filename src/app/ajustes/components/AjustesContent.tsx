@@ -31,14 +31,7 @@ import {
   timeToMinutes,
 } from '@/context/AppContext';
 import { useAuth, type UserRole } from '@/context/AuthContext';
-import {
-  PERFILES,
-  PERM_GROUPS,
-  perfilOf,
-  permsFor,
-  type Perm,
-  type PerfilId,
-} from '@/lib/permisos';
+import { ALL_PERMS, PERM_GROUPS, permsFor, type Perm } from '@/lib/permisos';
 import { getSupabase } from '@/lib/supabase/client';
 import ExcelImportPanel from './ExcelImportPanel';
 
@@ -1776,14 +1769,13 @@ interface UserRoleRow {
   areas?: string[] | null;
   /** null = todos los cargos */
   cargos?: string[] | null;
-  /** Solo perfil personalizado: qué puede hacer */
+  /** Solo rol personalizado: qué puede hacer */
   permisos?: string[] | null;
-  perfil?: string | null;
   created_at: string;
 }
 
 type UserChanges = Partial<
-  Pick<UserRoleRow, 'role' | 'sucursales' | 'areas' | 'cargos' | 'permisos' | 'perfil'>
+  Pick<UserRoleRow, 'role' | 'sucursales' | 'areas' | 'cargos' | 'permisos'>
 >;
 
 const emptyToNull = (list: string[] | null | undefined) => (list && list.length > 0 ? list : null);
@@ -1836,30 +1828,6 @@ function UsersPanel() {
     toast.success('Permisos actualizados');
   }
 
-  function choosePerfil(row: UserRoleRow, id: PerfilId) {
-    const perfil = PERFILES.find((p) => p.id === id)!;
-    const changes: UserChanges = {
-      perfil: id,
-      role: perfil.role,
-      permisos: perfil.permisos ?? null,
-    };
-    if (id === 'admin_general') {
-      changes.sucursales = null;
-      changes.areas = null;
-      changes.cargos = null;
-    } else if (id === 'gerente') {
-      // Sin sucursal elegida queda sin acceso: si no, sería administración general
-      changes.areas = null;
-      changes.cargos = null;
-      changes.role = row.sucursales ? 'admin' : 'pendiente';
-    } else if (id === 'jefa_caja' && !row.cargos && allCargos.includes('Cajera')) {
-      changes.cargos = ['Cajera'];
-    } else if (id === 'personalizado') {
-      changes.permisos = [...permsFor(row.role, row.permisos ?? null)];
-    }
-    saveUser(row.user_id, changes);
-  }
-
   function toggleIn(list: string[] | null | undefined, name: string) {
     const current = list ?? [];
     return emptyToNull(
@@ -1867,26 +1835,27 @@ function UsersPanel() {
     );
   }
 
-  function toggleSucursal(row: UserRoleRow, name: string) {
-    const next = toggleIn(row.sucursales, name);
-    const changes: UserChanges = { sucursales: next };
-    if (perfilOf(row) === 'gerente') changes.role = next ? 'admin' : 'pendiente';
-    saveUser(row.user_id, changes);
+  // Administración = todo (incluidos Ajustes y usuarios) dentro de sus sucursales.
+  // Sin ninguna casilla queda sin acceso.
+  function toggleAdmin(row: UserRoleRow) {
+    if (row.role === 'admin') {
+      saveUser(row.user_id, { role: 'personalizado', permisos: [...ALL_PERMS] });
+    } else {
+      saveUser(row.user_id, { role: 'admin', areas: null, cargos: null });
+    }
   }
 
-  // Cambiar una casilla deja el perfil como "Personalizado"
   function togglePerm(row: UserRoleRow, perm: Perm) {
     const current = permsFor(row.role, row.permisos ?? null);
     if (current.has(perm)) current.delete(perm);
     else current.add(perm);
     saveUser(row.user_id, {
-      role: 'personalizado',
-      perfil: 'personalizado',
+      role: current.size > 0 ? 'personalizado' : 'pendiente',
       permisos: [...current],
     });
   }
 
-  const pending = rows.filter((r) => perfilOf(r) === 'pendiente').length;
+  const pending = rows.filter((r) => r.role === 'pendiente').length;
 
   const chip = (active: boolean) =>
     `text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors disabled:opacity-60 ${
@@ -1904,8 +1873,8 @@ function UsersPanel() {
         </h3>
         <p className="text-sm text-muted-foreground mt-1">
           Cada persona entra con su propio correo y contraseña. Las cuentas nuevas quedan sin acceso
-          hasta que les asignes un perfil. Elige qué sucursales, áreas y cargos ve, y qué puede
-          hacer.
+          hasta que les marques algún permiso. Elige qué sucursales, áreas y cargos ve, y qué puede
+          hacer en cada módulo.
         </p>
       </div>
 
@@ -1925,11 +1894,20 @@ function UsersPanel() {
           {rows.map((r) => {
             const isMe = r.user_id === user?.id;
             const busy = isMe || savingId === r.user_id;
-            const perfilId = perfilOf(r);
-            const perfil = PERFILES.find((p) => p.id === perfilId)!;
+            const isAdminRow = r.role === 'admin';
             const perms = permsFor(r.role, r.permisos ?? null);
-            const showScope = perfilId !== 'pendiente' && perfilId !== 'admin_general';
-            const waitingSucursal = perfilId === 'gerente' && !r.sucursales;
+            const status =
+              r.role === 'pendiente'
+                ? { text: 'Sin acceso', cls: 'text-amber-800 bg-amber-50 border-amber-200' }
+                : isAdminRow
+                  ? {
+                      text: r.sucursales ? 'Administración de sucursal' : 'Administración general',
+                      cls: 'text-secondary bg-blue-50 border-blue-200',
+                    }
+                  : {
+                      text: perms.size === 1 ? '1 permiso' : `${perms.size} permisos`,
+                      cls: 'text-muted-foreground bg-muted border-border',
+                    };
             return (
               <div key={r.user_id} className="flex flex-col gap-2.5 px-4 py-3">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1944,60 +1922,43 @@ function UsersPanel() {
                       </span>
                     )}
                   </div>
-                  <select
-                    value={perfilId}
-                    disabled={busy}
-                    onChange={(e) => choosePerfil(r, e.target.value as PerfilId)}
-                    title={isMe ? 'No puedes cambiar tu propio perfil' : undefined}
-                    aria-label={`Perfil de ${r.email}`}
-                    className="text-sm border border-border rounded-lg px-3 py-1.5 bg-card focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+                  <span
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${status.cls}`}
                   >
-                    {PERFILES.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+                    {status.text}
+                  </span>
                 </div>
-                {perfilId !== 'pendiente' && (
+                {isMe && (
                   <p className="text-xs text-muted-foreground -mt-1">
-                    {perfil.description}
-                    {perfil.pide && <span className="text-foreground"> {perfil.pide}</span>}
-                  </p>
-                )}
-                {waitingSucursal && (
-                  <p className="text-xs font-semibold text-amber-700">
-                    Elige su sucursal: mientras tanto queda sin acceso.
+                    No puedes cambiar tus propios permisos.
                   </p>
                 )}
 
-                {showScope && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs text-muted-foreground mr-1 w-[60px]">Sucursales:</span>
-                    {perfilId !== 'gerente' && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => saveUser(r.user_id, { sucursales: null })}
-                        className={chip(r.sucursales === null)}
-                      >
-                        Todas
-                      </button>
-                    )}
-                    {allSucursales.map((s) => (
-                      <button
-                        key={s.name}
-                        type="button"
-                        disabled={busy}
-                        onClick={() => toggleSucursal(r, s.name)}
-                        className={chip(!!r.sucursales?.includes(s.name))}
-                      >
-                        {s.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {showScope && perfilId !== 'gerente' && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs text-muted-foreground mr-1 w-[60px]">Sucursales:</span>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => saveUser(r.user_id, { sucursales: null })}
+                    className={chip(r.sucursales === null)}
+                  >
+                    Todas
+                  </button>
+                  {allSucursales.map((s) => (
+                    <button
+                      key={s.name}
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        saveUser(r.user_id, { sucursales: toggleIn(r.sucursales, s.name) })
+                      }
+                      className={chip(!!r.sucursales?.includes(s.name))}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+                {!isAdminRow && (
                   <>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs text-muted-foreground mr-1 w-[60px]">Áreas:</span>
@@ -2046,48 +2007,53 @@ function UsersPanel() {
                   </>
                 )}
 
-                {showScope && r.role !== 'admin' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-1">
-                    {PERM_GROUPS.map((g) => (
-                      <fieldset
-                        key={g.modulo}
-                        className="border border-border rounded-lg px-3 py-2 flex flex-col gap-1"
-                      >
-                        <legend className="text-[11px] font-bold uppercase text-muted-foreground px-1">
-                          {g.modulo}
-                        </legend>
-                        {g.perms.map(({ perm, label }) => (
-                          <label
-                            key={perm}
-                            className="flex items-center gap-2 text-xs text-foreground cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={perms.has(perm)}
-                              disabled={busy}
-                              onChange={() => togglePerm(r, perm)}
-                              className="w-4 h-4 accent-blue-600"
-                            />
-                            {label}
-                          </label>
-                        ))}
-                      </fieldset>
-                    ))}
-                  </div>
-                )}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
+                  {PERM_GROUPS.map((g) => (
+                    <fieldset
+                      key={g.modulo}
+                      className="border border-border rounded-lg px-3 py-2 flex flex-col gap-1"
+                    >
+                      <legend className="text-[11px] font-bold uppercase text-muted-foreground px-1">
+                        {g.modulo}
+                      </legend>
+                      {g.perms.map(({ perm, label }) => (
+                        <label
+                          key={perm}
+                          className="flex items-center gap-2 text-xs text-foreground cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={perms.has(perm)}
+                            disabled={busy || isAdminRow}
+                            onChange={() => togglePerm(r, perm)}
+                            className="w-4 h-4 accent-blue-600"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </fieldset>
+                  ))}
+                  <fieldset className="border border-border rounded-lg px-3 py-2 flex flex-col gap-1">
+                    <legend className="text-[11px] font-bold uppercase text-muted-foreground px-1">
+                      Administración
+                    </legend>
+                    <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isAdminRow}
+                        disabled={busy}
+                        onChange={() => toggleAdmin(r)}
+                        className="w-4 h-4 accent-blue-600"
+                      />
+                      Todo, con Ajustes y usuarios
+                    </label>
+                  </fieldset>
+                </div>
               </div>
             );
           })}
         </div>
       )}
-
-      <ul className="text-xs text-muted-foreground flex flex-col gap-1">
-        {PERFILES.map((o) => (
-          <li key={o.id}>
-            <span className="font-semibold text-foreground">{o.label}:</span> {o.description}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
