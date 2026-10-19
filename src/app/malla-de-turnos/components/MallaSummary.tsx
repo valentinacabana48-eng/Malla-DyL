@@ -229,11 +229,27 @@ function getDayName(day: number, monthLabel: string): string {
 
 // Hoja de un día: lista de trabajadoras con turno, casillas para marcar y HE.
 // La usan la impresión por día y la por semana (una hoja por día), para que sean iguales.
+const isTardeShift = (w: WorkerShiftDetail) => {
+  const [h, m] = (w.start || '00:00').split(':').map(Number);
+  return h * 60 + (m || 0) >= 11 * 60;
+};
+const TOTAL_ROW_STYLE: React.CSSProperties = {
+  padding: '4px 10px',
+  textAlign: 'right',
+  fontWeight: '700',
+  fontSize: '11px',
+  background: '#f3f4f6',
+  borderBottom: '1px solid #d1d5db',
+};
+
 function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
   // Columna de sucursal solo si la hoja mezcla varias sucursales
   const multiSucursal = new Set(workerDetails.map((w) => w.sucursal)).size > 1;
   // Orden, Nombre, (Sucursal), Cajas, 3 × (hora + casilla), HE
   const dayColumnCount = 3 + (multiSucursal ? 1 : 0) + TIME_GROUPS.length * 2 + 1;
+  // Totales de mañana y tarde (la lista viene ordenada por hora de entrada)
+  const mananaCount = workerDetails.filter((w) => !isTardeShift(w)).length;
+  const tardeCount = workerDetails.length - mananaCount;
   return (
     <>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
@@ -282,13 +298,10 @@ function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
         </thead>
         <tbody>
           {workerDetails.map((wd, i) => {
-            const toMins = (t: string) => {
-              const [h, m] = (t || '00:00').split(':').map(Number);
-              return h * 60 + (m || 0);
-            };
-            const isTarde = toMins(wd.start) >= 11 * 60;
-            const tardeWorkers = workerDetails.filter((w) => toMins(w.start) >= 11 * 60);
-            const isFirstTarde = isTarde && tardeWorkers.findIndex((w) => w === wd) === 0;
+            const isTarde = isTardeShift(wd);
+            const isFirstTarde = isTarde && tardeCount > 0 && i === mananaCount;
+            const isLastManana = !isTarde && i === mananaCount - 1;
+            const isLast = i === workerDetails.length - 1;
             const times: Record<string, string> = {
               entrada: wd.start,
               colacion: wd.colacion === 0 ? '0' : `${wd.colacion} min`,
@@ -357,6 +370,20 @@ function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
                   ))}
                   <td style={{ ...TD, borderLeft: GROUP_BORDER }} />
                 </tr>
+                {isLastManana && (
+                  <tr>
+                    <td colSpan={dayColumnCount} style={TOTAL_ROW_STYLE}>
+                      Total mañana: {mananaCount}
+                    </td>
+                  </tr>
+                )}
+                {isTarde && isLast && (
+                  <tr>
+                    <td colSpan={dayColumnCount} style={TOTAL_ROW_STYLE}>
+                      Total tarde: {tardeCount}
+                    </td>
+                  </tr>
+                )}
               </React.Fragment>
             );
           })}
@@ -371,7 +398,8 @@ function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
           paddingTop: '6px',
         }}
       >
-        Total trabajadoras con turno: <strong>{workerDetails.length}</strong>
+        Total del día: <strong>{workerDetails.length}</strong> (mañana {mananaCount} · tarde{' '}
+        {tardeCount})
         <span style={{ marginLeft: '16px' }}>
           Orden: anotar en qué orden llegaron. Marcar ✓ al llegar, al salir a colación y al irse.
           HE: anotar horas extra del día.
