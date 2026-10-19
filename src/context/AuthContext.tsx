@@ -96,13 +96,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRole((prev) => prev ?? 'pendiente');
         return;
       }
-      const sucursales = (data?.sucursales as string[] | null) ?? null;
-      setAllowedSucursales(sucursales && sucursales.length > 0 ? sucursales : null);
-      const cargos = (data?.cargos as string[] | null) ?? null;
-      setAllowedCargos(cargos && cargos.length > 0 ? cargos : null);
-      const areas = (data?.areas as string[] | null) ?? null;
-      setAllowedAreas(areas && areas.length > 0 ? areas : null);
-      setPermisos((data?.permisos as string[] | null) ?? null);
+      // Si la lista no cambió se conserva la misma, para no recargar la app en cada lectura
+      const keep = (next: string[] | null) => (prev: string[] | null) =>
+        JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+      const listOrNull = (v: unknown) => {
+        const list = (v as string[] | null) ?? null;
+        return list && list.length > 0 ? list : null;
+      };
+      setAllowedSucursales(keep(listOrNull(data?.sucursales)));
+      setAllowedCargos(keep(listOrNull(data?.cargos)));
+      setAllowedAreas(keep(listOrNull(data?.areas)));
+      setPermisos(keep((data?.permisos as string[] | null) ?? null));
       setRole((data?.role as UserRole) ?? 'pendiente');
     },
     [supabase]
@@ -183,6 +187,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshRole = useCallback(async () => {
     await loadRole(session?.user.id);
   }, [loadRole, session]);
+
+  // Los permisos se vuelven a leer al volver a la app y cada minuto, para que un cambio
+  // hecho en Ajustes se aplique sin tener que cerrar sesión.
+  const userId = session?.user.id;
+  useEffect(() => {
+    if (!userId) return;
+    const reload = () => {
+      if (document.visibilityState === 'visible') loadRole(userId);
+    };
+    const timer = window.setInterval(reload, 60_000);
+    window.addEventListener('focus', reload);
+    document.addEventListener('visibilitychange', reload);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', reload);
+      document.removeEventListener('visibilitychange', reload);
+    };
+  }, [userId, loadRole]);
 
   const perms = useMemo(() => permsFor(role, permisos), [role, permisos]);
   const can = useCallback((perm: Perm) => perms.has(perm), [perms]);
