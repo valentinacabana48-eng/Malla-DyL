@@ -2,7 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { Download, Upload, X, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
 import ExcelJS from 'exceljs';
-import { readFirstSheetRows } from '@/lib/excel';
+import { applyPrintSetup, readFirstSheetRows } from '@/lib/excel';
 import { type Worker, type Shift, type ShiftCode } from '@/context/AppContext';
 
 interface Props {
@@ -125,6 +125,31 @@ function applyCell(
   cell.border = { top: bc, bottom: bc, left: bc, right: bc };
 }
 
+const MESES_IDX: Record<string, number> = {
+  enero: 0,
+  febrero: 1,
+  marzo: 2,
+  abril: 3,
+  mayo: 4,
+  junio: 5,
+  julio: 6,
+  agosto: 7,
+  septiembre: 8,
+  octubre: 9,
+  noviembre: 10,
+  diciembre: 11,
+};
+const WEEKDAY_NAMES = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+
+/** "Octubre 2026", 7 → "mié" */
+function weekdayName(monthLabel: string, day: number): string {
+  const [mes, anio] = monthLabel.toLowerCase().split(/\s+/);
+  const monthIdx = MESES_IDX[mes];
+  const year = parseInt(anio, 10);
+  if (monthIdx === undefined || Number.isNaN(year)) return '';
+  return WEEKDAY_NAMES[new Date(year, monthIdx, day).getDay()];
+}
+
 export default function MallaExcelPanel({
   workers,
   scheduleData,
@@ -199,7 +224,7 @@ export default function MallaExcelPanel({
     // 5 frozen cols: NOMBRE, JORNADA, SEM1, SEM2, SEM3, SEM4, SEM5 = 7 fixed cols
     const FIXED_COLS = 7; // NOMBRE, JORNADA, SEM1-5
     const ws = wb.addWorksheet('Malla de Turnos', {
-      views: [{ state: 'frozen', xSplit: FIXED_COLS, ySplit: 3 }],
+      views: [{ state: 'frozen', xSplit: FIXED_COLS, ySplit: 2 }],
     });
 
     const totalCols = FIXED_COLS + daysInMonth;
@@ -246,14 +271,19 @@ export default function MallaExcelPanel({
       const isSun = dow === 'D';
       const bg = isSun ? C.sunHdrBg : isSat ? C.satHdrBg : C.headerBg;
       const fg = isSun ? '1E3A8A' : isSat ? '1E3A8A' : C.headerFg;
-      applyCell(ws.getCell(1, FIXED_COLS + 1 + d), dayNamesMap[dow] || dow.toLowerCase(), {
-        bgArgb: bg,
-        fgArgb: fg,
-        bold: false,
-        sz: 9,
-        halign: 'center',
-        border: 'thin',
-      });
+      // El nombre sale de la fecha: la letra "M" es tanto martes como miércoles
+      applyCell(
+        ws.getCell(1, FIXED_COLS + 1 + d),
+        weekdayName(monthLabel, d + 1) || dayNamesMap[dow] || dow.toLowerCase(),
+        {
+          bgArgb: bg,
+          fgArgb: fg,
+          bold: false,
+          sz: 9,
+          halign: 'center',
+          border: 'thin',
+        }
+      );
     }
 
     // ── ROW 2: Fixed column headers + date strings ────────────────────────
@@ -719,6 +749,7 @@ export default function MallaExcelPanel({
     });
 
     // ── Download ──────────────────────────────────────────────────────────
+    wb.worksheets.forEach((sheet) => applyPrintSetup(sheet, sheet.columnCount > 6));
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

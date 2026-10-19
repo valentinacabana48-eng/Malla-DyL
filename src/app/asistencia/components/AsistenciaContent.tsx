@@ -1369,6 +1369,21 @@ export default function AsistenciaContent() {
       NT: 'No trabajaba',
     };
 
+    // Letras iguales a las de la app (resumen del período)
+    const STATUS_LETTER: Record<string, string> = {
+      PRESENTE: 'P',
+      AUSENTE: 'F',
+      FALTA_JUSTIFICADA: 'J',
+      DESCANSO: 'D',
+      NT: '-',
+      LICENCIA: 'L',
+      PERMISO: 'M',
+      PERMISO_CG: 'M',
+      PERMISO_SG: 'S',
+      VACACIONES: 'V',
+      CUMPLEANOS: 'C',
+    };
+
     // Report status: DB record first, then effective status (malla-derived)
     // This ensures every cell shows something — no blank cells for workers with shifts
     function getReportStatus(workerId: string, dateStr: string): string {
@@ -1403,7 +1418,7 @@ export default function AsistenciaContent() {
       FALTA_JUSTIFICADA: { bg: 'FFF2CC', fg: '7F6000' },
       DESCANSO: { bg: 'DDEBF7', fg: '1F4E79' },
       NT: { bg: 'F2F2F2', fg: '808080' },
-      VACACIONES: { bg: 'FFF2CC', fg: '7F6000' },
+      VACACIONES: { bg: 'C9DAF8', fg: '1C4587' },
       PERMISO: { bg: 'EDE7F6', fg: '4A148C' },
       PERMISO_CG: { bg: 'E0F2F1', fg: '004D40' },
       PERMISO_SG: { bg: 'FFE0B2', fg: 'E65100' },
@@ -1452,7 +1467,7 @@ export default function AsistenciaContent() {
     ws.getColumn(2).width = 18;
     ws.getColumn(3).width = 18;
     dates.forEach((_, i) => {
-      ws.getColumn(FIXED_COLS + 1 + i).width = 5.5;
+      ws.getColumn(FIXED_COLS + 1 + i).width = 6.5;
     });
     TOTAL_LABELS.forEach((_, i) => {
       ws.getColumn(FIXED_COLS + dates.length + 1 + i).width = 11;
@@ -1468,7 +1483,8 @@ export default function AsistenciaContent() {
 
     ws.getRow(2).height = 6;
 
-    const periodStr = `${startDate} al ${endDate}`;
+    const fmtDate = (iso: string) => iso.split('-').reverse().join('-');
+    const periodStr = `${fmtDate(startDate)} al ${fmtDate(endDate)}`;
     const sucStr = filterSucursal.length > 0 ? filterSucursal.join(', ') : 'Todas';
     const areaStr = filterArea !== 'Todas' ? filterArea : 'Todas';
     const now2 = new Date();
@@ -1484,7 +1500,14 @@ export default function AsistenciaContent() {
     ws.getRow(3).height = 18;
     ws.getRow(4).height = 18;
 
-    const setInfoCell = (row: number, col: number, val: string | number, isLabel: boolean) => {
+    const setInfoCell = (
+      row: number,
+      col: number,
+      val: string | number,
+      isLabel: boolean,
+      toCol = col
+    ) => {
+      if (toCol > col) ws.mergeCells(row, col, row, toCol);
       const cell = ws.getCell(row, col);
       cell.value = val;
       cell.fill = infoFill;
@@ -1493,19 +1516,20 @@ export default function AsistenciaContent() {
       cell.border = thinBorder;
     };
 
+    // Los datos van en las columnas anchas; a la derecha, unidos sobre las columnas de días
+    const infoEnd = Math.min(totalCols, FIXED_COLS + Math.max(dates.length, 10));
     setInfoCell(3, 1, 'Período:', true);
-    ws.mergeCells(3, 2, 3, 3);
-    setInfoCell(3, 2, periodStr, false);
-    setInfoCell(3, 4, 'Sucursal:', true);
-    setInfoCell(3, 5, sucStr, false);
-    setInfoCell(3, 6, 'Área:', true);
-    setInfoCell(3, 7, areaStr, false);
-
-    setInfoCell(4, 1, 'Generado:', true);
-    ws.mergeCells(4, 2, 4, 3);
-    setInfoCell(4, 2, genStr, false);
-    setInfoCell(4, 4, 'Trabajadoras:', true);
-    setInfoCell(4, 5, reportWorkers.length, false);
+    setInfoCell(3, 2, periodStr, false, 3);
+    setInfoCell(
+      3,
+      FIXED_COLS + 1,
+      `Área: ${areaStr}   ·   Trabajadoras: ${reportWorkers.length}`,
+      false,
+      infoEnd
+    );
+    setInfoCell(4, 1, 'Sucursal:', true);
+    setInfoCell(4, 2, sucStr, false, 3);
+    setInfoCell(4, FIXED_COLS + 1, `Generado: ${genStr}`, false, infoEnd);
 
     ws.getRow(5).height = 6;
     ws.getRow(6).height = 22;
@@ -1557,6 +1581,7 @@ export default function AsistenciaContent() {
       ws.getRow(excelRow).height = 18;
       const isAlt = rowIdx % 2 === 1;
       const rowBgHex = isAlt ? 'F7FBFF' : 'FFFFFF';
+      let rowHasExtras = false;
 
       const fixedStyle = {
         fill: {
@@ -1601,9 +1626,15 @@ export default function AsistenciaContent() {
         const ot = overtime[w.id]?.[dt];
         const he = ot?.hours ?? 0;
         if (he > 0) counts[ot?.pending ? 'HE_PEND' : 'HE'] += he;
-        const baseVal = getCellDisplayValue(w.id, dt);
-        let displayVal = retiro > 0 ? `${baseVal} (-${retiro}h)` : baseVal;
-        if (he > 0) displayVal += ` +${he}h HE${ot?.pending ? ' (por aprobar)' : ''}`;
+        // Letra del estado y, debajo, horas extra (+2h, * = por aprobar) o retiro (-1h)
+        const extras = [
+          he > 0 ? `+${he}h${ot?.pending ? '*' : ''}` : '',
+          retiro > 0 ? `-${retiro}h` : '',
+        ].filter(Boolean);
+        if (extras.length > 0) rowHasExtras = true;
+        const letter = status ? (STATUS_LETTER[status] ?? getCellDisplayValue(w.id, dt)) : '';
+        const displayVal = [letter, ...extras].join('\n');
+        const reason = freshAttendance[w.id]?.[dt]?.absenceReason?.trim();
         const colNum = FIXED_COLS + 1 + i;
         const colors = STATUS_COLORS[status] ?? { bg: rowBgHex, fg: '000000' };
 
@@ -1616,15 +1647,14 @@ export default function AsistenciaContent() {
 
         const cell = ws.getCell(excelRow, colNum);
         cell.value = displayVal;
-        cell.font = {
-          bold: status === 'PRESENTE',
-          size: status === 'PRESENTE' ? 11 : 9,
-          color: { argb: argb(colors.fg) },
-        };
+        if (reason) cell.note = reason;
+        cell.font = { bold: true, size: 10, color: { argb: argb(colors.fg) } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(cellBg) } };
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         cell.border = thinBorder;
       });
+
+      if (rowHasExtras) ws.getRow(excelRow).height = 30;
 
       TOTAL_KEYS.forEach((key, i) => {
         const colNum = FIXED_COLS + dates.length + 1 + i;
@@ -1707,96 +1737,63 @@ export default function AsistenciaContent() {
     });
     if (heRow === 2) wsHE.getCell(2, 1).value = 'Sin horas extra en el período.';
 
-    // Sheet 2: Legend
+    // Hoja Leyenda: las mismas letras de la app
     const wsL = wb.addWorksheet('Leyenda');
     wsL.getColumn(1).width = 10;
-    wsL.getColumn(2).width = 32;
-    wsL.getColumn(3).width = 20;
+    wsL.getColumn(2).width = 34;
 
     wsL.getRow(1).height = 28;
-    wsL.mergeCells(1, 1, 1, 3);
+    wsL.mergeCells(1, 1, 1, 2);
     const legTitle = wsL.getCell(1, 1);
-    legTitle.value = 'LEYENDA DE SÍMBOLOS';
+    legTitle.value = 'LEYENDA';
     legTitle.font = { bold: true, size: 14, color: { argb: argb('FFFFFF') } };
     legTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb('1F4E79') } };
     legTitle.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    const legendData = [
-      { sym: 'Símbolo', label: 'Estado', note: 'Color de celda', isHeader: true },
-      { sym: '✓', label: 'Presente', note: 'Verde claro', isHeader: false },
-      { sym: 'X', label: 'Falta injustificada', note: 'Rojo claro', isHeader: false },
-      { sym: 'J', label: 'Falta justificada', note: 'Amarillo claro', isHeader: false },
-      { sym: 'V', label: 'Vacaciones', note: 'Amarillo claro', isHeader: false },
-      { sym: 'D', label: 'Descanso', note: 'Azul claro', isHeader: false },
-      {
-        sym: 'P',
-        label: 'Permiso con goce / sin goce',
-        note: 'Verde agua / naranjo',
-        isHeader: false,
-      },
-      { sym: 'L', label: 'Licencia', note: 'Naranja claro', isHeader: false },
-      { sym: 'C', label: 'Cumpleaños', note: 'Rosa claro', isHeader: false },
-      { sym: 'HE', label: 'Horas Extra', note: 'Suma del período', isHeader: false },
-      {
-        sym: '(-Xh)',
-        label: 'Se retiró antes',
-        note: 'Horas descontadas ese día',
-        isHeader: false,
-      },
-      { sym: '—', label: 'Domingo', note: 'Encabezado naranja', isHeader: false },
-      { sym: '—', label: 'Feriado', note: 'Encabezado rojo', isHeader: false },
+    const legendRows: { sym: string; label: string; code?: string }[] = [
+      { sym: 'P', label: 'Presente', code: 'PRESENTE' },
+      { sym: 'F', label: 'Falta injustificada', code: 'AUSENTE' },
+      { sym: 'J', label: 'Falta justificada', code: 'FALTA_JUSTIFICADA' },
+      { sym: 'D', label: 'Descanso', code: 'DESCANSO' },
+      { sym: '-', label: 'No trabajaba', code: 'NT' },
+      { sym: 'L', label: 'Licencia', code: 'LICENCIA' },
+      { sym: 'M', label: 'Permiso con goce', code: 'PERMISO_CG' },
+      { sym: 'S', label: 'Permiso sin goce', code: 'PERMISO_SG' },
+      { sym: 'V', label: 'Vacaciones', code: 'VACACIONES' },
+      { sym: 'C', label: 'Cumpleaños', code: 'CUMPLEANOS' },
+      { sym: '+2h', label: 'Horas extra aprobadas' },
+      { sym: '+2h*', label: 'Horas extra por aprobar' },
+      { sym: '-1h', label: 'Se retiró antes (horas descontadas)' },
+      { sym: '◤', label: 'Triángulo en la celda: motivo de la falta' },
     ];
-
-    legendData.forEach((row, ri) => {
+    legendRows.forEach((row, ri) => {
       const excelRow = ri + 2;
       wsL.getRow(excelRow).height = 20;
-      if (row.isHeader) {
-        [1, 2, 3].forEach((col, ci) => {
-          const cell = wsL.getCell(excelRow, col);
-          cell.value = [row.sym, row.label, row.note][ci];
-          cell.font = { bold: true, color: { argb: argb('FFFFFF') } };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb('1F4E79') } };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          cell.border = thinBorder;
-        });
-      } else {
-        const colors = STATUS_COLORS[
-          row.sym === '✓'
-            ? 'PRESENTE'
-            : row.sym === 'X'
-              ? 'AUSENTE'
-              : row.sym === 'J'
-                ? 'FALTA_JUSTIFICADA'
-                : row.sym === 'V'
-                  ? 'VACACIONES'
-                  : row.sym === 'D'
-                    ? 'DESCANSO'
-                    : row.sym === 'P'
-                      ? 'PERMISO'
-                      : row.sym === 'L'
-                        ? 'LICENCIA'
-                        : row.sym === 'C'
-                          ? 'CUMPLEANOS'
-                          : ''
-        ] ?? { bg: 'F5F5F5', fg: '000000' };
-        const symCell = wsL.getCell(excelRow, 1);
-        symCell.value = row.sym;
-        symCell.font = { bold: true, size: 12, color: { argb: argb(colors.fg) } };
-        symCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(colors.bg) } };
-        symCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        symCell.border = thinBorder;
-        const labelCell = wsL.getCell(excelRow, 2);
-        labelCell.value = row.label;
-        labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb('EBF3FB') } };
-        labelCell.alignment = { horizontal: 'left', vertical: 'middle' };
-        labelCell.border = thinBorder;
-        const noteCell = wsL.getCell(excelRow, 3);
-        noteCell.value = row.note;
-        noteCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb('EBF3FB') } };
-        noteCell.alignment = { horizontal: 'left', vertical: 'middle' };
-        noteCell.border = thinBorder;
-      }
+      const colors = (row.code && STATUS_COLORS[row.code]) || { bg: 'FFF2CC', fg: '7F6000' };
+      const symCell = wsL.getCell(excelRow, 1);
+      symCell.value = row.sym;
+      symCell.font = { bold: true, size: 12, color: { argb: argb(colors.fg) } };
+      symCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(colors.bg) } };
+      symCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      symCell.border = thinBorder;
+      const labelCell = wsL.getCell(excelRow, 2);
+      labelCell.value = row.label;
+      labelCell.alignment = { horizontal: 'left', vertical: 'middle' };
+      labelCell.border = thinBorder;
     });
+
+    // Al imprimir: horizontal y a lo ancho de una hoja
+    [ws, wsHE].forEach((sheet) => {
+      sheet.pageSetup = {
+        orientation: 'landscape',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        paperSize: 9,
+        margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+      };
+    });
+    ws.pageSetup.printTitlesRow = '6:6';
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], {

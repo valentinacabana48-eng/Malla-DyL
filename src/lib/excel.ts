@@ -123,9 +123,34 @@ export interface SimpleSheet {
   rows: CellValue[][];
   /** Ancho de columnas en caracteres */
   colWidths?: number[];
+  /** Hoja de datos: la primera fila es el encabezado (por defecto sí) */
+  header?: boolean;
 }
 
-/** Descarga un libro con hojas simples (sin estilos). */
+/** Al imprimir: horizontal y a lo ancho de una hoja */
+export function applyPrintSetup(ws: ExcelJS.Worksheet, landscape = true) {
+  ws.pageSetup = {
+    ...ws.pageSetup,
+    orientation: landscape ? 'landscape' : 'portrait',
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    paperSize: 9,
+    margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+  };
+}
+
+const HEADER_BG = 'FF1F4E79';
+const ALT_ROW_BG = 'FFF3F7FB';
+const BORDER_COLOR = { argb: 'FFBFBFBF' };
+const THIN_BORDER = {
+  top: { style: 'thin' as const, color: BORDER_COLOR },
+  bottom: { style: 'thin' as const, color: BORDER_COLOR },
+  left: { style: 'thin' as const, color: BORDER_COLOR },
+  right: { style: 'thin' as const, color: BORDER_COLOR },
+};
+
+/** Descarga un libro con hojas sencillas: encabezado en azul, filas alternadas, filtros y bordes. */
 export async function downloadSimpleWorkbook(sheets: SimpleSheet[], fileName: string) {
   const ExcelJSLib = await loadExcelJS();
   const wb = new ExcelJSLib.Workbook();
@@ -135,6 +160,35 @@ export async function downloadSimpleWorkbook(sheets: SimpleSheet[], fileName: st
     sheet.colWidths?.forEach((w, i) => {
       ws.getColumn(i + 1).width = w;
     });
+    const numCols = Math.max(0, ...sheet.rows.map((r) => r.length));
+    const isTable = sheet.header !== false;
+
+    ws.eachRow((row, rowNumber) => {
+      for (let c = 1; c <= numCols; c++) {
+        const cell = row.getCell(c);
+        cell.border = THIN_BORDER;
+        cell.alignment = { vertical: 'middle', wrapText: rowNumber === 1 && isTable };
+        if (isTable && rowNumber === 1) {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_BG } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        } else if (!isTable && c === 1) {
+          // Hoja de resumen: la primera columna son etiquetas
+          cell.font = { bold: true, color: { argb: 'FF1F4E79' } };
+        } else if (isTable && rowNumber % 2 === 1) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ALT_ROW_BG } };
+        }
+      }
+    });
+
+    if (isTable && sheet.rows.length > 0) {
+      ws.getRow(1).height = 45;
+      ws.views = [{ state: 'frozen', xSplit: 1, ySplit: 1 }];
+      if (sheet.rows.length > 1 && numCols > 1) {
+        ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: numCols } };
+      }
+    }
+    applyPrintSetup(ws, numCols > 6);
   });
   await downloadWorkbook(wb, fileName);
 }

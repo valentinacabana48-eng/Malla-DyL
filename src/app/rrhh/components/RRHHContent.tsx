@@ -499,7 +499,7 @@ export default function RRHHContent() {
           const att = getAttendanceForDay(worker.id, dayIdx);
           const isAbsent = att?.status === 'AUSENTE';
           if (isAbsent) {
-            row.push(att?.absenceReason ? `AUSENTE: ${att.absenceReason}` : 'AUSENTE');
+            row.push(att?.absenceReason ? `Falta: ${att.absenceReason}` : 'Falta injustificada');
             continue;
           }
           const record = dayRecords[worker.id]?.[dayIdx];
@@ -588,14 +588,14 @@ export default function RRHHContent() {
           {
             name: 'Horario Programado',
             rows: [horarioHeaders, ...horarioRows],
-            colWidths: [28, 14, 20, 16, 16, 10, ...Array(daysInMonth).fill(14)],
+            colWidths: [28, 14, 20, 16, 16, 12, ...Array(daysInMonth).fill(17)],
           },
           {
             name: 'Horas y Extras',
             rows: [horasHeaders, ...horasRows],
             colWidths: [28, 14, 20, 16, 16, 14, 14, 14, 14, 14, ...Array(maxWeeks).fill(12)],
           },
-          { name: 'Resumen', rows: summaryData, colWidths: [24, 28] },
+          { name: 'Resumen', rows: summaryData, colWidths: [24, 28], header: false },
         ],
         fileName
       );
