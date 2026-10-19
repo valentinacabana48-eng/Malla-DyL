@@ -18,9 +18,6 @@ ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_role_check
 ALTER TABLE public.user_roles ADD COLUMN IF NOT EXISTS areas TEXT[];
 ALTER TABLE public.user_roles ADD COLUMN IF NOT EXISTS cargos TEXT[];
 ALTER TABLE public.user_roles ADD COLUMN IF NOT EXISTS permisos TEXT[];
--- Perfil elegido en Ajustes (solo para mostrarlo): admin_general, gerente, encargada,
--- jefa_caja, lector, personalizado
-ALTER TABLE public.user_roles ADD COLUMN IF NOT EXISTS perfil TEXT;
 
 -- ─── Funciones de permiso ────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.has_perm(p_perm TEXT)
