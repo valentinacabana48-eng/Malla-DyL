@@ -1,15 +1,43 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
   Eye,
   EyeOff,
+  LayoutDashboard,
   LogOut,
   RefreshCw,
 } from 'lucide-react';
 import { getPublicSupabase } from '@/lib/supabase/publicClient';
+
+// ¿Hay una sesión de la app de administración abierta en este navegador? Solo para mostrar
+// el acceso directo: la administración pide su propio inicio de sesión igual.
+function hasAdminSession(): boolean {
+  try {
+    if (document.cookie.split(';').some((c) => c.includes('auth-token'))) return true;
+    return Object.keys(localStorage).some((k) => k.startsWith('sb_') && k.includes('auth-token'));
+  } catch {
+    return false;
+  }
+}
+
+function useHasAdminSession(): boolean {
+  const [has, setHas] = useState(false);
+  useEffect(() => setHas(hasAdminSession()), []);
+  return has;
+}
+
+function AdminLink({ className }: { className: string }) {
+  return (
+    <Link href="/" className={className}>
+      <LayoutDashboard size={15} />
+      Administración
+    </Link>
+  );
+}
 import { dayKind, dayShort, dayText, monthKeyToLabel, type PublishedMonth } from '@/lib/misTurnos';
 
 const TOKEN_KEY = 'dyl_mis_turnos_token';
@@ -105,6 +133,7 @@ function LoginScreen({
   notice: string;
   onLoggedIn: (token: string) => void;
 }) {
+  const adminSession = useHasAdminSession();
   const [rut, setRut] = useState(() => readLocal(RUT_KEY));
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
@@ -231,6 +260,9 @@ function LoginScreen({
         <p className="text-[13px] text-gray-600 text-center leading-relaxed">
           ¿No tienes clave o la olvidaste? Pídesela a tu jefatura.
         </p>
+        {adminSession && (
+          <AdminLink className="h-12 rounded-[14px] border border-gray-300 text-gray-700 text-[15px] font-semibold flex items-center justify-center gap-2" />
+        )}
       </form>
     </div>
   );
@@ -458,6 +490,7 @@ function Shell({
   onLogout: () => void;
   children: React.ReactNode;
 }) {
+  const adminSession = useHasAdminSession();
   return (
     <div className="min-h-[var(--app-height,100dvh)] bg-gray-100 text-gray-900">
       <div className="max-w-md mx-auto">
@@ -466,14 +499,19 @@ function Shell({
             <span className="text-[13px] text-indigo-200">{data.sucursal}</span>
             <h1 className="text-[21px] font-extrabold truncate">{data.name}</h1>
           </div>
-          <button
-            type="button"
-            onClick={onLogout}
-            className="h-10 px-3 rounded-[10px] border border-[#3b5b8a] text-[13px] font-semibold flex items-center gap-1.5 shrink-0"
-          >
-            <LogOut size={15} />
-            Salir
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {adminSession && (
+              <AdminLink className="h-10 px-3 rounded-[10px] bg-white/10 border border-[#3b5b8a] text-[13px] font-semibold flex items-center gap-1.5" />
+            )}
+            <button
+              type="button"
+              onClick={onLogout}
+              className="h-10 px-3 rounded-[10px] border border-[#3b5b8a] text-[13px] font-semibold flex items-center gap-1.5"
+            >
+              <LogOut size={15} />
+              Salir
+            </button>
+          </div>
         </header>
         {children}
       </div>

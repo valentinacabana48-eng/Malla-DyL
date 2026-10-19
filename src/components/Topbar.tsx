@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   Menu,
   MapPin,
@@ -10,6 +11,7 @@ import {
   LogOut,
   Download,
   ClipboardCheck,
+  CalendarClock,
 } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
@@ -112,11 +114,21 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
             </div>
           )}
 
+          {/* Pasar a "Mis turnos" (la app de las trabajadoras) */}
+          <Link
+            href="/mis-turnos"
+            className="ml-auto flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-foreground hover:bg-muted border border-border transition-all duration-150"
+            title="Ir a Mis turnos"
+          >
+            <CalendarClock className="w-[18px] h-[18px] lg:w-3 lg:h-3" />
+            <span className="hidden lg:block">Mis turnos</span>
+          </Link>
+
           {/* Install app (Android / PC con Chrome o Edge; en iPhone abre los pasos) */}
           {canInstall && (
             <button
               onClick={installApp ?? (() => setShowIosInstall(true))}
-              className="ml-auto flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-white bg-secondary hover:bg-blue-700 transition-all duration-150"
+              className="flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-white bg-secondary hover:bg-blue-700 transition-all duration-150"
               title="Instalar DyL Gestor como app"
             >
               <Download className="w-[18px] h-[18px] lg:w-3 lg:h-3" />
@@ -127,7 +139,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
           {/* Logout button */}
           <button
             onClick={signOut}
-            className={`${canInstall ? '' : 'ml-auto '}flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-red-600 hover:bg-red-50 border border-border transition-all duration-150`}
+            className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-red-600 hover:bg-red-50 border border-border transition-all duration-150`}
             title={user?.email ? `Cerrar sesión (${user.email})` : 'Cerrar sesión'}
           >
             <LogOut className="w-[18px] h-[18px] lg:w-3 lg:h-3" />
