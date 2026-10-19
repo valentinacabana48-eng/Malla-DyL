@@ -49,15 +49,15 @@ const TH_SUB: React.CSSProperties = {
 const TD: React.CSSProperties = { padding: '5px 6px', borderBottom: '1px solid #e5e7eb' };
 const ORDER_BOX_STYLE: React.CSSProperties = {
   display: 'inline-block',
-  width: '24px',
-  height: '18px',
+  width: '34px',
+  height: '26px',
   border: '1.5px solid #374151',
   borderRadius: '3px',
 };
 const CAJA_BOX_STYLE: React.CSSProperties = {
   display: 'inline-block',
-  width: '20px',
-  height: '18px',
+  width: '28px',
+  height: '26px',
   border: '1px solid #6b7280',
   borderRadius: '2px',
   marginRight: '3px',
