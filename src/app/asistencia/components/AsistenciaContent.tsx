@@ -58,6 +58,10 @@ interface AttendanceRecord {
   /** Retiro anticipado: horas a descontar ese día */
   retiroHoras?: number;
   retiroMotivo?: string;
+  /** Marcado por una jefa de caja (o corregido antes de aprobar): aún no es oficial */
+  pending?: boolean;
+  /** Correo de quien lo marcó, si está por aprobar */
+  proposedBy?: string;
 }
 
 interface OvertimeRecord {
@@ -345,7 +349,7 @@ export default function AsistenciaContent() {
   const { isLocked: isPanelLocked, setLocked: setPanelLocked } = useSharedLock(
     lockSucursal ? `asistencia_locked:${lockSucursal}` : null
   );
-  const { isAdmin, canMarkAttendance } = useAuth();
+  const { isAdmin, canMarkAttendance, isAsistencia } = useAuth();
   const lockedDates = useMemo(
     () =>
       new Set(
@@ -442,7 +446,7 @@ export default function AsistenciaContent() {
     if (!startDate || !endDate || startDate > endDate) return;
     setLoading(true);
     try {
-      const [attRows, otRows, lockRes] = await Promise.all([
+      const [attRows, otRows, lockRes, propRes] = await Promise.all([
         fetchAll((from, to) =>
           supabase
             .from('attendance_records')
@@ -464,6 +468,11 @@ export default function AsistenciaContent() {
         supabase
           .from('attendance_locked_dates')
           .select('record_date, sucursal')
+          .gte('record_date', startDate)
+          .lte('record_date', endDate),
+        supabase
+          .from('attendance_proposals')
+          .select('*')
           .gte('record_date', startDate)
           .lte('record_date', endDate),
       ]);
@@ -493,6 +502,61 @@ export default function AsistenciaContent() {
           };
         }
       });
+
+      // Lo marcado por las jefas de caja (por aprobar) se ve encima de lo oficial
+      if (propRes.error) console.error('Error loading proposals:', propRes.error);
+      ((propRes.data as Record<string, unknown>[] | null) ?? []).forEach((r) => {
+        const wid = r.worker_id as string;
+        const dt = r.record_date as string;
+        if (!allAttendanceRef.current[wid]) allAttendanceRef.current[wid] = {};
+        const existing = allAttendanceRef.current[wid][dt];
+        const rUpdated = (r.updated_at as string) ?? '';
+        if (!existing || existing.pending || rUpdated >= (existing.updatedAt ?? '')) {
+          allAttendanceRef.current[wid][dt] = {
+            workerId: wid,
+            recordDate: dt,
+            status: r.status as string,
+            absenceReason: (r.absence_reason as string) || '',
+            notes: (r.notes as string) || '',
+            updatedAt: rUpdated,
+            retiroHoras: Number(r.retiro_horas) || 0,
+            retiroMotivo: (r.retiro_motivo as string) || '',
+            pending: true,
+            proposedBy: (r.proposed_by_email as string) || '',
+          };
+        }
+      });
+      // Lo que estaba por aprobar y ya no está (aprobado o descartado) deja de verse
+      const pendingKeys = new Set(
+        ((propRes.data as Record<string, unknown>[] | null) ?? []).map(
+          (r) => `${r.worker_id}_${r.record_date}`
+        )
+      );
+      if (!propRes.error) {
+        Object.values(allAttendanceRef.current).forEach((byDate) => {
+          Object.entries(byDate).forEach(([dt, rec]) => {
+            if (rec.pending && dt >= startDate && dt <= endDate) {
+              if (!pendingKeys.has(`${rec.workerId}_${dt}`)) delete byDate[dt];
+            }
+          });
+        });
+        attRows.forEach((r: Record<string, unknown>) => {
+          const wid = r.worker_id as string;
+          const dt = r.record_date as string;
+          if (allAttendanceRef.current[wid]?.[dt] || pendingKeys.has(`${wid}_${dt}`)) return;
+          if (!allAttendanceRef.current[wid]) allAttendanceRef.current[wid] = {};
+          allAttendanceRef.current[wid][dt] = {
+            workerId: wid,
+            recordDate: dt,
+            status: r.status as string,
+            absenceReason: (r.absence_reason as string) || '',
+            notes: (r.notes as string) || '',
+            updatedAt: (r.updated_at as string) ?? '',
+            retiroHoras: Number(r.retiro_horas) || 0,
+            retiroMotivo: (r.retiro_motivo as string) || '',
+          };
+        });
+      }
 
       // Expose the full merged store to React state so the UI re-renders
       setAttendance({ ...allAttendanceRef.current });
@@ -597,6 +661,16 @@ export default function AsistenciaContent() {
     return false;
   }
 
+  // Las jefas de caja (nivel asistencia) marcan "por aprobar". Si un día ya tiene algo por
+  // aprobar, lo que corrija la administradora también queda ahí hasta que lo apruebe.
+  function usesProposals(dateStr: string): boolean {
+    if (isAsistencia) return true;
+    return Object.values(attendance).some((byDate) => byDate[dateStr]?.pending);
+  }
+  function attendanceTable(dateStr: string) {
+    return usesProposals(dateStr) ? 'attendance_proposals' : 'attendance_records';
+  }
+
   function getEffectiveStatus(workerId: string, dateStr: string): string {
     // NT from Malla is ABSOLUTE — always wins, no DB record can override it
     if (isMallaNT(workerId, dateStr)) return 'NT';
@@ -622,6 +696,44 @@ export default function AsistenciaContent() {
       dateLabel: `${dow} ${day} ${monthShort}`,
       workers: workersForDate,
     });
+  }
+
+  // ── Asistencia por aprobar (marcada por jefas de caja) ────────────────────
+  // Por día: cuántas trabajadoras (de las que se ven) tienen algo por aprobar y quién lo marcó
+  const pendingByDate = useMemo(() => {
+    const out: Record<string, { count: number; by: string[] }> = {};
+    for (const w of filteredWorkers) {
+      const byDate = attendance[w.id];
+      if (!byDate) continue;
+      for (const [dt, rec] of Object.entries(byDate)) {
+        if (!rec.pending || dt < startDate || dt > endDate) continue;
+        if (!out[dt]) out[dt] = { count: 0, by: [] };
+        out[dt].count++;
+        if (rec.proposedBy && !out[dt].by.includes(rec.proposedBy)) out[dt].by.push(rec.proposedBy);
+      }
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attendance, filteredWorkers.map((w) => w.id).join(','), startDate, endDate]);
+  const [approving, setApproving] = useState<string | null>(null);
+
+  // Aprobar: lo marcado pasa a la asistencia oficial y el día queda bloqueado
+  async function approveDay(dateStr: string) {
+    if (!isAdmin) return;
+    setApproving(dateStr);
+    const { data, error } = await supabase.rpc('approve_attendance_day', { p_date: dateStr });
+    setApproving(null);
+    if (error) {
+      console.error('Error approving attendance:', error);
+      setSaveError(`No se pudo aprobar: ${error.message}`);
+      setTimeout(() => setSaveError(null), 6000);
+      return;
+    }
+    setSaveNotice(
+      `Asistencia aprobada (${Number(data) || 0} trabajador(es)). El día quedó bloqueado.`
+    );
+    setTimeout(() => setSaveNotice(null), 5000);
+    await loadData();
   }
 
   // ── Lock / Unlock day ─────────────────────────────────────────────────────
@@ -700,6 +812,8 @@ export default function AsistenciaContent() {
     setMarkingAll(true);
     setSavingDate(dateStr);
     const now = new Date().toISOString();
+    const table = attendanceTable(dateStr);
+    const pending = table === 'attendance_proposals';
 
     const fromMalla = (w: { id: string }) => {
       const autoStatus = getAutoStatus(w.id, dateStr);
@@ -735,6 +849,8 @@ export default function AsistenciaContent() {
           updatedAt: u.updated_at,
           retiroHoras: prev[u.worker_id]?.[u.record_date]?.retiroHoras,
           retiroMotivo: prev[u.worker_id]?.[u.record_date]?.retiroMotivo,
+          pending,
+          proposedBy: pending ? prev[u.worker_id]?.[u.record_date]?.proposedBy : undefined,
         };
         next[u.worker_id][u.record_date] = record;
         if (!allAttendanceRef.current[u.worker_id]) allAttendanceRef.current[u.worker_id] = {};
@@ -746,7 +862,7 @@ export default function AsistenciaContent() {
     try {
       if (allUpserts.length > 0) {
         const { error } = await supabase
-          .from('attendance_records')
+          .from(table)
           .upsert(allUpserts, { onConflict: 'worker_id,record_date' });
         if (error) {
           console.error('Error marking all present:', error);
@@ -778,6 +894,8 @@ export default function AsistenciaContent() {
   ) {
     if (!dailyAlert) return;
     const { date } = dailyAlert;
+    const table = attendanceTable(date);
+    const pending = table === 'attendance_proposals';
     if (isPanelLocked || lockedDates.has(date)) {
       setDailyAlert(null);
       return;
@@ -837,6 +955,8 @@ export default function AsistenciaContent() {
           updatedAt: u.updated_at,
           retiroHoras: prev[u.worker_id]?.[u.record_date]?.retiroHoras,
           retiroMotivo: prev[u.worker_id]?.[u.record_date]?.retiroMotivo,
+          pending,
+          proposedBy: pending ? prev[u.worker_id]?.[u.record_date]?.proposedBy : undefined,
         };
         next[u.worker_id][u.record_date] = record;
         // Keep persistent ref in sync so loadData never overwrites this
@@ -849,13 +969,11 @@ export default function AsistenciaContent() {
     try {
       const [confirmed, auto] = await Promise.all([
         upserts.length > 0
-          ? supabase
-              .from('attendance_records')
-              .upsert(upserts, { onConflict: 'worker_id,record_date' })
+          ? supabase.from(table).upsert(upserts, { onConflict: 'worker_id,record_date' })
           : Promise.resolve({ error: null }),
         autoUpserts.length > 0
           ? supabase
-              .from('attendance_records')
+              .from(table)
               .upsert(autoUpserts, { onConflict: 'worker_id,record_date', ignoreDuplicates: true })
           : Promise.resolve({ error: null }),
       ]);
@@ -883,6 +1001,8 @@ export default function AsistenciaContent() {
     if (isMallaNT(workerId, dateStr)) return;
 
     const cellKey = `${workerId}_${dateStr}`;
+    const table = attendanceTable(dateStr);
+    const pending = table === 'attendance_proposals';
 
     // Capture previous state for rollback
     const prevRecord = attendance[workerId]?.[dateStr];
@@ -901,6 +1021,8 @@ export default function AsistenciaContent() {
         updatedAt: now,
         retiroHoras: prev[workerId]?.[dateStr]?.retiroHoras,
         retiroMotivo: prev[workerId]?.[dateStr]?.retiroMotivo,
+        pending,
+        proposedBy: pending ? prev[workerId]?.[dateStr]?.proposedBy : undefined,
       };
       next[workerId][dateStr] = record;
       // Keep persistent ref in sync so loadData never overwrites this optimistic update
@@ -912,7 +1034,7 @@ export default function AsistenciaContent() {
     setSavingCells((prev) => new Set([...prev, cellKey]));
 
     try {
-      const { error } = await supabase.from('attendance_records').upsert(
+      const { error } = await supabase.from(table).upsert(
         {
           worker_id: workerId,
           record_date: dateStr,
@@ -1001,6 +1123,8 @@ export default function AsistenciaContent() {
     const prevRecord = attendance[workerId]?.[dateStr];
     const status = getEffectiveStatus(workerId, dateStr);
     const now = new Date().toISOString();
+    const table = attendanceTable(dateStr);
+    const pending = table === 'attendance_proposals';
     const record: AttendanceRecord = {
       workerId,
       recordDate: dateStr,
@@ -1010,6 +1134,8 @@ export default function AsistenciaContent() {
       updatedAt: now,
       retiroHoras: hours,
       retiroMotivo: reason,
+      pending,
+      proposedBy: pending ? prevRecord?.proposedBy : undefined,
     };
     setAttendance((prev) => ({
       ...prev,
@@ -1019,7 +1145,7 @@ export default function AsistenciaContent() {
     allAttendanceRef.current[workerId][dateStr] = record;
 
     // Si no había registro, se crea con el estado que se ve; si había, se conserva el resto
-    const { error } = await supabase.from('attendance_records').upsert(
+    const { error } = await supabase.from(table).upsert(
       {
         worker_id: workerId,
         record_date: dateStr,
@@ -1616,14 +1742,16 @@ export default function AsistenciaContent() {
               )}
             </button>
             {/* Global panel lock */}
-            <LockToggle
-              isLocked={isPanelLocked}
-              subject={lockSucursal ? `la asistencia de ${lockSucursal}` : 'la asistencia'}
-              onToggle={setPanelLocked}
-              disabledReason={
-                lockSucursal ? undefined : 'Elige una sola sucursal para bloquear su asistencia'
-              }
-            />
+            {!isAsistencia && (
+              <LockToggle
+                isLocked={isPanelLocked}
+                subject={lockSucursal ? `la asistencia de ${lockSucursal}` : 'la asistencia'}
+                onToggle={setPanelLocked}
+                disabledReason={
+                  lockSucursal ? undefined : 'Elige una sola sucursal para bloquear su asistencia'
+                }
+              />
+            )}
             <button
               onClick={loadData}
               disabled={loading}
@@ -1632,21 +1760,25 @@ export default function AsistenciaContent() {
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
               <span className="hidden lg:inline">Actualizar</span>
             </button>
-            <button
-              onClick={saveReport}
-              disabled={loading || filteredWorkers.length === 0 || !canMarkAttendance}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold transition-colors"
-            >
-              <Download size={13} />
-              Guardar reporte
-            </button>
-            <button
-              onClick={exportToExcel}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition-colors"
-            >
-              <Download size={13} />
-              Exportar Excel
-            </button>
+            {!isAsistencia && (
+              <button
+                onClick={saveReport}
+                disabled={loading || filteredWorkers.length === 0 || !canMarkAttendance}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold transition-colors"
+              >
+                <Download size={13} />
+                Guardar reporte
+              </button>
+            )}
+            {!isAsistencia && (
+              <button
+                onClick={exportToExcel}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition-colors"
+              >
+                <Download size={13} />
+                Exportar Excel
+              </button>
+            )}
           </div>
         </div>
 
@@ -1901,6 +2033,11 @@ export default function AsistenciaContent() {
                     />
                   ) : isSaving ? (
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-0.5" />
+                  ) : pendingByDate[dt] ? (
+                    <div
+                      className="w-2 h-2 rounded-full mt-0.5 bg-amber-500 ring-2 ring-amber-200"
+                      title="Tiene asistencia por aprobar"
+                    />
                   ) : hasData ? (
                     <div
                       className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isSelected ? 'bg-white/60' : 'bg-green-500'}`}
@@ -1915,6 +2052,31 @@ export default function AsistenciaContent() {
 
       {/* Main content */}
       <div className="flex-1 p-4 lg:p-6">
+        {/* Administradora: días con asistencia por aprobar */}
+        {isAdmin && Object.keys(pendingByDate).length > 0 && (
+          <div className="mb-4 flex items-center gap-2 flex-wrap bg-amber-50 border border-amber-300 rounded-xl px-4 py-3">
+            <span className="text-sm font-semibold text-amber-900 mr-1">Por aprobar:</span>
+            {Object.keys(pendingByDate)
+              .sort()
+              .map((dt) => {
+                const { day, dow, monthShort } = formatDateLabel(dt);
+                return (
+                  <button
+                    key={`pend-${dt}`}
+                    type="button"
+                    onClick={() => setSelectedDate(dt)}
+                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-full border ${
+                      selectedDate === dt
+                        ? 'bg-amber-600 border-amber-600 text-white'
+                        : 'bg-white border-amber-300 text-amber-800 hover:bg-amber-100'
+                    }`}
+                  >
+                    {dow} {day} {monthShort} ({pendingByDate[dt].count})
+                  </button>
+                );
+              })}
+          </div>
+        )}
         {filterSucursal.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-60 gap-4">
             <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center">
@@ -1994,6 +2156,16 @@ export default function AsistenciaContent() {
             canMark={canMarkAttendance}
             canEditOvertime={isAdmin}
             canLock={isAdmin}
+            isAsistencia={isAsistencia}
+            pendingCount={pendingByDate[selectedDate]?.count ?? 0}
+            pendingBy={pendingByDate[selectedDate]?.by ?? []}
+            onApprove={isAdmin ? () => approveDay(selectedDate) : undefined}
+            approving={approving === selectedDate}
+            getShiftText={(wid: string) => {
+              const code = getShiftForDate(wid, selectedDate);
+              const sh = code ? shifts[code] : undefined;
+              return sh?.start && sh?.end ? `${sh.start} a ${sh.end}` : '';
+            }}
           />
         ) : (
           <PeriodOverview
@@ -2117,6 +2289,16 @@ interface DayViewProps {
   canEditOvertime: boolean;
   /** Puede bloquear y desbloquear el día (solo admin) */
   canLock: boolean;
+  /** Nivel asistencia (jefa de caja): lo que marca queda por aprobar */
+  isAsistencia: boolean;
+  /** Trabajadoras con algo por aprobar este día, y quién lo marcó */
+  pendingCount: number;
+  pendingBy: string[];
+  /** Solo admin: aprueba lo marcado y bloquea el día */
+  onApprove?: () => void;
+  approving: boolean;
+  /** Horario del turno de la trabajadora ese día ("08:00 a 15:00") */
+  getShiftText: (workerId: string) => string;
 }
 
 function DayView({
@@ -2140,6 +2322,12 @@ function DayView({
   canMark,
   canEditOvertime,
   canLock,
+  isAsistencia,
+  pendingCount,
+  pendingBy,
+  onApprove,
+  approving,
+  getShiftText,
 }: DayViewProps) {
   const editable = !isLocked && canMark;
   const presentCount = workers.filter((w) => getEffectiveStatus(w.id, date) === 'PRESENTE').length;
@@ -2161,6 +2349,43 @@ function DayView({
               <Unlock size={12} /> Desbloquear
             </button>
           )}
+        </div>
+      )}
+
+      {/* Jefa de caja: lo que marca queda por aprobar */}
+      {isAsistencia && !isLocked && (
+        <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 text-sm">
+          <Clock size={14} className="mt-0.5 shrink-0" />
+          <span>
+            Lo que marques queda <strong>por aprobar</strong> hasta que una administradora lo revise
+            y lo apruebe.
+            {pendingCount > 0 && ` Llevas ${pendingCount} marcada(s) en este día.`}
+          </span>
+        </div>
+      )}
+
+      {/* Administradora: aprobar lo que marcó la jefa de caja */}
+      {onApprove && pendingCount > 0 && !isLocked && (
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl px-4 py-3">
+          <div className="flex-1 text-sm">
+            <p className="font-semibold">
+              Por aprobar: {pendingCount} trabajadora(s)
+              {pendingBy.length > 0 && ` · marcado por ${pendingBy.join(', ')}`}
+            </p>
+            <p className="text-xs mt-0.5">
+              Revisa la lista y corrige lo que no esté bien. Al aprobar, se guarda como asistencia
+              oficial y el día queda bloqueado.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onApprove}
+            disabled={approving}
+            className="flex items-center justify-center gap-2 px-4 py-3 lg:py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm lg:text-xs font-semibold shrink-0"
+          >
+            <CheckCheck size={14} />
+            {approving ? 'Aprobando…' : 'Aprobar y bloquear día'}
+          </button>
         </div>
       )}
 
@@ -2191,13 +2416,15 @@ function DayView({
                 <CheckCheck size={14} />
                 {markingAll ? 'Guardando...' : 'Todas asistieron'}
               </button>
-              <button
-                onClick={onOpenDailyAlert}
-                className="flex items-center justify-center gap-2 px-4 py-3 lg:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm lg:text-xs font-semibold transition-colors"
-              >
-                <AlertCircle size={14} />
-                Control del día
-              </button>
+              {!isAsistencia && (
+                <button
+                  onClick={onOpenDailyAlert}
+                  className="flex items-center justify-center gap-2 px-4 py-3 lg:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm lg:text-xs font-semibold transition-colors"
+                >
+                  <AlertCircle size={14} />
+                  Control del día
+                </button>
+              )}
             </>
           )}
           {/* Lock / Unlock button */}
@@ -2248,8 +2475,14 @@ function DayView({
                     {w.name}
                   </p>
                   <p className="text-sm lg:text-xs text-gray-500 lg:text-gray-400">
-                    {w.cargo || w.role} · {w.area}
+                    {w.cargo || w.role}
+                    {getShiftText(w.id) ? ` · ${getShiftText(w.id)}` : ` · ${w.area}`}
                   </p>
+                  {attendance[w.id]?.[date]?.pending && (
+                    <span className="inline-block mt-1 text-[11px] lg:text-[10px] font-semibold text-amber-700 bg-amber-100 border border-amber-200 rounded px-1.5 py-0.5">
+                      Por aprobar
+                    </span>
+                  )}
                 </div>
                 {/* Celular: botones grandes para los dos estados más usados */}
                 {editable && !isNT && !savingCells.has(`${w.id}_${date}`) && (

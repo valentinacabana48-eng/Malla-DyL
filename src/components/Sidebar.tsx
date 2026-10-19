@@ -27,12 +27,14 @@ const navItems: {
   href: string;
   adminOnly?: boolean;
   globalAdminOnly?: boolean;
+  /** Lo ve también el nivel "asistencia" (jefas de caja) */
+  asistencia?: boolean;
 }[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
-  { label: 'Malla', icon: CalendarDays, href: '/malla-de-turnos' },
+  { label: 'Malla', icon: CalendarDays, href: '/malla-de-turnos', asistencia: true },
   { label: 'Cumplimiento', icon: ShieldCheck, href: '/cumplimiento' },
   { label: 'Personal', icon: Users, href: '/personal' },
-  { label: 'Asistencia', icon: CalendarCheck, href: '/asistencia' },
+  { label: 'Asistencia', icon: CalendarCheck, href: '/asistencia', asistencia: true },
   { label: 'RRHH', icon: UserCog, href: '/rrhh', adminOnly: true },
   { label: 'Vista previa', icon: Eye, href: '/vista-previa' },
   { label: 'Ajustes', icon: Settings, href: '/ajustes', adminOnly: true },
@@ -45,10 +47,13 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const { isAdmin, isGlobalAdmin } = useAuth();
+  const { isAdmin, isGlobalAdmin, isAsistencia } = useAuth();
   const vista = useVistaActual();
   const visibleItems = navItems.filter(
-    (item) => (!item.adminOnly || isAdmin) && (!item.globalAdminOnly || isGlobalAdmin)
+    (item) =>
+      (!item.adminOnly || isAdmin) &&
+      (!item.globalAdminOnly || isGlobalAdmin) &&
+      (!isAsistencia || item.asistencia)
   );
 
   return (

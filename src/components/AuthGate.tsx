@@ -1,5 +1,6 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Lock,
   Eye,
@@ -398,5 +399,20 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
   if (role === 'pendiente') return <PendingApproval />;
+  if (role === 'asistencia') return <AsistenciaOnly>{children}</AsistenciaOnly>;
+  return <>{children}</>;
+}
+
+// Nivel "asistencia" (jefas de caja): solo entra a Malla y Asistencia
+const ASISTENCIA_PATHS = ['/malla-de-turnos', '/asistencia'];
+
+function AsistenciaOnly({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const allowed = ASISTENCIA_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  useEffect(() => {
+    if (!allowed) router.replace('/asistencia');
+  }, [allowed, router]);
+  if (!allowed) return null;
   return <>{children}</>;
 }
