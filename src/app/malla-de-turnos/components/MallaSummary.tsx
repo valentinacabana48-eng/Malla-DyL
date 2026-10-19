@@ -8,7 +8,7 @@ import {
   CalendarDays,
   Printer,
 } from 'lucide-react';
-import { type ShiftCode, type Shift, type Worker } from '@/context/AppContext';
+import { type ShiftCode, type Shift, type Worker, timeToMinutes } from '@/context/AppContext';
 import { printElement } from '@/lib/printElement';
 
 interface Props {
@@ -410,7 +410,67 @@ function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
           HE: anotar horas extra del día.
         </span>
       </div>
+      <HourlyCountStrip workerDetails={workerDetails} />
     </>
+  );
+}
+
+// Cuántas hay trabajando a cada hora en punto (la que sale a esa hora ya no cuenta)
+function HourlyCountStrip({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
+  const turnos = workerDetails
+    .filter((w) => w.start && w.end)
+    .map((w) => {
+      const start = timeToMinutes(w.start);
+      let end = timeToMinutes(w.end);
+      if (end <= start) end += 1440;
+      return { start, end };
+    })
+    .filter((t) => Number.isFinite(t.start) && Number.isFinite(t.end));
+  if (turnos.length === 0) return null;
+  const from = Math.floor(Math.min(...turnos.map((t) => t.start)) / 60);
+  const to = Math.floor(Math.max(...turnos.map((t) => t.end)) / 60);
+  const hours = Array.from({ length: to - from + 1 }, (_, i) => from + i);
+  const counts = hours.map((h) => turnos.filter((t) => t.start <= h * 60 && t.end > h * 60).length);
+  const max = Math.max(...counts);
+  const cell: React.CSSProperties = {
+    border: '1px solid #9ca3af',
+    padding: '3px 2px',
+    textAlign: 'center',
+  };
+  return (
+    <div style={{ marginTop: '10px', breakInside: 'avoid' }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', marginBottom: '3px' }}>
+        Trabajando a cada hora
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+        <tbody>
+          <tr style={{ background: '#f3f4f6' }}>
+            <th style={{ ...cell, textAlign: 'left', padding: '3px 6px' }}>Hora</th>
+            {hours.map((h) => (
+              <th key={h} style={cell}>
+                {String(h % 24).padStart(2, '0')}:00
+              </th>
+            ))}
+          </tr>
+          <tr>
+            <th style={{ ...cell, textAlign: 'left', padding: '3px 6px' }}>Personas</th>
+            {counts.map((n, i) => (
+              <td
+                key={hours[i]}
+                style={{
+                  ...cell,
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  background: n === max ? '#dbeafe' : undefined,
+                }}
+              >
+                {n}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </div>
   );
 }
 
