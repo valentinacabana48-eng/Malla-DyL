@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Users, Download, Plus } from 'lucide-react';
-import { createWorkbook, downloadWorkbook } from '@/lib/excel';
+import { applyPrintSetup, createWorkbook, downloadWorkbook } from '@/lib/excel';
 import { useAppContext, type Worker } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import PersonalFilters from './PersonalFilters';
@@ -86,14 +86,23 @@ export default function PersonalContent() {
     const ws = wb.addWorksheet('Personal');
 
     // ── Data ──────────────────────────────────────────────────────────────────
-    const headers = ['Nombre', 'RUT', 'Cargo', 'Área', 'Sucursal', 'Horas', 'Estado', 'Cumpleaños'];
+    const headers = [
+      'Nombre',
+      'RUT',
+      'Cargo',
+      'Área',
+      'Sucursal',
+      'Horas sem.',
+      'Estado',
+      'Cumpleaños',
+    ];
     const dataRows = filteredWorkers.map((w) => [
       w.name,
       w.rut,
       w.cargo || '',
       w.area || '',
       w.sucursal || '',
-      w.horasContratadas ? `${w.horasContratadas}h` : '',
+      w.horasContratadas || '',
       w.estado,
       w.birthday || '',
     ]);
@@ -172,6 +181,12 @@ export default function PersonalContent() {
     footer.getCell(1).fill = fill('DBEAFE');
     footer.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
     footer.getCell(1).border = border('2563EB', 'thin', 'medium');
+
+    // Encabezado fijo con filtros, y lista para imprimir
+    ws.views = [{ state: 'frozen', ySplit: 3 }];
+    ws.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: numCols } };
+    applyPrintSetup(ws);
+    ws.pageSetup.printTitlesRow = '3:3';
 
     const today = new Date().toISOString().slice(0, 10);
     await downloadWorkbook(wb, `personal_${today}.xlsx`);

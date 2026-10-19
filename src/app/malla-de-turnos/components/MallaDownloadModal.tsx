@@ -10,6 +10,7 @@ import {
   type SpecialDaysData,
   MESES,
 } from '@/context/AppContext';
+import { applyPrintSetup } from '@/lib/excel';
 
 interface Props {
   workers: Worker[];
@@ -124,14 +125,8 @@ function dateToMonthKey(date: Date): string {
 }
 
 const DOW_LETTERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
-const DAY_NAMES_MAP: Record<string, string> = {
-  L: 'lun',
-  M: 'mar',
-  J: 'jue',
-  V: 'vie',
-  S: 'sáb',
-  D: 'dom',
-};
+// Por índice de getDay(): la letra "M" sirve para martes y miércoles, el nombre no
+const WEEKDAY_NAMES = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
 async function exportToExcel(
   workers: Worker[],
@@ -172,7 +167,7 @@ async function exportToExcel(
     const isSun = dow === 'D';
     const bg = isSun ? C.sunHdrBg : isSat ? C.satHdrBg : C.headerBg;
     const fg = isSun ? '1E3A8A' : isSat ? '1E3A8A' : C.headerFg;
-    applyCell(ws.getCell(1, FIXED_COLS + 1 + d), DAY_NAMES_MAP[dow] || dow.toLowerCase(), {
+    applyCell(ws.getCell(1, FIXED_COLS + 1 + d), WEEKDAY_NAMES[date.getDay()], {
       bgArgb: bg,
       fgArgb: fg,
       sz: 9,
@@ -417,6 +412,7 @@ async function exportToExcel(
   }
 
   // ── Download ──────────────────────────────────────────────────────────────
+  wb.worksheets.forEach((sheet) => applyPrintSetup(sheet, sheet.columnCount > 6));
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
