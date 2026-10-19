@@ -18,6 +18,7 @@ import MallaFilters from './MallaFilters';
 import MallaGrid from './MallaGrid';
 import AssignModal from './AssignModal';
 import MallaSummary from './MallaSummary';
+import { CoberturaHorasDia } from './CoberturaHoras';
 import LockToggle from '@/components/LockToggle';
 import { useSharedLock } from '@/hooks/useSharedLock';
 import BulkShiftModal from './BulkShiftModal';
@@ -607,6 +608,17 @@ export default function MallaContent() {
             contractedHoursOverride={contractedHoursOverride}
             onContractedHoursChange={handleContractedHoursChange}
             holidayDayIndices={holidayDayIndices}
+          />
+        </div>
+
+        <div className="mt-6">
+          <CoberturaHorasDia
+            workers={filteredWorkers}
+            scheduleData={currentMonthSchedule}
+            specialDaysData={currentMonthSpecialDays}
+            shifts={shifts}
+            daysInMonth={daysInMonth}
+            monthLabel={selectedMes}
           />
         </div>
 

@@ -11,6 +11,7 @@ import {
   timeToMinutes,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
+import CoberturaHoras from './CoberturaHoras';
 
 // Vista de la malla para celulares: un día a la vez (agrupado por turno) o el
 // mes de una sola trabajadora. Tocar una fila abre un panel para cambiar el turno.
@@ -241,6 +242,17 @@ export default function MallaMobile({
             <p className="text-sm text-muted-foreground text-center py-8">
               No hay trabajadoras con estos filtros.
             </p>
+          )}
+
+          {workers.length > 0 && (
+            <CoberturaHoras
+              workers={workers}
+              scheduleData={scheduleData}
+              specialDaysData={specialDaysData}
+              shifts={shifts}
+              dayIndex={dayIndex}
+              collapsible
+            />
           )}
 
           {dayGroups.shiftGroups.map(({ code, shift, list }) => (
