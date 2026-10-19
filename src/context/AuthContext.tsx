@@ -14,8 +14,12 @@ interface AuthContextValue {
   /** Admin sin sucursales asignadas: puede usar Ajustes y administrar usuarios */
   isGlobalAdmin: boolean;
   isReadonly: boolean;
-  /** Puede marcar asistencia (admin o rol "asistencia"); las horas extra son solo de admin */
+  /** Puede marcar asistencia (admin o nivel "asistencia"); las horas extra son solo de admin */
   canMarkAttendance: boolean;
+  /** Nivel "asistencia" (jefas de caja): lo que marca queda por aprobar */
+  isAsistencia: boolean;
+  /** Cargos que ve el nivel asistencia; null = todos */
+  allowedCargos: string[] | null;
   /** Sucursales que puede ver esta persona; null = todas */
   allowedSucursales: string[] | null;
   /** true cuando el usuario llegó desde el enlace de "olvidé mi contraseña" */
@@ -57,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [allowedSucursales, setAllowedSucursales] = useState<string[] | null>(null);
+  const [allowedCargos, setAllowedCargos] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [recoveringPassword, setRecoveringPassword] = useState(false);
 
@@ -65,11 +70,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!userId) {
         setRole(null);
         setAllowedSucursales(null);
+        setAllowedCargos(null);
         return;
       }
       const { data, error } = await supabase
         .from('user_roles')
-        .select('role, sucursales')
+        .select('*')
         .eq('user_id', userId)
         .maybeSingle();
       if (error) {
@@ -80,6 +86,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const sucursales = (data?.sucursales as string[] | null) ?? null;
       setAllowedSucursales(sucursales && sucursales.length > 0 ? sucursales : null);
+      const cargos = (data?.cargos as string[] | null) ?? null;
+      setAllowedCargos(cargos && cargos.length > 0 ? cargos : null);
       setRole((data?.role as UserRole) ?? 'pendiente');
     },
     [supabase]
@@ -173,6 +181,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         allowedSucursales,
         isReadonly: role !== 'admin',
         canMarkAttendance: role === 'admin' || role === 'asistencia',
+        isAsistencia: role === 'asistencia',
+        allowedCargos: role === 'asistencia' ? allowedCargos : null,
         recoveringPassword,
         signIn,
         signUp,

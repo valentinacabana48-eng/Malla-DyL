@@ -1803,6 +1803,8 @@ interface UserRoleRow {
   role: UserRole;
   /** null = todas las sucursales */
   sucursales: string[] | null;
+  /** Solo nivel asistencia: cargos que ve; null = todos */
+  cargos?: string[] | null;
   created_at: string;
 }
 
@@ -1822,30 +1824,34 @@ const ROLE_OPTIONS: { value: UserRole; label: string; description: string }[] = 
     value: 'asistencia',
     label: 'Asistencia',
     description:
-      'Ve sus sucursales y marca quién vino y quién no. No anota horas extra ni modifica nada más',
+      'Para jefas de caja: ve la malla y marca quién vino de los cargos que elijas. Lo que marca queda por aprobar hasta que una administradora lo aprueba. No anota horas extra ni modifica nada más',
   },
   { value: 'pendiente', label: 'Sin acceso', description: 'No puede entrar a la app' },
 ];
 
 function UsersPanel() {
   const { user } = useAuth();
-  const { sucursales: allSucursales } = useAppContext();
+  const { sucursales: allSucursales, areaCargos, workers } = useAppContext();
   const supabase = getSupabase();
   const [rows, setRows] = useState<UserRoleRow[]>([]);
+  const allCargos = useMemo(() => {
+    const set = new Set<string>();
+    Object.values(areaCargos).forEach((list) => list.forEach((c) => c && set.add(c)));
+    workers.forEach((w) => w.cargo && set.add(w.cargo));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [areaCargos, workers]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('user_id, email, role, sucursales, created_at')
-      .order('created_at');
+    const { data, error } = await supabase.from('user_roles').select('*').order('created_at');
     if (error) toast.error('No se pudo cargar la lista de usuarios.');
     setRows(
       ((data as UserRoleRow[]) || []).map((r) => ({
         ...r,
         sucursales: r.sucursales && r.sucursales.length > 0 ? r.sucursales : null,
+        cargos: r.cargos && r.cargos.length > 0 ? r.cargos : null,
       }))
     );
     setLoading(false);
@@ -1857,7 +1863,7 @@ function UsersPanel() {
 
   async function saveUser(
     userId: string,
-    changes: Partial<Pick<UserRoleRow, 'role' | 'sucursales'>>
+    changes: Partial<Pick<UserRoleRow, 'role' | 'sucursales' | 'cargos'>>
   ) {
     setSavingId(userId);
     const { error } = await supabase
@@ -1877,6 +1883,12 @@ function UsersPanel() {
     const current = row.sucursales ?? [];
     const next = current.includes(name) ? current.filter((s) => s !== name) : [...current, name];
     saveUser(row.user_id, { sucursales: next.length > 0 ? next : null });
+  }
+
+  function toggleCargo(row: UserRoleRow, name: string) {
+    const current = row.cargos ?? [];
+    const next = current.includes(name) ? current.filter((c) => c !== name) : [...current, name];
+    saveUser(row.user_id, { cargos: next.length > 0 ? next : null });
   }
 
   const pending = rows.filter((r) => r.role === 'pendiente').length;
@@ -1969,6 +1981,31 @@ function UsersPanel() {
                         className={chip(!!r.sucursales?.includes(s.name))}
                       >
                         {s.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {r.role === 'asistencia' && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs text-muted-foreground mr-1">Cargos que ve:</span>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => saveUser(r.user_id, { cargos: null })}
+                      className={chip(!r.cargos)}
+                      title="Ve todos los cargos"
+                    >
+                      Todos
+                    </button>
+                    {allCargos.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => toggleCargo(r, c)}
+                        className={chip(!!r.cargos?.includes(c))}
+                      >
+                        {c}
                       </button>
                     ))}
                   </div>
