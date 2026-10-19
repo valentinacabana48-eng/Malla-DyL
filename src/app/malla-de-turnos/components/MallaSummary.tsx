@@ -189,6 +189,276 @@ function getDayName(day: number, monthLabel: string): string {
   return DAY_NAMES[(date.getDay() + 6) % 7];
 }
 
+// Hoja de un día: lista de trabajadoras con turno, casillas para marcar y HE.
+// La usan la impresión por día y la por semana (una hoja por día), para que sean iguales.
+function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
+  // Columna de sucursal solo si la hoja mezcla varias sucursales
+  const multiSucursal = new Set(workerDetails.map((w) => w.sucursal)).size > 1;
+  // #, Nombre, (Sucursal), Entrada, Salida, Colación, 3 casillas, HE
+  const dayColumnCount = 5 + (multiSucursal ? 1 : 0) + CHECK_COLUMNS.length + 1;
+  return (
+    <>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+        <thead>
+          <tr style={{ background: '#f3f4f6' }}>
+            <th
+              style={{
+                textAlign: 'center',
+                padding: '4px 6px',
+                borderBottom: '2px solid #d1d5db',
+                fontWeight: '700',
+                fontSize: '10px',
+                color: '#9ca3af',
+                width: '28px',
+              }}
+            >
+              #
+            </th>
+            <th
+              style={{
+                textAlign: 'left',
+                padding: '4px 10px',
+                borderBottom: '2px solid #d1d5db',
+                fontWeight: '700',
+                fontSize: '10px',
+                textTransform: 'uppercase',
+              }}
+            >
+              Nombre
+            </th>
+            {multiSucursal && (
+              <th
+                style={{
+                  textAlign: 'left',
+                  padding: '4px 8px',
+                  borderBottom: '2px solid #d1d5db',
+                  fontWeight: '700',
+                  fontSize: '10px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Sucursal
+              </th>
+            )}
+            <th
+              style={{
+                textAlign: 'center',
+                padding: '4px 10px',
+                borderBottom: '2px solid #d1d5db',
+                fontWeight: '700',
+                fontSize: '10px',
+                textTransform: 'uppercase',
+                color: '#16a34a',
+              }}
+            >
+              Entrada
+            </th>
+            <th
+              style={{
+                textAlign: 'center',
+                padding: '4px 10px',
+                borderBottom: '2px solid #d1d5db',
+                fontWeight: '700',
+                fontSize: '10px',
+                textTransform: 'uppercase',
+                color: '#dc2626',
+              }}
+            >
+              Salida
+            </th>
+            <th
+              style={{
+                textAlign: 'center',
+                padding: '4px 10px',
+                borderBottom: '2px solid #d1d5db',
+                fontWeight: '700',
+                fontSize: '10px',
+                textTransform: 'uppercase',
+                color: '#7c3aed',
+              }}
+            >
+              Colación
+            </th>
+            {CHECK_COLUMNS.map((label) => (
+              <th
+                key={`chk-h-${label}`}
+                style={{
+                  textAlign: 'center',
+                  padding: '4px 6px',
+                  borderBottom: '2px solid #d1d5db',
+                  fontWeight: '700',
+                  fontSize: '10px',
+                  textTransform: 'uppercase',
+                  width: '52px',
+                }}
+              >
+                {label}
+              </th>
+            ))}
+            <th
+              style={{
+                textAlign: 'center',
+                padding: '4px 6px',
+                borderBottom: '2px solid #d1d5db',
+                fontWeight: '700',
+                fontSize: '10px',
+                textTransform: 'uppercase',
+                width: '64px',
+              }}
+            >
+              HE
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {workerDetails.map((wd, i) => {
+            const toMins = (t: string) => {
+              const [h, m] = (t || '00:00').split(':').map(Number);
+              return h * 60 + (m || 0);
+            };
+            const isTarde = toMins(wd.start) >= 11 * 60;
+            const mananaWorkers = workerDetails.filter((w) => toMins(w.start) < 11 * 60);
+            const tardeWorkers = workerDetails.filter((w) => toMins(w.start) >= 11 * 60);
+            const rowNum = isTarde
+              ? tardeWorkers.findIndex((w) => w === wd) + 1
+              : mananaWorkers.findIndex((w) => w === wd) + 1;
+            const isFirstTarde = isTarde && tardeWorkers.findIndex((w) => w === wd) === 0;
+            return (
+              <React.Fragment key={`day-row-${i}`}>
+                {isFirstTarde && (
+                  <tr>
+                    <td
+                      colSpan={dayColumnCount}
+                      style={{
+                        padding: '6px 10px',
+                        background: '#fff7ed',
+                        borderBottom: '1px solid #fed7aa',
+                        borderTop: '2px solid #fb923c',
+                        fontWeight: '700',
+                        fontSize: '10px',
+                        color: '#c2410c',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      — Tarde (desde 11:00) —
+                    </td>
+                  </tr>
+                )}
+                <tr style={{ background: rowNum % 2 === 1 ? '#fff' : '#f9fafb' }}>
+                  <td
+                    style={{
+                      padding: '4px 6px',
+                      borderBottom: '1px solid #e5e7eb',
+                      textAlign: 'center',
+                      fontWeight: '700',
+                      color: '#6b7280',
+                      fontSize: '11px',
+                    }}
+                  >
+                    {rowNum}
+                  </td>
+                  <td
+                    style={{
+                      padding: '4px 10px',
+                      borderBottom: '1px solid #e5e7eb',
+                      fontWeight: '600',
+                      fontSize: '11px',
+                    }}
+                  >
+                    {wd.name}
+                  </td>
+                  {multiSucursal && (
+                    <td
+                      style={{
+                        padding: '4px 8px',
+                        borderBottom: '1px solid #e5e7eb',
+                        fontSize: '10px',
+                        color: '#4b5563',
+                      }}
+                    >
+                      {wd.sucursal}
+                    </td>
+                  )}
+                  <td
+                    style={{
+                      padding: '4px 10px',
+                      borderBottom: '1px solid #e5e7eb',
+                      textAlign: 'center',
+                      fontWeight: '700',
+                      color: '#16a34a',
+                      fontSize: '11px',
+                    }}
+                  >
+                    {wd.start}
+                  </td>
+                  <td
+                    style={{
+                      padding: '4px 10px',
+                      borderBottom: '1px solid #e5e7eb',
+                      textAlign: 'center',
+                      fontWeight: '700',
+                      color: '#dc2626',
+                      fontSize: '11px',
+                    }}
+                  >
+                    {wd.end}
+                  </td>
+                  <td
+                    style={{
+                      padding: '4px 10px',
+                      borderBottom: '1px solid #e5e7eb',
+                      textAlign: 'center',
+                      fontWeight: '700',
+                      color: '#7c3aed',
+                      fontSize: '11px',
+                    }}
+                  >
+                    {wd.colacion === 0 ? '0' : `${wd.colacion} min`}
+                  </td>
+                  {CHECK_COLUMNS.map((label) => (
+                    <td
+                      key={`chk-${i}-${label}`}
+                      style={{
+                        padding: '4px 6px',
+                        borderBottom: '1px solid #e5e7eb',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <span style={CHECKBOX_STYLE} />
+                    </td>
+                  ))}
+                  <td
+                    style={{
+                      padding: '4px 6px',
+                      borderBottom: '1px solid #e5e7eb',
+                      borderLeft: '1px solid #e5e7eb',
+                    }}
+                  />
+                </tr>
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+      <div
+        style={{
+          marginTop: '8px',
+          fontSize: '10px',
+          color: '#6b7280',
+          borderTop: '2px solid #d1d5db',
+          paddingTop: '6px',
+        }}
+      >
+        Total trabajadoras con turno: <strong>{workerDetails.length}</strong>
+        <span style={{ marginLeft: '16px' }}>
+          Marcar ✓ al llegar, al salir a colación y al irse. HE: anotar horas extra del día.
+        </span>
+      </div>
+    </>
+  );
+}
+
 export default function MallaSummary({
   workers,
   scheduleData,
@@ -436,11 +706,6 @@ export default function MallaSummary({
     );
   }, [workers, scheduleData, specialDaysData, shifts, weekOptions, selectedWeekIdx]);
 
-  // Columna de sucursal solo si la hoja mezcla varias sucursales
-  const multiSucursal = new Set(workerDetails.map((w) => w.sucursal)).size > 1;
-  // #, Nombre, (Sucursal), Entrada, Salida, Colación, 3 casillas, HE
-  const dayColumnCount = 5 + (multiSucursal ? 1 : 0) + CHECK_COLUMNS.length + 1;
-
   // Se imprime solo la hoja (del día o de la semana), armada aparte: así no salen hojas de
   // más (ni en blanco) por el resto de la página de Malla
   const handlePrint = () => {
@@ -555,550 +820,34 @@ export default function MallaSummary({
                   No hay turnos asignados para este día.
                 </p>
               ) : (
-                <>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                    <thead>
-                      <tr style={{ background: '#f3f4f6' }}>
-                        <th
-                          style={{
-                            textAlign: 'center',
-                            padding: '4px 6px',
-                            borderBottom: '2px solid #d1d5db',
-                            fontWeight: '700',
-                            fontSize: '10px',
-                            color: '#9ca3af',
-                            width: '28px',
-                          }}
-                        >
-                          #
-                        </th>
-                        <th
-                          style={{
-                            textAlign: 'left',
-                            padding: '4px 10px',
-                            borderBottom: '2px solid #d1d5db',
-                            fontWeight: '700',
-                            fontSize: '10px',
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          Nombre
-                        </th>
-                        {multiSucursal && (
-                          <th
-                            style={{
-                              textAlign: 'left',
-                              padding: '4px 8px',
-                              borderBottom: '2px solid #d1d5db',
-                              fontWeight: '700',
-                              fontSize: '10px',
-                              textTransform: 'uppercase',
-                            }}
-                          >
-                            Sucursal
-                          </th>
-                        )}
-                        <th
-                          style={{
-                            textAlign: 'center',
-                            padding: '4px 10px',
-                            borderBottom: '2px solid #d1d5db',
-                            fontWeight: '700',
-                            fontSize: '10px',
-                            textTransform: 'uppercase',
-                            color: '#16a34a',
-                          }}
-                        >
-                          Entrada
-                        </th>
-                        <th
-                          style={{
-                            textAlign: 'center',
-                            padding: '4px 10px',
-                            borderBottom: '2px solid #d1d5db',
-                            fontWeight: '700',
-                            fontSize: '10px',
-                            textTransform: 'uppercase',
-                            color: '#dc2626',
-                          }}
-                        >
-                          Salida
-                        </th>
-                        <th
-                          style={{
-                            textAlign: 'center',
-                            padding: '4px 10px',
-                            borderBottom: '2px solid #d1d5db',
-                            fontWeight: '700',
-                            fontSize: '10px',
-                            textTransform: 'uppercase',
-                            color: '#7c3aed',
-                          }}
-                        >
-                          Colación
-                        </th>
-                        {CHECK_COLUMNS.map((label) => (
-                          <th
-                            key={`chk-h-${label}`}
-                            style={{
-                              textAlign: 'center',
-                              padding: '4px 6px',
-                              borderBottom: '2px solid #d1d5db',
-                              fontWeight: '700',
-                              fontSize: '10px',
-                              textTransform: 'uppercase',
-                              width: '52px',
-                            }}
-                          >
-                            {label}
-                          </th>
-                        ))}
-                        <th
-                          style={{
-                            textAlign: 'center',
-                            padding: '4px 6px',
-                            borderBottom: '2px solid #d1d5db',
-                            fontWeight: '700',
-                            fontSize: '10px',
-                            textTransform: 'uppercase',
-                            width: '64px',
-                          }}
-                        >
-                          HE
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {workerDetails.map((wd, i) => {
-                        const toMins = (t: string) => {
-                          const [h, m] = (t || '00:00').split(':').map(Number);
-                          return h * 60 + (m || 0);
-                        };
-                        const isTarde = toMins(wd.start) >= 11 * 60;
-                        const mananaWorkers = workerDetails.filter(
-                          (w) => toMins(w.start) < 11 * 60
-                        );
-                        const tardeWorkers = workerDetails.filter(
-                          (w) => toMins(w.start) >= 11 * 60
-                        );
-                        const rowNum = isTarde
-                          ? tardeWorkers.findIndex((w) => w === wd) + 1
-                          : mananaWorkers.findIndex((w) => w === wd) + 1;
-                        const isFirstTarde =
-                          isTarde && tardeWorkers.findIndex((w) => w === wd) === 0;
-                        return (
-                          <React.Fragment key={`day-row-${i}`}>
-                            {isFirstTarde && (
-                              <tr>
-                                <td
-                                  colSpan={dayColumnCount}
-                                  style={{
-                                    padding: '6px 10px',
-                                    background: '#fff7ed',
-                                    borderBottom: '1px solid #fed7aa',
-                                    borderTop: '2px solid #fb923c',
-                                    fontWeight: '700',
-                                    fontSize: '10px',
-                                    color: '#c2410c',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                  }}
-                                >
-                                  — Tarde (desde 11:00) —
-                                </td>
-                              </tr>
-                            )}
-                            <tr style={{ background: rowNum % 2 === 1 ? '#fff' : '#f9fafb' }}>
-                              <td
-                                style={{
-                                  padding: '4px 6px',
-                                  borderBottom: '1px solid #e5e7eb',
-                                  textAlign: 'center',
-                                  fontWeight: '700',
-                                  color: '#6b7280',
-                                  fontSize: '11px',
-                                }}
-                              >
-                                {rowNum}
-                              </td>
-                              <td
-                                style={{
-                                  padding: '4px 10px',
-                                  borderBottom: '1px solid #e5e7eb',
-                                  fontWeight: '600',
-                                  fontSize: '11px',
-                                }}
-                              >
-                                {wd.name}
-                              </td>
-                              {multiSucursal && (
-                                <td
-                                  style={{
-                                    padding: '4px 8px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    fontSize: '10px',
-                                    color: '#4b5563',
-                                  }}
-                                >
-                                  {wd.sucursal}
-                                </td>
-                              )}
-                              <td
-                                style={{
-                                  padding: '4px 10px',
-                                  borderBottom: '1px solid #e5e7eb',
-                                  textAlign: 'center',
-                                  fontWeight: '700',
-                                  color: '#16a34a',
-                                  fontSize: '11px',
-                                }}
-                              >
-                                {wd.start}
-                              </td>
-                              <td
-                                style={{
-                                  padding: '4px 10px',
-                                  borderBottom: '1px solid #e5e7eb',
-                                  textAlign: 'center',
-                                  fontWeight: '700',
-                                  color: '#dc2626',
-                                  fontSize: '11px',
-                                }}
-                              >
-                                {wd.end}
-                              </td>
-                              <td
-                                style={{
-                                  padding: '4px 10px',
-                                  borderBottom: '1px solid #e5e7eb',
-                                  textAlign: 'center',
-                                  fontWeight: '700',
-                                  color: '#7c3aed',
-                                  fontSize: '11px',
-                                }}
-                              >
-                                {wd.colacion === 0 ? '0' : `${wd.colacion} min`}
-                              </td>
-                              {CHECK_COLUMNS.map((label) => (
-                                <td
-                                  key={`chk-${i}-${label}`}
-                                  style={{
-                                    padding: '4px 6px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    textAlign: 'center',
-                                  }}
-                                >
-                                  <span style={CHECKBOX_STYLE} />
-                                </td>
-                              ))}
-                              <td
-                                style={{
-                                  padding: '4px 6px',
-                                  borderBottom: '1px solid #e5e7eb',
-                                  borderLeft: '1px solid #e5e7eb',
-                                }}
-                              />
-                            </tr>
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  <div
-                    style={{
-                      marginTop: '8px',
-                      fontSize: '10px',
-                      color: '#6b7280',
-                      borderTop: '2px solid #d1d5db',
-                      paddingTop: '6px',
-                    }}
-                  >
-                    Total trabajadoras con turno: <strong>{workerDetails.length}</strong>
-                    <span style={{ marginLeft: '16px' }}>
-                      Marcar ✓ al llegar, al salir a colación y al irse. HE: anotar horas extra del
-                      día.
-                    </span>
-                  </div>
-                </>
+                <DaySheet workerDetails={workerDetails} />
               )}
             </>
           ) : (
             <>
-              <h1 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '2px' }}>
-                Horario Semanal — {weekOptions[selectedWeekIdx]?.label || ''}
-              </h1>
-              <p style={{ fontSize: '11px', color: '#555', marginBottom: '12px' }}>{monthLabel}</p>
-              {weekWorkerDetails.map(({ day, workers: dayWorkers }) => {
-                const toMins = (t: string) => {
-                  const [h, m] = (t || '00:00').split(':').map(Number);
-                  return h * 60 + (m || 0);
-                };
-                const mananaWorkers = dayWorkers.filter((w) => toMins(w.start) < 11 * 60);
-                const tardeWorkers = dayWorkers.filter((w) => toMins(w.start) >= 11 * 60);
+              {weekWorkerDetails.map(({ day, workers: dayWorkers }, dayIdx) => {
                 return (
                   <div
                     key={`week-day-${day}`}
                     className="week-day-block"
-                    style={{ marginBottom: '18px' }}
+                    // Cada día en su propia hoja, igual que la impresión por día
+                    style={{
+                      marginBottom: '18px',
+                      breakAfter: dayIdx < weekWorkerDetails.length - 1 ? 'page' : 'auto',
+                    }}
                   >
-                    <h2
-                      style={{
-                        fontSize: '13px',
-                        fontWeight: '700',
-                        marginBottom: '6px',
-                        borderBottom: '2px solid #e5e7eb',
-                        paddingBottom: '3px',
-                      }}
-                    >
-                      {getDayName(day, monthLabel)} {day} — {monthLabel}
+                    <h2 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '2px' }}>
+                      Horario — {getDayName(day, monthLabel)} {day}
                     </h2>
+                    <p style={{ fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+                      {monthLabel} · {weekOptions[selectedWeekIdx]?.label || ''}
+                    </p>
                     {dayWorkers.length === 0 ? (
                       <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '6px' }}>
                         Sin turnos asignados
                       </p>
                     ) : (
-                      <>
-                        <table
-                          style={{
-                            width: '100%',
-                            borderCollapse: 'collapse',
-                            fontSize: '10px',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          <thead>
-                            <tr style={{ background: '#f3f4f6' }}>
-                              <th
-                                style={{
-                                  textAlign: 'center',
-                                  padding: '3px 4px',
-                                  borderBottom: '1px solid #d1d5db',
-                                  fontWeight: '700',
-                                  fontSize: '9px',
-                                  color: '#9ca3af',
-                                  width: '22px',
-                                }}
-                              >
-                                #
-                              </th>
-                              <th
-                                style={{
-                                  textAlign: 'left',
-                                  padding: '3px 8px',
-                                  borderBottom: '1px solid #d1d5db',
-                                  fontWeight: '700',
-                                  fontSize: '9px',
-                                  textTransform: 'uppercase',
-                                }}
-                              >
-                                Nombre
-                              </th>
-                              <th
-                                style={{
-                                  textAlign: 'center',
-                                  padding: '3px 8px',
-                                  borderBottom: '1px solid #d1d5db',
-                                  fontWeight: '700',
-                                  fontSize: '9px',
-                                  textTransform: 'uppercase',
-                                  color: '#16a34a',
-                                }}
-                              >
-                                Entrada
-                              </th>
-                              <th
-                                style={{
-                                  textAlign: 'center',
-                                  padding: '3px 8px',
-                                  borderBottom: '1px solid #d1d5db',
-                                  fontWeight: '700',
-                                  fontSize: '9px',
-                                  textTransform: 'uppercase',
-                                  color: '#dc2626',
-                                }}
-                              >
-                                Salida
-                              </th>
-                              <th
-                                style={{
-                                  textAlign: 'center',
-                                  padding: '3px 8px',
-                                  borderBottom: '1px solid #d1d5db',
-                                  fontWeight: '700',
-                                  fontSize: '9px',
-                                  textTransform: 'uppercase',
-                                  color: '#7c3aed',
-                                }}
-                              >
-                                Colación
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {mananaWorkers.map((wd, i) => (
-                              <tr
-                                key={`wk-m-row-${day}-${i}`}
-                                style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}
-                              >
-                                <td
-                                  style={{
-                                    padding: '3px 4px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    textAlign: 'center',
-                                    fontWeight: '700',
-                                    color: '#6b7280',
-                                    fontSize: '9px',
-                                  }}
-                                >
-                                  {i + 1}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '3px 8px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    fontWeight: '600',
-                                    fontSize: '10px',
-                                  }}
-                                >
-                                  {wd.name}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '3px 8px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    textAlign: 'center',
-                                    fontWeight: '700',
-                                    color: '#16a34a',
-                                    fontSize: '10px',
-                                  }}
-                                >
-                                  {wd.start}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '3px 8px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    textAlign: 'center',
-                                    fontWeight: '700',
-                                    color: '#dc2626',
-                                    fontSize: '10px',
-                                  }}
-                                >
-                                  {wd.end}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '3px 8px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    textAlign: 'center',
-                                    fontWeight: '700',
-                                    color: '#7c3aed',
-                                    fontSize: '10px',
-                                  }}
-                                >
-                                  {wd.colacion === 0 ? '0' : `${wd.colacion} min`}
-                                </td>
-                              </tr>
-                            ))}
-                            {tardeWorkers.length > 0 && (
-                              <tr>
-                                <td
-                                  colSpan={5}
-                                  style={{
-                                    padding: '5px 8px',
-                                    background: '#fff7ed',
-                                    borderBottom: '1px solid #fed7aa',
-                                    borderTop: '2px solid #fb923c',
-                                    fontWeight: '700',
-                                    fontSize: '9px',
-                                    color: '#c2410c',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                  }}
-                                >
-                                  — Tarde (desde 11:00) —
-                                </td>
-                              </tr>
-                            )}
-                            {tardeWorkers.map((wd, i) => (
-                              <tr
-                                key={`wk-t-row-${day}-${i}`}
-                                style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}
-                              >
-                                <td
-                                  style={{
-                                    padding: '3px 4px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    textAlign: 'center',
-                                    fontWeight: '700',
-                                    color: '#6b7280',
-                                    fontSize: '9px',
-                                  }}
-                                >
-                                  {i + 1}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '3px 8px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    fontWeight: '600',
-                                    fontSize: '10px',
-                                  }}
-                                >
-                                  {wd.name}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '3px 8px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    textAlign: 'center',
-                                    fontWeight: '700',
-                                    color: '#16a34a',
-                                    fontSize: '10px',
-                                  }}
-                                >
-                                  {wd.start}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '3px 8px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    textAlign: 'center',
-                                    fontWeight: '700',
-                                    color: '#dc2626',
-                                    fontSize: '10px',
-                                  }}
-                                >
-                                  {wd.end}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '3px 8px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    textAlign: 'center',
-                                    fontWeight: '700',
-                                    color: '#7c3aed',
-                                    fontSize: '10px',
-                                  }}
-                                >
-                                  {wd.colacion === 0 ? '0' : `${wd.colacion} min`}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        <div
-                          style={{
-                            fontSize: '9px',
-                            color: '#6b7280',
-                            borderTop: '1px solid #e5e7eb',
-                            paddingTop: '3px',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          Total: <strong>{dayWorkers.length}</strong>
-                        </div>
-                      </>
+                      <DaySheet workerDetails={dayWorkers} />
                     )}
                   </div>
                 );
