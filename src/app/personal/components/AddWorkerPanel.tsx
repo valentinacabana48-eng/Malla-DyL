@@ -3,6 +3,8 @@ import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Save } from 'lucide-react';
 import { HORAS_OPTIONS, useAppContext, type Worker } from '@/context/AppContext';
+import { useReadonly } from '@/hooks/useReadonly';
+import WorkerPinSection from './WorkerPinSection';
 
 interface Props {
   worker: Worker;
@@ -40,6 +42,7 @@ function getInitials(name: string): string {
 
 export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Props) {
   const { sucursales, areas, areaCargos } = useAppContext();
+  const isReadonly = useReadonly();
   const {
     register,
     handleSubmit,
@@ -287,6 +290,8 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
           {isNew ? 'Guardar trabajador' : 'Actualizar trabajador'}
         </button>
       </form>
+
+      {!isNew && !isReadonly && <WorkerPinSection worker={worker} />}
     </div>
   );
 }

@@ -360,6 +360,12 @@ export function getDaysInMonth(monthLabel: string): number {
   return new Date(year, monthIdx + 1, 0).getDate();
 }
 
+/** Hora "6:00" o "06:00" en minutos, para ordenar turnos (sin hora = al final) */
+export function timeToMinutes(t: string | undefined | null): number {
+  const m = /^(\d{1,2}):(\d{2})/.exec((t || '').trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : Number.POSITIVE_INFINITY;
+}
+
 export function calcNetHours(shift: Shift): number {
   if (!shift.start || !shift.end) return 0;
   const [sh, sm] = shift.start.split(':').map(Number);

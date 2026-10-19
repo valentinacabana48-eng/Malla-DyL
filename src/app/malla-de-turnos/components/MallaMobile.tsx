@@ -8,6 +8,7 @@ import {
   type Shift,
   type ShiftCode,
   type Worker,
+  timeToMinutes,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 
@@ -123,7 +124,7 @@ export default function MallaMobile({
     });
     const shiftGroups = [...byShift.entries()]
       .map(([code, list]) => ({ code, shift: shifts[code], list }))
-      .sort((a, b) => (a.shift?.start ?? '').localeCompare(b.shift?.start ?? ''));
+      .sort((a, b) => timeToMinutes(a.shift?.start) - timeToMinutes(b.shift?.start));
     return { shiftGroups, off };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workers, dayIndex, scheduleData, specialDaysData, shifts]);
@@ -177,7 +178,7 @@ export default function MallaMobile({
   // Turnos compartidos y los de la sucursal de la trabajadora que se está editando
   const sortedShifts = Object.values(
     editingWorker ? shiftsForSucursales(shifts, [editingWorker.sucursal]) : shifts
-  ).sort((a, b) => (a.start || '99').localeCompare(b.start || '99'));
+  ).sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
 
   return (
     <div className="space-y-4">
