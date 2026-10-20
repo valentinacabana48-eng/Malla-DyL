@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react';
 import {
   useAppContext,
   monthLabelToKey,
@@ -15,6 +15,8 @@ import CoberturaHoras from './CoberturaHoras';
 
 // Vista de la malla para celulares: un día a la vez (agrupado por turno) o el
 // mes de una sola trabajadora. Tocar una fila abre un panel para cambiar el turno.
+
+const SHOW_OFF_KEY = 'malla-libres-abierto';
 
 const DOW_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MONTH_NAMES = [
@@ -77,6 +79,24 @@ export default function MallaMobile({
   const [dayIndex, setDayIndex] = useState(0);
   const [workerId, setWorkerId] = useState('');
   const [editing, setEditing] = useState<{ workerId: string; dayIndex: number } | null>(null);
+  // "Libres, permisos y sin turno" parte cerrado; se recuerda en este equipo
+  const [showOff, setShowOff] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(SHOW_OFF_KEY) === '1') setShowOff(true);
+    } catch {
+      // sin almacenamiento: queda cerrado
+    }
+  }, []);
+  const toggleOff = () =>
+    setShowOff((v) => {
+      try {
+        localStorage.setItem(SHOW_OFF_KEY, v ? '0' : '1');
+      } catch {
+        // sin almacenamiento: no se recuerda
+      }
+      return !v;
+    });
 
   // Al cambiar de mes se abre hoy (si es de ese mes) o el día 1
   useEffect(() => {
@@ -289,29 +309,39 @@ export default function MallaMobile({
 
           {dayGroups.off.length > 0 && (
             <section className="space-y-2">
-              <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={toggleOff}
+                aria-expanded={showOff}
+                className="w-full flex items-center justify-between gap-2 py-1 text-left"
+              >
                 <h2 className="text-sm font-bold text-foreground">Libres, permisos y sin turno</h2>
-                <span className="text-xs text-muted-foreground">
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   {dayGroups.off.length} persona{dayGroups.off.length !== 1 ? 's' : ''}
+                  {showOff ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </span>
-              </div>
-              <div className="bg-card rounded-2xl border border-border overflow-hidden">
-                {dayGroups.off.map(({ worker: w, cell }) => (
-                  <button
-                    key={w.id}
-                    type="button"
-                    disabled={!canEdit}
-                    onClick={() => setEditing({ workerId: w.id, dayIndex })}
-                    className={rowClass}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-base font-semibold text-foreground truncate">{w.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">{w.cargo || w.role}</p>
-                    </div>
-                    {cellBadge(cell)}
-                  </button>
-                ))}
-              </div>
+              </button>
+              {showOff && (
+                <div className="bg-card rounded-2xl border border-border overflow-hidden">
+                  {dayGroups.off.map(({ worker: w, cell }) => (
+                    <button
+                      key={w.id}
+                      type="button"
+                      disabled={!canEdit}
+                      onClick={() => setEditing({ workerId: w.id, dayIndex })}
+                      className={rowClass}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-base font-semibold text-foreground truncate">{w.name}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {w.cargo || w.role}
+                        </p>
+                      </div>
+                      {cellBadge(cell)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </section>
           )}
         </>
