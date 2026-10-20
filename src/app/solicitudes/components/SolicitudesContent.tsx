@@ -130,6 +130,53 @@ export default function SolicitudesContent() {
     comp: chosen[r.id]?.comp ?? (r.turno_actual || 'DESC'),
   });
 
+  // Cuántas del mismo cargo y sucursal hay a cada hora ese día, hoy y si se aprueba
+  const coverage = (r: Request, turno: string, comp: string) => {
+    const w = workerById.get(r.worker_id);
+    if (!w) return null;
+    const [y, m, d] = r.fecha.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const span = (code: string) => {
+      const sh = shifts[code];
+      if (!sh?.start || !sh?.end) return null;
+      const start = timeToMinutes(sh.start);
+      let end = timeToMinutes(sh.end);
+      if (end <= start) end += 1440;
+      return { start, end };
+    };
+    const before: { start: number; end: number }[] = [];
+    const after: { start: number; end: number }[] = [];
+    workers.forEach((o) => {
+      if (o.sucursal !== w.sucursal || o.cargo !== w.cargo) return;
+      const now = codeOn(o.id, date);
+      const next =
+        o.id === r.worker_id
+          ? turno
+          : r.tipo === 'intercambio' && o.id === r.companera_id
+            ? comp
+            : now;
+      const a = span(now);
+      const b = span(next);
+      if (a) before.push(a);
+      if (b) after.push(b);
+    });
+    const all = [...before, ...after];
+    if (all.length === 0) return null;
+    const from = Math.floor(Math.min(...all.map((t) => t.start)) / 60);
+    const to = Math.ceil(Math.max(...all.map((t) => t.end)) / 60) - 1;
+    const count = (list: typeof before, at: number) =>
+      list.filter((t) => t.start <= at && t.end > at).length;
+    const rows = [];
+    for (let h = from; h <= to; h++)
+      rows.push({ hour: h, before: count(before, h * 60), after: count(after, h * 60) });
+    // Lo más bajo entre las horas que cambian (las de apertura y cierre siempre son pocas)
+    const changed = rows.filter((x) => x.before !== x.after);
+    const min = changed.length
+      ? changed.reduce((a, b) => (b.after < a.after ? b : a), changed[0])
+      : null;
+    return { cargo: w.cargo || 'personas', changed, min };
+  };
+
   const pending = requests.filter((r) => r.status === 'pendiente');
   const answered = requests
     .filter((r) => r.status !== 'pendiente')
@@ -333,6 +380,61 @@ export default function SolicitudesContent() {
                       pickRow(comp, r.companera_id, pick.comp, r.turno_pedido, (v) =>
                         setChosen((c) => ({ ...c, [r.id]: { ...c[r.id], comp: v } }))
                       )}
+                    {(() => {
+                      const cov = coverage(r, pick.turno, pick.comp);
+                      if (!cov) return null;
+                      const { changed, min } = cov;
+                      const max = Math.max(1, ...changed.map((x) => Math.max(x.before, x.after)));
+                      const hh = (h: number) => `${String(h % 24).padStart(2, '0')}:00`;
+                      const plural = cov.cargo === 'Cajera' ? 'cajeras' : cov.cargo.toLowerCase();
+                      return (
+                        <div className="rounded-xl border border-border bg-muted/30 px-3 py-2.5">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                            {plural} ese día si apruebas
+                          </p>
+                          {changed.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                              No cambia cuántas hay a ninguna hora.
+                            </p>
+                          ) : (
+                            <div className="grid grid-cols-[3rem_1fr_4.5rem] gap-x-2 gap-y-1 items-center text-xs">
+                              {changed.map((x) => (
+                                <React.Fragment key={x.hour}>
+                                  <span className="tabular-nums text-foreground">{hh(x.hour)}</span>
+                                  <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${
+                                        x.hour === min?.hour ? 'bg-amber-500' : 'bg-blue-500'
+                                      }`}
+                                      style={{ width: `${(x.after / max) * 100}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-right tabular-nums">
+                                    <b
+                                      className={
+                                        x.hour === min?.hour ? 'text-amber-700' : 'text-foreground'
+                                      }
+                                    >
+                                      {x.after}
+                                    </b>{' '}
+                                    <span className="text-muted-foreground">(hoy {x.before})</span>
+                                  </span>
+                                </React.Fragment>
+                              ))}
+                            </div>
+                          )}
+                          {min && (
+                            <p className="text-xs font-semibold text-amber-800 mt-1.5">
+                              Lo más bajo: {min.after} {plural} a las {hh(min.hour)}
+                            </p>
+                          )}
+                          <p className="text-[11px] text-muted-foreground">
+                            Solo salen las horas que cambian. Si eliges otro turno arriba, se
+                            recalcula.
+                          </p>
+                        </div>
+                      );
+                    })()}
                     {waiting && (
                       <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-2.5 py-1.5">
                         Esperando que {comp?.name ?? 'la compañera'} acepte el cambio en su Mis
