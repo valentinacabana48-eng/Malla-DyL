@@ -48,6 +48,15 @@
   html {
     scroll-behavior: smooth;
   }
+  /* En el celular todo un poco más chico (los tamaños van en rem) */
+  @media (max-width: 1023.98px) {
+    html:not(.vista-escritorio) {
+      font-size: 15px;
+    }
+  }
+  html.vista-movil {
+    font-size: 15px;
+  }
   h1,
   h2,
   h3,
