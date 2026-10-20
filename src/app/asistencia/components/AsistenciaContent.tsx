@@ -1285,7 +1285,6 @@ export default function AsistenciaContent() {
       [10, 12],
       [10, 31],
       [11, 1],
-      [11, 2],
       [12, 8],
       [12, 25],
     ];

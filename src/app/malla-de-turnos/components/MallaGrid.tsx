@@ -284,15 +284,21 @@ function ShiftCell({
           ref={btnRef}
           onClick={() => !isReadonly && setOpen(!open)}
           className={`inline-flex flex-col items-center px-0.5 py-0.5 rounded text-[10px] font-bold leading-tight w-full transition-opacity ${isReadonly ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${nwt?.colorClass || 'bg-slate-100 text-slate-700 border border-slate-300'}`}
-          title={nwt?.label || specialDay}
+          title={
+            mark
+              ? `${mark.text}${mark.antes ? ` · antes ${mark.antes}` : ''}${mark.aprobado ? ` · aprobado por ${mark.aprobado}` : ''}`
+              : nwt?.label || specialDay
+          }
         >
           <span>{nwt?.icon || '📌'}</span>
           <span className="font-normal opacity-80 text-[8px]">
             {nwt?.label?.slice(0, 4).toUpperCase() || specialDay.slice(0, 4)}
           </span>
         </button>
+        {mark && <MarkBadge />}
         {!isReadonly && (
           <SmartDropdown anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
+            {mark && <MarkInfo mark={mark} />}
             <button
               onClick={() => {
                 onSpecialDayChange(workerId, dayIndex, null);
