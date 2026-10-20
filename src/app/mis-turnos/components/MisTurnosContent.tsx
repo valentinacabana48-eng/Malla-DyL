@@ -368,7 +368,7 @@ function MonthScreen({
   if (!monthKey) {
     return (
       <Shell data={data} onLogout={onLogout}>
-        <div className="m-4 bg-white border border-gray-200 rounded-2xl p-6 text-center flex flex-col gap-3">
+        <div className="m-4 lg:mx-auto lg:max-w-xl bg-white border border-gray-200 rounded-2xl p-6 text-center flex flex-col gap-3">
           <CalendarDays size={32} className="mx-auto text-blue-700" aria-hidden="true" />
           <p className="text-[17px] font-bold">Tu malla todavía no está publicada</p>
           <p className="text-sm text-gray-600">Cuando tu jefatura la publique, la verás aquí.</p>
@@ -382,7 +382,7 @@ function MonthScreen({
           </button>
         </div>
         {/* Las solicitudes se pueden hacer y responder aunque aún no haya malla publicada */}
-        <div className="m-4">
+        <div className="m-4 lg:mx-auto lg:max-w-xl">
           <Solicitudes token={token} fecha={null} onSessionEnd={onSessionEnd} />
         </div>
       </Shell>
@@ -410,7 +410,7 @@ function MonthScreen({
 
   return (
     <Shell data={data} onLogout={onLogout}>
-      <div className="bg-[#0f2744] text-white px-4 pb-4 flex items-center justify-between">
+      <div className="bg-[#0f2744] text-white px-4 lg:px-6 pb-4 flex items-center justify-between lg:justify-center lg:gap-8">
         <button
           type="button"
           onClick={() => prevMonth && onChangeMonth(prevMonth)}
@@ -432,167 +432,175 @@ function MonthScreen({
         </button>
       </div>
 
-      <div className="p-3 flex flex-col gap-3">
-        {showNotice && (
-          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3.5 flex flex-col gap-2">
-            <p className="text-[15px] font-bold text-amber-900">
-              Tu malla se actualizó el {formatFecha(data.changed_at)}
-            </p>
-            <p className="text-sm text-amber-900">
-              {changed.size === 1 ? 'Cambió 1 día' : `Cambiaron ${changed.size} días`}, marcados con
-              «Cambió». Toca un día para ver cómo estaba antes.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                writeLocal(seenKey, data.changed_at || '');
-                setSeen(data.changed_at || '');
-              }}
-              className="self-start h-11 px-4 rounded-xl bg-amber-600 text-white text-sm font-bold"
-            >
-              Entendido
-            </button>
-          </div>
-        )}
+      <div className="p-3 flex flex-col gap-3 lg:p-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6">
+        <div className="flex flex-col gap-3 lg:gap-4">
+          {showNotice && (
+            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3.5 flex flex-col gap-2">
+              <p className="text-[15px] font-bold text-amber-900">
+                Tu malla se actualizó el {formatFecha(data.changed_at)}
+              </p>
+              <p className="text-sm text-amber-900">
+                {changed.size === 1 ? 'Cambió 1 día' : `Cambiaron ${changed.size} días`}, marcados
+                con «Cambió». Toca un día para ver cómo estaba antes.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  writeLocal(seenKey, data.changed_at || '');
+                  setSeen(data.changed_at || '');
+                }}
+                className="self-start h-11 px-4 rounded-xl bg-amber-600 text-white text-sm font-bold"
+              >
+                Entendido
+              </button>
+            </div>
+          )}
 
-        {isCurrentMonth && (
-          <div className={`grid gap-2 ${manana !== undefined ? 'grid-cols-2' : ''}`}>
-            <DayCard
-              label={`HOY · ${DOW_NAMES[hoy.date.getDay()].toUpperCase()} ${hoy.day}`}
-              d={today}
-            />
-            {manana !== undefined && (
+          {isCurrentMonth && (
+            <div className={`grid gap-2 ${manana !== undefined ? 'grid-cols-2' : ''}`}>
               <DayCard
-                label={`MAÑANA · ${DOW_NAMES[(hoy.date.getDay() + 1) % 7].toUpperCase()} ${hoy.day + 1}`}
-                d={manana}
-                destacado
+                label={`HOY · ${DOW_NAMES[hoy.date.getDay()].toUpperCase()} ${hoy.day}`}
+                d={today}
               />
-            )}
-          </div>
-        )}
+              {manana !== undefined && (
+                <DayCard
+                  label={`MAÑANA · ${DOW_NAMES[(hoy.date.getDay() + 1) % 7].toUpperCase()} ${hoy.day + 1}`}
+                  d={manana}
+                  destacado
+                />
+              )}
+            </div>
+          )}
 
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-          <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
-            {DOWS.map((d) => (
-              <span key={d} className="text-center text-[11px] font-extrabold text-gray-700 py-2">
-                {d}
-              </span>
-            ))}
-          </div>
-          {weeks.map((week, w) => {
-            const horas = week.reduce<number>(
-              (t, i) => t + (i === null ? 0 : dayHours(days[i])),
-              0
-            );
-            const parcial = week.some((i) => i === null);
-            return (
-              <React.Fragment key={w}>
-                <div className="grid grid-cols-7">
-                  {week.map((i, n) => {
-                    if (i === null)
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+              {DOWS.map((d) => (
+                <span
+                  key={d}
+                  className="text-center text-[11px] lg:text-[13px] font-extrabold text-gray-700 py-2"
+                >
+                  {d}
+                </span>
+              ))}
+            </div>
+            {weeks.map((week, w) => {
+              const horas = week.reduce<number>(
+                (t, i) => t + (i === null ? 0 : dayHours(days[i])),
+                0
+              );
+              const parcial = week.some((i) => i === null);
+              return (
+                <React.Fragment key={w}>
+                  <div className="grid grid-cols-7">
+                    {week.map((i, n) => {
+                      if (i === null)
+                        return (
+                          <div
+                            key={`v${w}-${n}`}
+                            className="min-h-[66px] lg:min-h-[92px] bg-gray-50 border-r border-b border-slate-100"
+                          />
+                        );
+                      const d = days[i];
+                      const kind = dayKind(d);
+                      const isToday = isCurrentMonth && i === hoy.day - 1;
+                      const isSel = selected === i;
+                      const wasChanged = changed.has(i);
+                      const bg = isToday
+                        ? 'bg-blue-700 text-white'
+                        : kind === 'especial'
+                          ? 'bg-blue-100 text-blue-900'
+                          : kind === 'descanso'
+                            ? 'bg-white text-slate-400'
+                            : dayTurno(d) === 'tarde'
+                              ? 'bg-amber-50 text-amber-800'
+                              : 'bg-sky-50 text-sky-800';
                       return (
-                        <div
-                          key={`v${w}-${n}`}
-                          className="min-h-[66px] bg-gray-50 border-r border-b border-slate-100"
-                        />
-                      );
-                    const d = days[i];
-                    const kind = dayKind(d);
-                    const isToday = isCurrentMonth && i === hoy.day - 1;
-                    const isSel = selected === i;
-                    const wasChanged = changed.has(i);
-                    const bg = isToday
-                      ? 'bg-blue-700 text-white'
-                      : kind === 'especial'
-                        ? 'bg-blue-100 text-blue-900'
-                        : kind === 'descanso'
-                          ? 'bg-white text-slate-400'
-                          : dayTurno(d) === 'tarde'
-                            ? 'bg-amber-50 text-amber-800'
-                            : 'bg-sky-50 text-sky-800';
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setSelected(i)}
-                        aria-label={`Día ${i + 1}: ${dayText(d)}${wasChanged ? ', cambió' : ''}`}
-                        aria-pressed={isSel}
-                        className={`relative min-h-[66px] px-0.5 py-1 flex flex-col items-center gap-0.5 text-center border-r border-b border-slate-100 ${bg} ${
-                          isSel && !isToday ? 'ring-2 ring-inset ring-blue-600' : ''
-                        }`}
-                      >
-                        <span
-                          className={`text-xs font-bold ${isToday ? 'text-white' : 'text-gray-900'}`}
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setSelected(i)}
+                          aria-label={`Día ${i + 1}: ${dayText(d)}${wasChanged ? ', cambió' : ''}`}
+                          aria-pressed={isSel}
+                          className={`relative min-h-[66px] lg:min-h-[92px] px-0.5 py-1 lg:py-2 flex flex-col items-center gap-0.5 text-center border-r border-b border-slate-100 ${bg} ${
+                            isSel && !isToday ? 'ring-2 ring-inset ring-blue-600' : ''
+                          }`}
                         >
-                          {i + 1}
-                        </span>
-                        <span className="text-[10px] font-bold leading-tight whitespace-pre-line">
-                          {dayShort(d)}
-                        </span>
-                        {wasChanged && (
                           <span
-                            className={`mt-auto text-[9px] font-extrabold uppercase rounded px-1 ${
-                              isToday ? 'bg-white text-blue-800' : 'bg-amber-400 text-amber-950'
-                            }`}
+                            className={`text-xs lg:text-sm font-bold ${isToday ? 'text-white' : 'text-gray-900'}`}
                           >
-                            Cambió
+                            {i + 1}
                           </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                {horas > 0 && (
-                  <p className="px-3 py-1 text-right text-[12px] font-bold text-gray-600 border-b border-slate-100">
-                    Semana: {fmtHoras(horas)} h{parcial ? ' (parte en otro mes)' : ''}
-                  </p>
-                )}
-              </React.Fragment>
-            );
-          })}
-          <div className="flex gap-3 px-3 py-2 text-[11px] text-gray-600">
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm bg-sky-100 border border-sky-300" /> Mañana
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm bg-amber-100 border border-amber-300" /> Tarde
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm border border-slate-300" /> Libre
-            </span>
+                          <span className="text-[10px] lg:text-[13px] font-bold leading-tight whitespace-pre-line">
+                            {dayShort(d)}
+                          </span>
+                          {wasChanged && (
+                            <span
+                              className={`mt-auto text-[9px] font-extrabold uppercase rounded px-1 ${
+                                isToday ? 'bg-white text-blue-800' : 'bg-amber-400 text-amber-950'
+                              }`}
+                            >
+                              Cambió
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {horas > 0 && (
+                    <p className="px-3 py-1 text-right text-[12px] font-bold text-gray-600 border-b border-slate-100">
+                      Semana: {fmtHoras(horas)} h{parcial ? ' (parte en otro mes)' : ''}
+                    </p>
+                  )}
+                </React.Fragment>
+              );
+            })}
+            <div className="flex gap-3 px-3 py-2 text-[11px] text-gray-600">
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm bg-sky-100 border border-sky-300" /> Mañana
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm bg-amber-100 border border-amber-300" />{' '}
+                Tarde
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm border border-slate-300" /> Libre
+              </span>
+            </div>
           </div>
         </div>
 
-        {selected !== null && selDate && (
-          <div className="bg-white border border-gray-200 rounded-2xl px-3.5 py-3 flex flex-col gap-1">
-            <span className="text-sm font-bold text-gray-700">
-              {DOW_NAMES[selDate.getDay()]} {selected + 1}
-            </span>
-            <span className="text-[17px] font-extrabold">{dayText(sel)}</span>
-            {sel?.col && !sel.esp ? (
-              <span className="text-[13px] text-gray-600">Colación {sel.col} min</span>
-            ) : null}
-            {changed.has(selected) && data.prev_days && (
-              <span className="text-sm text-amber-800 bg-amber-50 rounded-lg px-2.5 py-1.5 mt-1">
-                Cambió. Antes: {dayText(data.prev_days[selected])}
+        <div className="flex flex-col gap-3 lg:gap-4 lg:sticky lg:top-4">
+          {selected !== null && selDate && (
+            <div className="bg-white border border-gray-200 rounded-2xl px-3.5 py-3 flex flex-col gap-1">
+              <span className="text-sm font-bold text-gray-700">
+                {DOW_NAMES[selDate.getDay()]} {selected + 1}
               </span>
-            )}
-          </div>
-        )}
+              <span className="text-[17px] font-extrabold">{dayText(sel)}</span>
+              {sel?.col && !sel.esp ? (
+                <span className="text-[13px] text-gray-600">Colación {sel.col} min</span>
+              ) : null}
+              {changed.has(selected) && data.prev_days && (
+                <span className="text-sm text-amber-800 bg-amber-50 rounded-lg px-2.5 py-1.5 mt-1">
+                  Cambió. Antes: {dayText(data.prev_days[selected])}
+                </span>
+              )}
+            </div>
+          )}
 
-        <Solicitudes
-          token={token}
-          fecha={
-            selected !== null && data.month_key
-              ? `${data.month_key}-${String(selected + 1).padStart(2, '0')}`
-              : null
-          }
-          onSessionEnd={onSessionEnd}
-        />
+          <Solicitudes
+            token={token}
+            fecha={
+              selected !== null && data.month_key
+                ? `${data.month_key}-${String(selected + 1).padStart(2, '0')}`
+                : null
+            }
+            onSessionEnd={onSessionEnd}
+          />
 
-        <p className="text-xs text-gray-500 text-center">
-          Publicada el {formatFecha(data.published_at)}
-        </p>
+          <p className="text-xs text-gray-500 text-center">
+            Publicada el {formatFecha(data.published_at)}
+          </p>
+        </div>
       </div>
     </Shell>
   );
@@ -610,9 +618,9 @@ function Shell({
   const adminSession = useHasAdminSession();
   return (
     <div className="min-h-[var(--app-height,100dvh)] bg-gray-100 text-gray-900">
-      <div className="max-w-md mx-auto">
+      <div className="max-w-md lg:max-w-6xl mx-auto">
         {/* Arriba la sucursal y los botones; el nombre va en su propia línea para que no se corte */}
-        <header className="bg-[#0f2744] text-white px-4 pt-5 pb-3.5 flex flex-col gap-2">
+        <header className="bg-[#0f2744] text-white px-4 lg:px-6 pt-5 pb-3.5 flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
             <span className="text-[13px] text-indigo-200 min-w-0 truncate">{data.sucursal}</span>
             <div className="flex items-center gap-2 shrink-0">
