@@ -81,8 +81,10 @@ export function useRequestMarks(
         .join(' ') ?? 'una compañera';
     const out: Record<string, RequestMark> = {};
     const put = (wid: string, day: number, final: string, mark: RequestMark) => {
-      if (specialDaysData[wid]?.[day]) return;
-      const now = scheduleData[wid]?.[day] ?? '';
+      const special = specialDaysData[wid]?.[day];
+      // Un día libre aprobado queda como DESCANSO en los días especiales
+      if (special && !(special === 'DESCANSO' && (final || 'DESC') === 'DESC')) return;
+      const now = special ? '' : (scheduleData[wid]?.[day] ?? '');
       if ((now || 'DESC') !== (final || 'DESC')) return;
       out[`${wid}-${day}`] = mark;
     };
