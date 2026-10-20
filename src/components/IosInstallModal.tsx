@@ -3,7 +3,16 @@ import React from 'react';
 import { X, Share, SquarePlus } from 'lucide-react';
 
 // Pasos para instalar la app en iPhone/iPad (Safari no tiene botón de instalar)
-export default function IosInstallModal({ onClose }: { onClose: () => void }) {
+export default function IosInstallModal({
+  onClose,
+  appName = 'DyL Gestor',
+  note,
+}: {
+  onClose: () => void;
+  appName?: string;
+  /** Aviso extra al final (p. ej. que hay que volver a ingresar en la app instalada) */
+  note?: string;
+}) {
   const steps = [
     {
       icon: <Share size={26} className="text-blue-600" />,
@@ -30,7 +39,7 @@ export default function IosInstallModal({ onClose }: { onClose: () => void }) {
       ),
       text: (
         <>
-          Toca <strong>Agregar</strong> arriba a la derecha. Listo: el ícono DyL Gestor queda en tu
+          Toca <strong>Agregar</strong> arriba a la derecha. Listo: el ícono {appName} queda en tu
           pantalla de inicio.
         </>
       ),
@@ -75,6 +84,7 @@ export default function IosInstallModal({ onClose }: { onClose: () => void }) {
         <p className="mt-4 text-xs text-muted-foreground">
           Si no ves «Agregar a pantalla de inicio», abre esta página en Safari.
         </p>
+        {note && <p className="mt-2 text-xs text-muted-foreground">{note}</p>}
       </div>
     </div>
   );
