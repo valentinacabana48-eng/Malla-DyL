@@ -35,6 +35,8 @@ const hhmm = (mins: number) => {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 };
 
+const OPEN_KEY = 'malla-cobertura-abierta';
+
 const firstName = (name: string) => name.split(' ').slice(0, 2).join(' ');
 
 export default function CoberturaHoras({
@@ -60,7 +62,26 @@ export default function CoberturaHoras({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cargos]);
 
-  const [open, setOpen] = useState(!collapsible);
+  // Abierto o cerrado: se recuerda en este equipo
+  const [open, setOpenState] = useState(!collapsible);
+  useEffect(() => {
+    if (!collapsible) return;
+    try {
+      if (localStorage.getItem(OPEN_KEY) === '1') setOpenState(true);
+    } catch {
+      // sin almacenamiento: queda cerrado
+    }
+  }, [collapsible]);
+  const setOpen = (fn: (v: boolean) => boolean) =>
+    setOpenState((v) => {
+      const next = fn(v);
+      try {
+        localStorage.setItem(OPEN_KEY, next ? '1' : '0');
+      } catch {
+        // sin almacenamiento: queda cerrado
+      }
+      return next;
+    });
   const [openHour, setOpenHour] = useState<number | null>(null);
 
   const turnos = useMemo((): Turno[] => {
@@ -256,6 +277,7 @@ export function CoberturaHorasDia(
     <CoberturaHoras
       {...rest}
       dayIndex={Math.min(dayIndex, daysInMonth - 1)}
+      collapsible
       headerExtra={
         <select
           value={dayIndex}
