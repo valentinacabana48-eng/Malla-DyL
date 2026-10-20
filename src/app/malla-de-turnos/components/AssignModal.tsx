@@ -33,7 +33,6 @@ function groupShiftsByHour(shifts: Record<string, Shift>): Map<string, string[]>
 
 // ─── Mini shift strip for a worker ────────────────────────────────────────
 function WorkerShiftPreview({
-  worker,
   shifts,
   scheduleForWorker,
   daysInMonth,

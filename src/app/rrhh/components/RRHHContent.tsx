@@ -131,7 +131,6 @@ export default function RRHHContent() {
   const [attendanceMap, setAttendanceMap] = useState<AttendanceMap>({});
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [savingTimes, setSavingTimes] = useState(false);
 
   useEffect(() => {
     setMounted(true);

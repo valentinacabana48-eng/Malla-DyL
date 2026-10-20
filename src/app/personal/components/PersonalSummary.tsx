@@ -1,6 +1,5 @@
 import React from 'react';
 import { Users, UserCheck, UserX, Clock, Briefcase } from 'lucide-react';
-import Icon from '@/components/ui/AppIcon';
 
 interface Summary {
   total: number;

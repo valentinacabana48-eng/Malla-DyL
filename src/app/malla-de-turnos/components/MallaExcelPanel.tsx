@@ -227,8 +227,6 @@ export default function MallaExcelPanel({
       views: [{ state: 'frozen', xSplit: FIXED_COLS, ySplit: 2 }],
     });
 
-    const totalCols = FIXED_COLS + daysInMonth;
-
     // ── Column widths ─────────────────────────────────────────────────────
     ws.getColumn(1).width = 24; // NOMBRE
     ws.getColumn(2).width = 8; // JORNADA
@@ -371,7 +369,6 @@ export default function MallaExcelPanel({
 
       // Compute weekly hours (weeks based on 7-day blocks starting from day 0)
       const weeklyHrs: number[] = [0, 0, 0, 0, 0];
-      let totalHrs = 0;
 
       for (let d = 0; d < daysInMonth; d++) {
         const special = specialDays[d];
@@ -384,7 +381,6 @@ export default function MallaExcelPanel({
           const hrs = getShiftHours((sched[d] as string) || code);
           const weekIdx = Math.min(Math.floor(d / 7), 4);
           weeklyHrs[weekIdx] += hrs;
-          totalHrs += hrs;
         }
       }
 
@@ -555,10 +551,8 @@ export default function MallaExcelPanel({
         });
       }
 
-      let rowTotal = 0;
       for (let d = 0; d < daysInMonth; d++) {
         const count = shiftCountsPerDay[d][code] || 0;
-        rowTotal += count;
         applyCell(ws.getCell(currentRow, FIXED_COLS + 1 + d), count > 0 ? count : '', {
           bgArgb: 'FFFFFF',
           fgArgb: '1A1A1A',

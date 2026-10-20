@@ -913,7 +913,6 @@ export default function MallaGrid({
   onCellChange,
   onSpecialDayChange,
   contractedHoursOverride,
-  onContractedHoursChange,
   holidayDayIndices = new Set(),
   requestMarks = {},
 }: Props) {
@@ -923,14 +922,12 @@ export default function MallaGrid({
     setSpecialDay: ctxSetSpecialDay,
     scheduleData: fullScheduleData,
     specialDays: fullSpecialDays,
-    selectedMes,
     bulkAssign,
     bulkAssignSpecialDay,
   } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; alerts: string[] } | null>(null);
   const [expandedWeekBreakdown, setExpandedWeekBreakdown] = useState<Set<string>>(new Set());
   const [expandedWeeklyHours, setExpandedWeeklyHours] = useState<Set<string>>(new Set());
 
@@ -1014,33 +1011,13 @@ export default function MallaGrid({
   // ─── Dual scrollbar refs ───────────────────────────────────────────────
   const topScrollRef = useRef<HTMLDivElement>(null);
   const gridScrollRef = useRef<HTMLDivElement>(null);
-  const gridWrapperRef = useRef<HTMLDivElement>(null);
-  const theadRef = useRef<HTMLTableSectionElement>(null);
-  const floatingHeaderScrollRef = useRef<HTMLDivElement>(null);
-  const [fixedScrollLeft, setFixedScrollLeft] = useState(0);
   const [fixedScrollWidth, setFixedScrollWidth] = useState(0);
   const [gridRect, setGridRect] = useState<{ left: number; width: number } | null>(null);
   const [showFixedBar, setShowFixedBar] = useState(false);
-  const [showFloatingHeader, setShowFloatingHeader] = useState(false);
-  const [floatingHeaderLeft, setFloatingHeaderLeft] = useState(0);
-  const [floatingHeaderWidth, setFloatingHeaderWidth] = useState(0);
-
-  const handleTopScroll = useCallback(() => {
-    if (gridScrollRef.current && topScrollRef.current) {
-      gridScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
-    }
-  }, []);
 
   const handleGridScroll = useCallback(() => {
     if (topScrollRef.current && gridScrollRef.current) {
       topScrollRef.current.scrollLeft = gridScrollRef.current.scrollLeft;
-    }
-    if (gridScrollRef.current) {
-      setFixedScrollLeft(gridScrollRef.current.scrollLeft);
-    }
-    // Sync floating header scroll position
-    if (floatingHeaderScrollRef.current && gridScrollRef.current) {
-      floatingHeaderScrollRef.current.scrollLeft = gridScrollRef.current.scrollLeft;
     }
   }, []);
 
@@ -1056,20 +1033,6 @@ export default function MallaGrid({
       const isGridBottomBelowViewport = rect.bottom > window.innerHeight;
       const isGridTopAboveViewport = rect.top < window.innerHeight;
       setShowFixedBar(isGridBottomBelowViewport && isGridTopAboveViewport);
-
-      // Show floating header when thead has scrolled above viewport
-      const thead = theadRef.current;
-      if (thead) {
-        const theadRect = thead.getBoundingClientRect();
-        const shouldShow = theadRect.bottom < 0;
-        setShowFloatingHeader(shouldShow);
-        setFloatingHeaderLeft(rect.left);
-        setFloatingHeaderWidth(rect.width);
-        // Sync scroll position when showing
-        if (shouldShow && floatingHeaderScrollRef.current) {
-          floatingHeaderScrollRef.current.scrollLeft = wrapper.scrollLeft;
-        }
-      }
     };
 
     updateGeometry();
@@ -1093,18 +1056,6 @@ export default function MallaGrid({
     if (topScrollRef.current) {
       topScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
     }
-  }, []);
-
-  // ─── Sync scroll width ─────────────────────────────────────────────────
-  const [tableScrollWidth, setTableScrollWidth] = useState(0);
-  useEffect(() => {
-    const grid = gridScrollRef.current;
-    if (!grid) return;
-    const update = () => setTableScrollWidth(grid.scrollWidth);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(grid);
-    return () => ro.disconnect();
   }, []);
 
   // ─── Compute leading/trailing days ────────────────────────────────────
@@ -1229,7 +1180,7 @@ export default function MallaGrid({
         style={{ maxHeight: 'calc(100vh - 220px)' }}
       >
         <table className="border-collapse text-xs" style={{ minWidth: 1000, width: 'max-content' }}>
-          <thead ref={theadRef} className="sticky top-0 z-20">
+          <thead className="sticky top-0 z-20">
             <tr className="bg-muted/30 border-b border-border">
               <th
                 className="text-left px-3 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] sticky left-0 w-[112px] min-w-[112px] max-w-[112px] lg:w-[140px] lg:min-w-[140px] lg:max-w-[140px] border-r border-border"
@@ -1297,8 +1248,6 @@ export default function MallaGrid({
               const alerts = getAlerts(worker.id);
               const hasAlert = alerts.length > 0;
 
-              // Determine row background for sticky cells
-              const rowBg = hasAlert ? 'bg-orange-50' : rowIdx % 2 === 0 ? 'bg-card' : 'bg-muted/5';
               // Solid opaque background colors for sticky columns to prevent content bleed-through
               const stickyBgColor = hasAlert ? '#fff7ed' : rowIdx % 2 === 0 ? '#ffffff' : '#f9fafb';
 
@@ -1715,25 +1664,6 @@ export default function MallaGrid({
           onApply={handleApply}
           onClearSelection={handleClearSelection}
         />
-      )}
-
-      {/* Floating alert tooltip */}
-      {tooltip && (
-        <div
-          className="fixed z-[9999] bg-orange-50 border border-orange-200 rounded-lg shadow-lg p-2 text-[10px] text-orange-700 font-medium pointer-events-none"
-          style={{
-            left: tooltip.x,
-            top: tooltip.y,
-            transform: 'translateY(-50%)',
-            minWidth: '220px',
-          }}
-        >
-          {tooltip.alerts.map((a, ai) => (
-            <p key={ai} className="mb-0.5 whitespace-normal">
-              ⚠ {a}
-            </p>
-          ))}
-        </div>
       )}
 
       {/* ─── Fixed bottom scrollbar ────────────────────────────────────── */}
