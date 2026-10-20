@@ -25,7 +25,6 @@ interface DailyAlertModalProps {
 }
 
 export default function DailyAlertModal({
-  date,
   dateLabel,
   workers,
   onConfirm,

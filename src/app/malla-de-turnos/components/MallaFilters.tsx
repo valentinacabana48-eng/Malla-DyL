@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Calendar, MapPin, Users, Clock, Briefcase, Search, Hash } from 'lucide-react';
 import { MESES, useAppContext } from '@/context/AppContext';
-import Icon from '@/components/ui/AppIcon';
 
 interface Props {
   selectedMes: string;

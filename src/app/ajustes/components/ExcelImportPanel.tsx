@@ -18,7 +18,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useAppContext, SHIFT_COLOR_OPTIONS } from '@/context/AppContext';
-import type { Worker, Shift, Sucursal } from '@/context/AppContext';
+import type { Worker, Shift } from '@/context/AppContext';
 import { readFirstSheetRows, downloadSimpleWorkbook } from '@/lib/excel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -360,10 +360,9 @@ function PreviewTable({ type, data }: { type: ImportType; data: ParseResult }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ExcelImportPanel() {
-  const { workers, shifts, sucursales, areas, addWorker, addShift, addSucursal, addArea } =
-    useAppContext();
+  const { shifts, sucursales, areas, addWorker, addShift, addSucursal, addArea } = useAppContext();
 
-  const [activeType, setActiveType] = useState<ImportType>('workers');
+  const [activeType] = useState<ImportType>('workers');
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);

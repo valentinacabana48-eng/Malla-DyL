@@ -14,15 +14,7 @@ interface AppLayoutProps {
 export default function AppLayout({ children }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const {
-    loading,
-    globalSucursal,
-    globalArea,
-    setGlobalSucursal,
-    setGlobalArea,
-    sucursales,
-    areas,
-  } = useAppContext();
+  const { loading, globalSucursal, globalArea, setGlobalSucursal, setGlobalArea } = useAppContext();
 
   // Show selector modal if no branch/area selected yet (after data loads)
   const [showSelector, setShowSelector] = useState(false);

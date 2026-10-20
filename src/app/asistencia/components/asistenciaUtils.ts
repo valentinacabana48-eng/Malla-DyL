@@ -66,7 +66,7 @@ export function getDefaultEndDate(startDate: string): string {
 }
 
 export function formatPeriodLabel(startDate: string, endDate: string): string {
-  const [sy, sm, sd] = startDate.split('-').map(Number);
+  const [, sm, sd] = startDate.split('-').map(Number);
   const [ey, em, ed] = endDate.split('-').map(Number);
   return `${sd} ${MONTH_NAMES[sm - 1]} – ${ed} ${MONTH_NAMES[em - 1]} ${ey}`;
 }

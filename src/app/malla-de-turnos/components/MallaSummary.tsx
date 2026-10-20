@@ -497,7 +497,6 @@ export default function MallaSummary({
     [daysInMonth, monthLabel]
   );
 
-  const showCajas = selectedCargo === 'Cajera' || selectedCargo === 'Todos';
   const cajasOnlyCargo = selectedCargo === 'Cajera';
 
   const summary = useMemo((): HourRow[] => {
@@ -762,16 +761,9 @@ export default function MallaSummary({
   const getBlockDayTotal = (day: number, hours: string[]): number =>
     hours.reduce((sum, h) => sum + getCount(day, h), 0);
 
-  // Subtotal across all days for a block
-  const getBlockTotal = (hours: string[]): number =>
-    weekDays.reduce((sum, day) => sum + getBlockDayTotal(day, hours), 0);
-
   // Grand total per day (mañana + tarde)
   const getDayGrandTotal = (day: number): number =>
     getBlockDayTotal(day, MANANA_HOURS) + getBlockDayTotal(day, TARDE_HOURS);
-
-  // Grand total overall
-  const grandTotal = weekDays.reduce((sum, day) => sum + getDayGrandTotal(day), 0);
 
   // Descanso per day
   const getDescanso = (day: number): number => {

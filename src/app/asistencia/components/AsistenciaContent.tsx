@@ -36,8 +36,6 @@ import {
   Lock,
   Unlock,
   X,
-  Eye,
-  EyeOff,
   LogOut,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -268,16 +266,8 @@ function MultiSelect({
 }
 
 export default function AsistenciaContent() {
-  const {
-    workers,
-    sucursales,
-    areas,
-    shifts,
-    scheduleData,
-    specialDays,
-    globalSucursal,
-    globalArea,
-  } = useAppContext();
+  const { workers, sucursales, shifts, scheduleData, specialDays, globalSucursal, globalArea } =
+    useAppContext();
 
   const defaultStart = getDefaultStartDate();
   const defaultEnd = getDefaultEndDate(defaultStart);
@@ -2785,7 +2775,6 @@ export function PeriodOverview({
   getEffectiveStatus,
   onSelectDate,
   lockedDates,
-  onToggleLock,
 }: PeriodOverviewProps) {
   const visibleDates = dates;
 

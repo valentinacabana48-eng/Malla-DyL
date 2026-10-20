@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Eye, Download, Printer, ChevronDown, User, Calendar, List, Coffee } from 'lucide-react';
 import {
   useAppContext,
@@ -9,21 +9,6 @@ import {
   MESES,
   monthLabelToKey,
 } from '@/context/AppContext';
-
-const MONTH_NAMES_ES: Record<string, string> = {
-  Enero: 'Enero',
-  Febrero: 'Febrero',
-  Marzo: 'Marzo',
-  Abril: 'Abril',
-  Mayo: 'Mayo',
-  Junio: 'Junio',
-  Julio: 'Julio',
-  Agosto: 'Agosto',
-  Septiembre: 'Septiembre',
-  Octubre: 'Octubre',
-  Noviembre: 'Noviembre',
-  Diciembre: 'Diciembre',
-};
 
 // Build a Mon-Sun weekly calendar grid for the month
 function buildCalendarWeeks(monthLabel: string): {

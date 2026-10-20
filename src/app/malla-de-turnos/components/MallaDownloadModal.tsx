@@ -1,11 +1,10 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { X, FileSpreadsheet, Download, Calendar, CalendarRange } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import {
   type Worker,
   type Shift,
-  type ShiftCode,
   type ScheduleData,
   type SpecialDaysData,
   MESES,
@@ -87,20 +86,6 @@ function applyCell(
   };
   const bc = { style: 'thin' as const, color: { argb: 'FFB8CCE4' } };
   cell.border = { top: bc, bottom: bc, left: bc, right: bc };
-}
-
-function getShiftHours(code: string, shifts: Record<string, Shift>): number {
-  const shiftInfo = shifts[code];
-  if (!shiftInfo?.start || !shiftInfo?.end) return 0;
-  const [sh, sm] = shiftInfo.start.split(':').map(Number);
-  const [eh, em] = shiftInfo.end.split(':').map(Number);
-  let mins = eh * 60 + em - (sh * 60 + sm);
-  if (mins < 0) mins += 24 * 60;
-  let hrs = mins / 60;
-  if ((shiftInfo as { colacion?: number }).colacion) {
-    hrs -= (shiftInfo as { colacion?: number }).colacion! / 60;
-  }
-  return hrs;
 }
 
 // Build list of days from startDate to endDate (inclusive)
@@ -418,7 +403,7 @@ export default function MallaDownloadModal({
       }
 
       await exportToExcel(workers, scheduleData, specialDays, shifts, days, fileName);
-    } catch (e) {
+    } catch {
       setError('Error al generar el archivo. Intenta de nuevo.');
     } finally {
       setExporting(false);

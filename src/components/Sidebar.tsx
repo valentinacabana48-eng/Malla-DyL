@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
@@ -18,7 +18,6 @@ import {
   Smartphone,
   Inbox,
 } from 'lucide-react';
-import Icon from '@/components/ui/AppIcon';
 import { useAuth } from '@/context/AuthContext';
 import { setVista, useVistaActual } from '@/lib/vista';
 import { routePerm } from '@/lib/permisos';

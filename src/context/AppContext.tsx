@@ -1509,67 +1509,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return [...NON_WORKING_TYPES, ...customNonWorkingTypes];
   }, [customNonWorkingTypes]);
 
-  // ─── Chilean public holidays ──────────────────────────────────────────────────
-  // Returns 0-based day indices for Chilean public holidays in a given month/year
-  // Fixed holidays (same date every year) + variable holidays (Easter, etc.)
-  function getChileanHolidays(monthIdx: number, year: number): number[] {
-    const holidays: number[] = [];
-
-    // Fixed holidays: [month (0-based), day]
-    const fixed: [number, number][] = [
-      [0, 1], // 1 Enero - Año Nuevo
-      [4, 1], // 1 Mayo - Día del Trabajo
-      [4, 21], // 21 Mayo - Glorias Navales
-      [5, 7], // 7 Junio - Día de los Pueblos Indígenas (desde 2021)
-      [5, 29], // 29 Junio - San Pedro y San Pablo
-      [7, 15], // 15 Agosto - Asunción de la Virgen
-      [8, 18], // 18 Septiembre - Independencia de Chile
-      [8, 19], // 19 Septiembre - Día de las Glorias del Ejército
-      [9, 12], // 12 Octubre - Encuentro de Dos Mundos
-      [9, 31], // 31 Octubre - Día de las Iglesias Evangélicas y Protestantes
-      [10, 1], // 1 Noviembre - Día de Todos los Santos
-      [10, 2], // 2 Noviembre - Día de los Fieles Difuntos (desde 2023)
-      [11, 8], // 8 Diciembre - Inmaculada Concepción
-      [11, 25], // 25 Diciembre - Navidad
-    ];
-
-    fixed.forEach(([m, d]) => {
-      if (m === monthIdx) {
-        holidays.push(d - 1); // convert to 0-based
-      }
-    });
-
-    // Variable holidays: Easter-based (Good Friday, Holy Saturday)
-    // Easter calculation (Anonymous Gregorian algorithm)
-    const a = year % 19;
-    const b = Math.floor(year / 100);
-    const c = year % 100;
-    const d2 = Math.floor(b / 4);
-    const e = b % 4;
-    const f = Math.floor((b + 8) / 25);
-    const g = Math.floor((b - f + 1) / 3);
-    const h = (19 * a + b - d2 - g + 15) % 30;
-    const i = Math.floor(c / 4);
-    const k = c % 4;
-    const l = (32 + 2 * e + 2 * i - h - k) % 7;
-    const m2 = Math.floor((a + 11 * h + 22 * l) / 451);
-    const easterMonth = Math.floor((h + l - 7 * m2 + 114) / 31) - 1; // 0-based
-    const easterDay = ((h + l - 7 * m2 + 114) % 31) + 1;
-
-    // Good Friday (2 days before Easter)
-    const goodFriday = new Date(year, easterMonth, easterDay - 2);
-    if (goodFriday.getMonth() === monthIdx) {
-      holidays.push(goodFriday.getDate() - 1);
-    }
-    // Holy Saturday (1 day before Easter)
-    const holySaturday = new Date(year, easterMonth, easterDay - 1);
-    if (holySaturday.getMonth() === monthIdx) {
-      holidays.push(holySaturday.getDate() - 1);
-    }
-
-    return holidays;
-  }
-
   return (
     <AppContext.Provider
       value={{

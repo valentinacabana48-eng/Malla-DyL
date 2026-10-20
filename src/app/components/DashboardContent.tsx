@@ -76,16 +76,8 @@ function getDatesForMonth(year: number, month: number) {
 }
 
 export default function DashboardContent() {
-  const {
-    workers,
-    shifts,
-    scheduleData,
-    sucursales,
-    areas,
-    getSucursalCajas,
-    globalSucursal,
-    globalArea,
-  } = useAppContext();
+  const { workers, shifts, scheduleData, sucursales, areas, getSucursalCajas, globalSucursal } =
+    useAppContext();
 
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
