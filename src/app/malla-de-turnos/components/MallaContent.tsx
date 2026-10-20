@@ -2,7 +2,18 @@
 import { useRequestMarks } from '@/hooks/useRequestMarks';
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
-import { CalendarDays, PenLine, FileSpreadsheet, SlidersHorizontal, Send } from 'lucide-react';
+import {
+  CalendarDays,
+  Download,
+  FileSpreadsheet,
+  Grid3x3,
+  PenLine,
+  Send,
+  SlidersHorizontal,
+  Upload,
+  Zap,
+} from 'lucide-react';
+import MenuButton from '@/components/ui/MenuButton';
 import {
   useAppContext,
   getDaysOfWeekForMonth,
@@ -446,14 +457,6 @@ export default function MallaContent() {
             <SlidersHorizontal size={16} />
             Filtros
           </button>
-          <LockToggle
-            isLocked={isLocked}
-            subject={lockSucursal ? `la malla de ${lockSucursal}` : 'la malla'}
-            onToggle={handleToggleLock}
-            disabledReason={
-              lockSucursal ? undefined : 'Elige una sola sucursal para bloquear su malla'
-            }
-          />
           {can('malla_publicar') && (
             <button
               type="button"
@@ -472,56 +475,53 @@ export default function MallaContent() {
               )}
             </button>
           )}
-          <button
-            onClick={() => setShowDownloadModal(true)}
-            className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 active:scale-95 transition-all duration-150"
-            style={{ boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}
-          >
-            <FileSpreadsheet size={15} />
-            Descargar Malla
-          </button>
-          <button
-            onClick={() => setShowExcelPanel(true)}
-            className="flex items-center gap-2 bg-teal-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-teal-700 active:scale-95 transition-all duration-150"
-            style={{ boxShadow: '0 2px 8px rgba(13,148,136,0.3)' }}
-          >
-            <FileSpreadsheet size={15} />
-            Excel
-          </button>
-          {!isLocked && (
-            <>
-              <button
-                onClick={() => setShowBulkShiftModal(true)}
-                disabled={isReadonly}
-                className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                </svg>
-                Turno masivo
-              </button>
-              <button
-                onClick={() => setShowAssignModal(true)}
-                disabled={isReadonly}
-                className="flex items-center gap-2 bg-secondary text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ boxShadow: '0 2px 8px rgba(29,91,212,0.3)' }}
-              >
-                <PenLine size={15} />
-                Asignar en bloque
-              </button>
-            </>
-          )}
+          <MenuButton
+            label="Asignar"
+            icon={<PenLine size={15} />}
+            items={[
+              {
+                label: 'Un turno a varias personas',
+                hint: 'El mismo turno a varias, en los días que elijas',
+                icon: <Zap size={15} />,
+                onSelect: () => setShowBulkShiftModal(true),
+                disabled: isLocked || isReadonly,
+              },
+              {
+                label: 'Pintar varias casillas',
+                hint: 'Eliges un turno y tocas las casillas',
+                icon: <Grid3x3 size={15} />,
+                onSelect: () => setShowAssignModal(true),
+                disabled: isLocked || isReadonly,
+              },
+            ]}
+          />
+          <MenuButton
+            label="Excel"
+            icon={<FileSpreadsheet size={15} />}
+            items={[
+              {
+                label: 'Descargar por fechas',
+                hint: 'Elige desde y hasta qué día',
+                icon: <Download size={15} />,
+                onSelect: () => setShowDownloadModal(true),
+              },
+              {
+                label: 'Descargar o subir el mes',
+                hint: 'La malla del mes, para revisarla o cargarla',
+                icon: <Upload size={15} />,
+                onSelect: () => setShowExcelPanel(true),
+              },
+            ]}
+          />
+          <LockToggle
+            isLocked={isLocked}
+            subject={lockSucursal ? `la malla de ${lockSucursal}` : 'la malla'}
+            onToggle={handleToggleLock}
+            compact
+            disabledReason={
+              lockSucursal ? undefined : 'Elige una sola sucursal para bloquear su malla'
+            }
+          />
         </div>
       </div>
 
