@@ -783,12 +783,8 @@ export default function AsistenciaContent() {
     setLockModal({
       date: dateStr,
       dateLabel: label,
-      mode: lockRows.some(
-        (r) =>
-          r.record_date === dateStr && r.sucursal === lockSucursal && (r.area ?? '') === lockArea
-      )
-        ? 'unlock'
-        : 'lock',
+      // Igual que lo que se ve: si el día aparece bloqueado, el botón lo desbloquea
+      mode: lockedDates.has(dateStr) ? 'unlock' : 'lock',
     });
   }
 
@@ -828,12 +824,26 @@ export default function AsistenciaContent() {
 
   async function unlockDate(dateStr: string): Promise<boolean> {
     if (!lockSucursal || lockArea === null) return false;
+    // Al aprobar el día se bloquea por área. Quien maneja la sucursal completa quita su
+    // bloqueo y el del área que está viendo (o el de todas las áreas, si ve todas).
+    const areas = canManageSucursal
+      ? filterArea !== 'Todas'
+        ? ['', filterArea]
+        : [
+            ...new Set(
+              lockRows
+                .filter((r) => r.record_date === dateStr && r.sucursal === lockSucursal)
+                .map((r) => r.area ?? '')
+            ),
+            '',
+          ]
+      : [lockArea];
     const { error } = await supabase
       .from('attendance_locked_dates')
       .delete()
       .eq('record_date', dateStr)
       .eq('sucursal', lockSucursal)
-      .eq('area', lockArea);
+      .in('area', areas);
     if (error) {
       console.error('Error unlocking date:', error);
       return false;
@@ -841,7 +851,11 @@ export default function AsistenciaContent() {
     setLockRows((prev) =>
       prev.filter(
         (r) =>
-          !(r.record_date === dateStr && r.sucursal === lockSucursal && (r.area ?? '') === lockArea)
+          !(
+            r.record_date === dateStr &&
+            r.sucursal === lockSucursal &&
+            areas.includes(r.area ?? '')
+          )
       )
     );
     return true;
