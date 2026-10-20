@@ -46,7 +46,17 @@ function AdminLink({ className }: { className: string }) {
     </Link>
   );
 }
-import { dayKind, dayShort, dayText, monthKeyToLabel, type PublishedMonth } from '@/lib/misTurnos';
+import {
+  dayHours,
+  dayKind,
+  dayShort,
+  dayText,
+  dayTurno,
+  fmtHoras,
+  monthKeyToLabel,
+  type PublishedDay,
+  type PublishedMonth,
+} from '@/lib/misTurnos';
 
 const TOKEN_KEY = 'dyl_mis_turnos_token';
 const RUT_KEY = 'dyl_mis_turnos_rut';
@@ -290,6 +300,39 @@ function LoginScreen({
 }
 
 // ─── Calendario del mes ──────────────────────────────────────────────────────
+function DayCard({
+  label,
+  d,
+  destacado = false,
+}: {
+  label: string;
+  d: PublishedDay | null | undefined;
+  destacado?: boolean;
+}) {
+  const turno = d?.s && d?.e && !d.esp;
+  return (
+    <div
+      className={`rounded-2xl px-3.5 py-3 flex flex-col gap-0.5 border ${
+        destacado ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200'
+      }`}
+    >
+      <span className="text-xs font-bold text-blue-700">{label}</span>
+      {turno ? (
+        <span className="text-[16px] font-extrabold leading-tight">
+          Entras {d.s}
+          <br />
+          Sales {d.e}
+        </span>
+      ) : (
+        <span className="text-[16px] font-extrabold">{dayText(d)}</span>
+      )}
+      {d?.col && !d.esp ? (
+        <span className="text-[12px] text-gray-600">Colación {d.col} min</span>
+      ) : null}
+    </div>
+  );
+}
+
 function MonthScreen({
   token,
   data,
@@ -357,6 +400,10 @@ function MonthScreen({
 
   const showNotice = changed.size > 0 && !!data.changed_at && seen !== data.changed_at;
   const today = isCurrentMonth ? days[hoy.day - 1] : null;
+  // Mañana, si sigue dentro de este mes
+  const manana = isCurrentMonth && hoy.day < days.length ? days[hoy.day] : undefined;
+  const weeks: (number | null)[][] = [];
+  for (let n = 0; n < cells.length; n += 7) weeks.push(cells.slice(n, n + 7));
 
   const sel = selected !== null ? days[selected] : undefined;
   const selDate = selected !== null ? new Date(year, month - 1, selected + 1) : null;
@@ -409,18 +456,18 @@ function MonthScreen({
         )}
 
         {isCurrentMonth && (
-          <div className="bg-white border border-gray-200 rounded-2xl px-3.5 py-3 flex flex-col gap-0.5">
-            <span className="text-xs font-bold text-blue-700">
-              HOY · {DOW_NAMES[hoy.date.getDay()].toUpperCase()} {hoy.day}
-            </span>
-            <span className="text-[17px] font-extrabold">
-              {today?.s && today?.e && !today.esp
-                ? `Entras ${today.s} · Sales ${today.e}`
-                : dayText(today)}
-            </span>
-            {today?.col && !today.esp ? (
-              <span className="text-[13px] text-gray-600">Colación {today.col} min</span>
-            ) : null}
+          <div className={`grid gap-2 ${manana !== undefined ? 'grid-cols-2' : ''}`}>
+            <DayCard
+              label={`HOY · ${DOW_NAMES[hoy.date.getDay()].toUpperCase()} ${hoy.day}`}
+              d={today}
+            />
+            {manana !== undefined && (
+              <DayCard
+                label={`MAÑANA · ${DOW_NAMES[(hoy.date.getDay() + 1) % 7].toUpperCase()} ${hoy.day + 1}`}
+                d={manana}
+                destacado
+              />
+            )}
           </div>
         )}
 
@@ -432,56 +479,87 @@ function MonthScreen({
               </span>
             ))}
           </div>
-          <div className="grid grid-cols-7">
-            {cells.map((i, n) => {
-              if (i === null)
-                return (
-                  <div
-                    key={`v${n}`}
-                    className="min-h-[66px] bg-gray-50 border-r border-b border-slate-100"
-                  />
-                );
-              const d = days[i];
-              const kind = dayKind(d);
-              const isToday = isCurrentMonth && i === hoy.day - 1;
-              const isSel = selected === i;
-              const wasChanged = changed.has(i);
-              const bg = isToday
-                ? 'bg-blue-700 text-white'
-                : kind === 'especial'
-                  ? 'bg-blue-100 text-blue-900'
-                  : kind === 'descanso'
-                    ? 'bg-slate-50 text-slate-500'
-                    : 'bg-white text-blue-700';
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setSelected(i)}
-                  aria-label={`Día ${i + 1}: ${dayText(d)}${wasChanged ? ', cambió' : ''}`}
-                  aria-pressed={isSel}
-                  className={`relative min-h-[66px] px-0.5 py-1 flex flex-col items-center gap-0.5 text-center border-r border-b border-slate-100 ${bg} ${
-                    isSel && !isToday ? 'ring-2 ring-inset ring-blue-600' : ''
-                  }`}
-                >
-                  <span className={`text-xs font-bold ${isToday ? 'text-white' : 'text-gray-900'}`}>
-                    {i + 1}
-                  </span>
-                  <span className="text-[10px] font-bold leading-tight whitespace-pre-line">
-                    {dayShort(d)}
-                  </span>
-                  {wasChanged && (
-                    <span
-                      className={`mt-auto text-[9px] font-extrabold uppercase rounded px-1 ${
-                        isToday ? 'bg-white text-blue-800' : 'bg-amber-400 text-amber-950'
-                      }`}
-                    >
-                      Cambió
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          {weeks.map((week, w) => {
+            const horas = week.reduce<number>(
+              (t, i) => t + (i === null ? 0 : dayHours(days[i])),
+              0
+            );
+            const parcial = week.some((i) => i === null);
+            return (
+              <React.Fragment key={w}>
+                <div className="grid grid-cols-7">
+                  {week.map((i, n) => {
+                    if (i === null)
+                      return (
+                        <div
+                          key={`v${w}-${n}`}
+                          className="min-h-[66px] bg-gray-50 border-r border-b border-slate-100"
+                        />
+                      );
+                    const d = days[i];
+                    const kind = dayKind(d);
+                    const isToday = isCurrentMonth && i === hoy.day - 1;
+                    const isSel = selected === i;
+                    const wasChanged = changed.has(i);
+                    const bg = isToday
+                      ? 'bg-blue-700 text-white'
+                      : kind === 'especial'
+                        ? 'bg-blue-100 text-blue-900'
+                        : kind === 'descanso'
+                          ? 'bg-white text-slate-400'
+                          : dayTurno(d) === 'tarde'
+                            ? 'bg-amber-50 text-amber-800'
+                            : 'bg-sky-50 text-sky-800';
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setSelected(i)}
+                        aria-label={`Día ${i + 1}: ${dayText(d)}${wasChanged ? ', cambió' : ''}`}
+                        aria-pressed={isSel}
+                        className={`relative min-h-[66px] px-0.5 py-1 flex flex-col items-center gap-0.5 text-center border-r border-b border-slate-100 ${bg} ${
+                          isSel && !isToday ? 'ring-2 ring-inset ring-blue-600' : ''
+                        }`}
+                      >
+                        <span
+                          className={`text-xs font-bold ${isToday ? 'text-white' : 'text-gray-900'}`}
+                        >
+                          {i + 1}
+                        </span>
+                        <span className="text-[10px] font-bold leading-tight whitespace-pre-line">
+                          {dayShort(d)}
+                        </span>
+                        {wasChanged && (
+                          <span
+                            className={`mt-auto text-[9px] font-extrabold uppercase rounded px-1 ${
+                              isToday ? 'bg-white text-blue-800' : 'bg-amber-400 text-amber-950'
+                            }`}
+                          >
+                            Cambió
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {horas > 0 && (
+                  <p className="px-3 py-1 text-right text-[12px] font-bold text-gray-600 border-b border-slate-100">
+                    Semana: {fmtHoras(horas)} h{parcial ? ' (parte en otro mes)' : ''}
+                  </p>
+                )}
+              </React.Fragment>
+            );
+          })}
+          <div className="flex gap-3 px-3 py-2 text-[11px] text-gray-600">
+            <span className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-sm bg-sky-100 border border-sky-300" /> Mañana
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-sm bg-amber-100 border border-amber-300" /> Tarde
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-sm border border-slate-300" /> Libre
+            </span>
           </div>
         </div>
 

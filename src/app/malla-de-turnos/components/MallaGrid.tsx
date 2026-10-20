@@ -1,4 +1,5 @@
 'use client';
+import type { RequestMark } from '@/hooks/useRequestMarks';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { User, X, Zap, CheckSquare } from 'lucide-react';
@@ -29,6 +30,8 @@ interface Props {
   contractedHoursOverride: Record<string, number>;
   onContractedHoursChange: (workerId: string, hours: number) => void;
   holidayDayIndices?: Set<number>;
+  /** Casillas que cambiaron por una solicitud aprobada */
+  requestMarks?: Record<string, RequestMark>;
 }
 
 // ─── Helper: group shift codes by start hour ───────────────────────────────
@@ -214,6 +217,28 @@ function SmartDropdown({
 }
 
 // ─── Individual ShiftCell (normal mode — no active shift selected) ─────────
+// ─── Marca de solicitud aprobada (⇄) ─────────────────────────────────────
+function MarkBadge() {
+  return (
+    <span
+      aria-hidden="true"
+      className="absolute top-0 right-0 w-3.5 h-3.5 rounded-full bg-blue-600 text-white text-[9px] leading-[14px] font-bold pointer-events-none"
+    >
+      ⇄
+    </span>
+  );
+}
+
+function MarkInfo({ mark }: { mark: RequestMark }) {
+  return (
+    <div className="px-3 py-2 mb-1 border-b border-border/50 text-xs">
+      <p className="font-bold text-blue-700">⇄ {mark.text}</p>
+      {mark.antes && <p className="text-muted-foreground">Antes: {mark.antes}</p>}
+      {mark.aprobado && <p className="text-muted-foreground">Aprobado por {mark.aprobado}</p>}
+    </div>
+  );
+}
+
 function ShiftCell({
   workerId,
   dayIndex,
@@ -225,6 +250,7 @@ function ShiftCell({
   onSpecialDayChange,
   isUnderHoursWeek,
   workerSucursal,
+  mark,
 }: {
   workerId: string;
   dayIndex: number;
@@ -237,6 +263,7 @@ function ShiftCell({
   isUnderHoursWeek?: boolean;
   /** Sucursal de la trabajadora, para ofrecer solo sus turnos y los compartidos */
   workerSucursal?: string;
+  mark?: RequestMark;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -386,13 +413,19 @@ function ShiftCell({
         ref={btnRef}
         onClick={() => !isReadonly && setOpen(!open)}
         className={`inline-flex flex-col items-center px-0.5 py-0.5 rounded text-[10px] font-bold leading-tight w-full transition-opacity ${isReadonly ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${shiftInfo.colorClass}`}
-        title={`${shiftInfo.start}–${shiftInfo.end}`}
+        title={
+          mark
+            ? `${mark.text}${mark.antes ? ` · antes ${mark.antes}` : ''}${mark.aprobado ? ` · aprobado por ${mark.aprobado}` : ''}`
+            : `${shiftInfo.start}–${shiftInfo.end}`
+        }
       >
         <span>{shiftInfo.code?.toUpperCase()}</span>
         {shiftInfo.start && <span className="font-normal opacity-70">{shiftInfo.start}</span>}
       </button>
+      {mark && <MarkBadge />}
       {!isReadonly && (
         <SmartDropdown anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
+          {mark && <MarkInfo mark={mark} />}
           <button
             onClick={() => {
               onCellChange(workerId, dayIndex, null);
@@ -882,6 +915,7 @@ export default function MallaGrid({
   contractedHoursOverride,
   onContractedHoursChange,
   holidayDayIndices = new Set(),
+  requestMarks = {},
 }: Props) {
   const {
     getAllNonWorkingTypes,
@@ -1633,6 +1667,7 @@ export default function MallaGrid({
                           onCellChange={onCellChange}
                           onSpecialDayChange={onSpecialDayChange}
                           isUnderHoursWeek={isUnderHoursWeek}
+                          mark={requestMarks[`${worker.id}-${i}`]}
                         />
                       );
                     });

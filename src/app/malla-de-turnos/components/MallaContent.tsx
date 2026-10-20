@@ -1,4 +1,5 @@
 'use client';
+import { useRequestMarks } from '@/hooks/useRequestMarks';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { CalendarDays, PenLine, FileSpreadsheet, SlidersHorizontal, Send } from 'lucide-react';
@@ -232,6 +233,11 @@ export default function MallaContent() {
     const monthKey = monthLabelToKey(selectedMes);
     return specialDays[monthKey] || {};
   }, [specialDays, selectedMes]);
+  const requestMarks = useRequestMarks(
+    monthLabelToKey(selectedMes),
+    currentMonthSchedule,
+    currentMonthSpecialDays
+  );
 
   const filteredWorkers = useMemo(() => {
     return workers.filter((w) => {
@@ -577,6 +583,7 @@ export default function MallaContent() {
           isLocked={isLocked}
           onCellChange={handleCellChange}
           onSpecialDayChange={handleSpecialDayChange}
+          requestMarks={requestMarks}
         />
       </div>
       <button
@@ -608,6 +615,7 @@ export default function MallaContent() {
             contractedHoursOverride={contractedHoursOverride}
             onContractedHoursChange={handleContractedHoursChange}
             holidayDayIndices={holidayDayIndices}
+            requestMarks={requestMarks}
           />
         </div>
 

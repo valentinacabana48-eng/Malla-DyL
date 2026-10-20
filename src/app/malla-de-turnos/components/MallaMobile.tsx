@@ -1,4 +1,5 @@
 'use client';
+import type { RequestMark } from '@/hooks/useRequestMarks';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react';
 import {
@@ -45,6 +46,8 @@ interface MallaMobileProps {
   isLocked: boolean;
   onCellChange: (workerId: string, dayIndex: number, shift: ShiftCode) => void;
   onSpecialDayChange: (workerId: string, dayIndex: number, typeCode: string | null) => void;
+  /** Casillas que cambiaron por una solicitud aprobada */
+  requestMarks?: Record<string, RequestMark>;
 }
 
 type Cell =
@@ -67,6 +70,7 @@ export default function MallaMobile({
   isLocked,
   onCellChange,
   onSpecialDayChange,
+  requestMarks = {},
 }: MallaMobileProps) {
   const { getAllNonWorkingTypes } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
@@ -297,6 +301,13 @@ export default function MallaMobile({
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-semibold text-foreground truncate">{w.name}</p>
                       <p className="text-sm text-muted-foreground truncate">{w.cargo || w.role}</p>
+                      {requestMarks[`${w.id}-${dayIndex}`] && (
+                        <p className="text-xs font-medium text-blue-700">
+                          ⇄ {requestMarks[`${w.id}-${dayIndex}`].text}
+                          {requestMarks[`${w.id}-${dayIndex}`].antes &&
+                            ` (antes ${requestMarks[`${w.id}-${dayIndex}`].antes})`}
+                        </p>
+                      )}
                     </div>
                     <span className="text-sm font-semibold text-foreground">
                       {shiftTime(shift)}
@@ -336,6 +347,13 @@ export default function MallaMobile({
                         <p className="text-sm text-muted-foreground truncate">
                           {w.cargo || w.role}
                         </p>
+                        {requestMarks[`${w.id}-${dayIndex}`] && (
+                          <p className="text-xs font-medium text-blue-700">
+                            ⇄ {requestMarks[`${w.id}-${dayIndex}`].text}
+                            {requestMarks[`${w.id}-${dayIndex}`].antes &&
+                              ` (antes ${requestMarks[`${w.id}-${dayIndex}`].antes})`}
+                          </p>
+                        )}
                       </div>
                       {cellBadge(cell)}
                     </button>
