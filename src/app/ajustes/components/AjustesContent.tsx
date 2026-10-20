@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Search,
   ChevronDown,
+  DatabaseBackup,
 } from 'lucide-react';
 import {
   useAppContext,
@@ -35,6 +36,7 @@ import { useAuth, type UserRole } from '@/context/AuthContext';
 import { ALL_PERMS, PERM_GROUPS, permsFor, type Perm } from '@/lib/permisos';
 import { getSupabase } from '@/lib/supabase/client';
 import ExcelImportPanel from './ExcelImportPanel';
+import BackupPanel from './BackupPanel';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1997,7 +1999,7 @@ function UsersPanel() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-type Tab = 'turnos' | 'especiales' | 'sucursales' | 'areas' | 'importar' | 'acceso';
+type Tab = 'turnos' | 'especiales' | 'sucursales' | 'areas' | 'importar' | 'acceso' | 'respaldo';
 
 export default function AjustesContent() {
   const {
@@ -2113,6 +2115,7 @@ export default function AjustesContent() {
     { id: 'areas', label: 'Áreas', icon: Users },
     { id: 'importar', label: 'Importar', icon: FileSpreadsheet },
     { id: 'acceso', label: 'Usuarios', icon: ShieldCheck },
+    { id: 'respaldo', label: 'Respaldo', icon: DatabaseBackup },
   ];
   // El admin de una sucursal solo administra sus turnos
   const TABS = isGlobalAdmin ? ALL_TABS : ALL_TABS.filter((t) => t.id === 'turnos');
@@ -2264,6 +2267,12 @@ export default function AjustesContent() {
       {activeTab === 'acceso' && (
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <UsersPanel />
+        </div>
+      )}
+
+      {activeTab === 'respaldo' && (
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+          <BackupPanel />
         </div>
       )}
     </div>
