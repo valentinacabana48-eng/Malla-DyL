@@ -1,5 +1,6 @@
 import {
   NON_WORKING_TYPES,
+  calcNetHours,
   type NonWorkingType,
   type Shift,
   type ShiftCode,
@@ -150,4 +151,21 @@ export function whatsappLink(text: string): string {
 export function misTurnosUrl(): string {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   return `${origin}/mis-turnos`;
+}
+
+/** Horas trabajadas de un día (descuenta colación como calcNetHours) */
+export function dayHours(d: PublishedDay | null | undefined): number {
+  if (!d || d.esp || !d.s || !d.e) return 0;
+  return calcNetHours({ start: d.s, end: d.e, colacion: d.col ?? 0 } as Shift);
+}
+
+/** Mañana si entra antes de las 12:00, tarde si no */
+export function dayTurno(d: PublishedDay | null | undefined): 'manana' | 'tarde' | null {
+  if (!d || d.esp || !d.s || !d.e) return null;
+  return Number(d.s.split(':')[0]) < 12 ? 'manana' : 'tarde';
+}
+
+/** 41.5 → "41,5" */
+export function fmtHoras(h: number): string {
+  return (Math.round(h * 10) / 10).toString().replace('.', ',');
 }

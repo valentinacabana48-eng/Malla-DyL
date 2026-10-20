@@ -25,6 +25,8 @@ ALTER TABLE public.shift_requests ADD COLUMN IF NOT EXISTS companera_id TEXT
 ALTER TABLE public.shift_requests ADD COLUMN IF NOT EXISTS companera_status TEXT NOT NULL DEFAULT '';
 -- Turno con que quedó la compañera al aprobar (puede ser ajustado)
 ALTER TABLE public.shift_requests ADD COLUMN IF NOT EXISTS turno_companera TEXT NOT NULL DEFAULT '';
+-- Turno que tenía la compañera al pedir el cambio
+ALTER TABLE public.shift_requests ADD COLUMN IF NOT EXISTS turno_companera_antes TEXT NOT NULL DEFAULT '';
 ALTER TABLE public.shift_requests DROP CONSTRAINT IF EXISTS shift_requests_tipo_check;
 ALTER TABLE public.shift_requests ADD CONSTRAINT shift_requests_tipo_check
   CHECK (tipo IN ('libre', 'cambio', 'intercambio'));
@@ -207,12 +209,14 @@ BEGIN
   END IF;
 
   INSERT INTO public.shift_requests
-    (worker_id, tipo, fecha, turno_actual, turno_pedido, motivo, companera_id, companera_status)
+    (worker_id, tipo, fecha, turno_actual, turno_pedido, motivo, companera_id, companera_status,
+     turno_companera_antes)
   VALUES (v_wid, p_tipo, p_fecha, public.worker_shift_on(v_wid, p_fecha),
           CASE p_tipo WHEN 'cambio' THEN v_turno WHEN 'intercambio' THEN v_suya ELSE '' END,
           left(trim(COALESCE(p_motivo, '')), 300),
           CASE WHEN p_tipo = 'intercambio' THEN p_companera END,
-          CASE WHEN p_tipo = 'intercambio' THEN 'pendiente' ELSE '' END);
+          CASE WHEN p_tipo = 'intercambio' THEN 'pendiente' ELSE '' END,
+          CASE WHEN p_tipo = 'intercambio' THEN v_suya ELSE '' END);
   RETURN jsonb_build_object('ok', true);
 END $$;
 
