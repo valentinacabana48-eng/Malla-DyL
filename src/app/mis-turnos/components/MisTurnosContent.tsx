@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { getPublicSupabase } from '@/lib/supabase/publicClient';
+import AppImage from '@/components/ui/AppImage';
 
 // ¿Hay una sesión de la app de administración abierta en este navegador? Solo para mostrar
 // el acceso directo: la administración pide su propio inicio de sesión igual.
@@ -29,6 +30,12 @@ function useHasAdminSession(): boolean {
   useEffect(() => setHas(hasAdminSession()), []);
   return has;
 }
+
+const BRANCH_LOGOS = [
+  { src: '/assets/images/descarga__2_-1784608577889.png', alt: 'Distribuidora DyL' },
+  { src: '/assets/images/descarga__1_-1784608578251.png', alt: 'Mayorista DyL' },
+  { src: '/assets/images/descarga-1784608578238.png', alt: 'Envases DyL' },
+];
 
 function AdminLink({ className }: { className: string }) {
   return (
@@ -180,8 +187,21 @@ function LoginScreen({
   return (
     <div className="min-h-[var(--app-height,100dvh)] flex flex-col bg-[#0f2744]">
       <div className="px-6 pt-16 pb-8 flex flex-col items-center gap-2.5 text-white text-center">
-        <div className="w-16 h-16 rounded-[18px] bg-[#16355c] border border-[#3b5b8a] flex items-center justify-center">
-          <CalendarDays size={30} aria-hidden="true" />
+        <div className="flex items-center justify-center gap-3 mb-1">
+          {BRANCH_LOGOS.map((logo) => (
+            <div
+              key={logo.alt}
+              className="w-[72px] h-[72px] rounded-[18px] bg-white shadow-lg flex items-center justify-center p-1.5"
+            >
+              <AppImage
+                src={logo.src}
+                alt={logo.alt}
+                width={64}
+                height={64}
+                className="object-contain w-full h-full"
+              />
+            </div>
+          ))}
         </div>
         <h1 className="text-[28px] font-extrabold">Mis turnos</h1>
         <p className="text-[15px] text-indigo-200">DyL. Ingresa con tu RUT y tu clave</p>
@@ -494,24 +514,25 @@ function Shell({
   return (
     <div className="min-h-[var(--app-height,100dvh)] bg-gray-100 text-gray-900">
       <div className="max-w-md mx-auto">
-        <header className="bg-[#0f2744] text-white px-4 pt-5 pb-3.5 flex items-center justify-between gap-3">
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="text-[13px] text-indigo-200">{data.sucursal}</span>
-            <h1 className="text-[21px] font-extrabold truncate">{data.name}</h1>
+        {/* Arriba la sucursal y los botones; el nombre va en su propia línea para que no se corte */}
+        <header className="bg-[#0f2744] text-white px-4 pt-5 pb-3.5 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[13px] text-indigo-200 min-w-0 truncate">{data.sucursal}</span>
+            <div className="flex items-center gap-2 shrink-0">
+              {adminSession && (
+                <AdminLink className="h-10 px-3 rounded-[10px] bg-white/10 border border-[#3b5b8a] text-[13px] font-semibold flex items-center gap-1.5" />
+              )}
+              <button
+                type="button"
+                onClick={onLogout}
+                className="h-10 px-3 rounded-[10px] border border-[#3b5b8a] text-[13px] font-semibold flex items-center gap-1.5"
+              >
+                <LogOut size={15} />
+                Salir
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {adminSession && (
-              <AdminLink className="h-10 px-3 rounded-[10px] bg-white/10 border border-[#3b5b8a] text-[13px] font-semibold flex items-center gap-1.5" />
-            )}
-            <button
-              type="button"
-              onClick={onLogout}
-              className="h-10 px-3 rounded-[10px] border border-[#3b5b8a] text-[13px] font-semibold flex items-center gap-1.5"
-            >
-              <LogOut size={15} />
-              Salir
-            </button>
-          </div>
+          <h1 className="text-[21px] font-extrabold leading-tight break-words">{data.name}</h1>
         </header>
         {children}
       </div>
