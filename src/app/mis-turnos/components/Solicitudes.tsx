@@ -5,11 +5,20 @@ import { getPublicSupabase } from '@/lib/supabase/publicClient';
 
 // Solicitudes de la trabajadora: pedir un día libre o un cambio de turno, y ver cómo van.
 
+type Tipo = 'libre' | 'cambio' | 'intercambio';
+
 interface Request {
   id: string;
-  tipo: 'libre' | 'cambio';
+  tipo: Tipo;
   fecha: string;
+  turno_actual: string;
   turno_pedido: string;
+  companera_status: '' | 'pendiente' | 'aceptada' | 'rechazada';
+  turno_companera?: string;
+  /** La hizo ella (si no, se la pidió una compañera) */
+  mia: boolean;
+  /** Nombre de la compañera del cambio */
+  otra: string | null;
   motivo: string;
   status: 'pendiente' | 'aprobada' | 'rechazada' | 'cancelada';
   respuesta: string;
@@ -19,6 +28,11 @@ interface ShiftOption {
   code: string;
   start: string;
   end: string;
+}
+
+interface Coworker extends ShiftOption {
+  id: string;
+  name: string;
 }
 
 const STATUS: Record<Request['status'], { label: string; cls: string }> = {
@@ -70,7 +84,10 @@ export default function Solicitudes({
   const [requests, setRequests] = useState<Request[]>([]);
   const [shifts, setShifts] = useState<ShiftOption[]>([]);
   const [open, setOpen] = useState(false);
-  const [tipo, setTipo] = useState<'libre' | 'cambio'>('libre');
+  const [tipo, setTipo] = useState<Tipo>('libre');
+  const [coworkers, setCoworkers] = useState<Coworker[] | null>(null);
+  const [mine, setMine] = useState('');
+  const [companera, setCompanera] = useState('');
   const [day, setDay] = useState('');
   const [turno, setTurno] = useState('');
   const [motivo, setMotivo] = useState('');
@@ -96,6 +113,25 @@ export default function Solicitudes({
     loadShifts();
   }, [loadRequests, loadShifts]);
 
+  // Compañeras que trabajan ese día con otro horario
+  useEffect(() => {
+    if (!open || tipo !== 'intercambio' || !day) return;
+    let active = true;
+    setCoworkers(null);
+    setCompanera('');
+    getPublicSupabase()
+      .rpc('mis_turnos_coworkers', { p_token: token, p_fecha: day })
+      .then(({ data }) => {
+        const r = data as { ok: boolean; mine?: string; coworkers?: Coworker[] } | null;
+        if (!active) return;
+        setCoworkers(r?.ok ? (r.coworkers ?? []) : []);
+        setMine(r?.mine ?? '');
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, tipo, day, token]);
+
   const openForm = async () => {
     const min = todayIso();
     setDay(fecha && fecha >= min ? fecha : '');
@@ -112,6 +148,7 @@ export default function Solicitudes({
     e.preventDefault();
     if (!day) return setError('Elige el día.');
     if (tipo === 'cambio' && !turno) return setError('Elige el turno que quieres.');
+    if (tipo === 'intercambio' && !companera) return setError('Elige a la compañera.');
     setSaving(true);
     setError('');
     try {
@@ -121,6 +158,7 @@ export default function Solicitudes({
         p_fecha: day,
         p_turno: tipo === 'cambio' ? turno : null,
         p_motivo: motivo,
+        p_companera: tipo === 'intercambio' ? companera : null,
       });
       if (rpcError) throw rpcError;
       const r = data as { ok: boolean; error?: string };
@@ -130,7 +168,11 @@ export default function Solicitudes({
         return;
       }
       setOpen(false);
-      setSent('Solicitud enviada. Te avisamos aquí cuando la respondan.');
+      setSent(
+        tipo === 'intercambio'
+          ? 'Solicitud enviada. Primero tiene que aceptarla tu compañera y después la jefatura.'
+          : 'Solicitud enviada. Te avisamos aquí cuando la respondan.'
+      );
       await loadRequests();
     } catch {
       setError('No se pudo enviar. Revisa tu internet.');
@@ -139,14 +181,42 @@ export default function Solicitudes({
     }
   };
 
+  const answer = async (id: string, acepta: boolean) => {
+    await getPublicSupabase().rpc('mis_turnos_request_answer', {
+      p_token: token,
+      p_id: id,
+      p_acepta: acepta,
+    });
+    await loadRequests();
+  };
+
   const cancel = async (id: string) => {
     await getPublicSupabase().rpc('mis_turnos_request_cancel', { p_token: token, p_id: id });
     await loadRequests();
   };
 
   const shiftText = (code: string) => {
+    if (!code || code === 'DESC') return 'libre';
     const s = shifts.find((x) => x.code === code);
     return s ? `${s.start} a ${s.end}` : code;
+  };
+
+  const title = (r: Request) =>
+    r.tipo === 'libre'
+      ? 'Día libre'
+      : r.tipo === 'cambio'
+        ? `Turno ${shiftText(r.turno_pedido)}`
+        : r.mia
+          ? `Cambio con ${r.otra ?? 'una compañera'}`
+          : `${r.otra ?? 'Una compañera'} te pide cambiar`;
+
+  // Estado que ve ella: en un cambio con compañera, primero acepta la compañera
+  const statusOf = (r: Request) => {
+    if (r.status === 'pendiente' && r.companera_status === 'pendiente')
+      return r.mia
+        ? { label: 'Esperando a tu compañera', cls: 'bg-amber-100 text-amber-900' }
+        : { label: 'Te toca responder', cls: 'bg-blue-100 text-blue-800' };
+    return STATUS[r.status];
   };
 
   return (
@@ -171,11 +241,12 @@ export default function Solicitudes({
 
       {open && (
         <form onSubmit={submit} className="flex flex-col gap-3 border-t border-gray-100 pt-3">
-          <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl">
+          <div className="grid grid-cols-3 gap-1 bg-gray-100 p-1 rounded-xl">
             {(
               [
                 ['libre', 'Día libre'],
-                ['cambio', 'Cambio de turno'],
+                ['cambio', 'Otro turno'],
+                ['intercambio', 'Con compañera'],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -183,7 +254,7 @@ export default function Solicitudes({
                 type="button"
                 onClick={() => setTipo(key)}
                 aria-pressed={tipo === key}
-                className={`py-2.5 rounded-lg text-sm font-bold ${
+                className={`py-2.5 px-1 rounded-lg text-[13px] leading-tight font-bold ${
                   tipo === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                 }`}
               >
@@ -219,6 +290,44 @@ export default function Solicitudes({
                 ))}
               </select>
             </label>
+          )}
+
+          {tipo === 'intercambio' && day && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-semibold text-gray-700">
+                ¿Con quién? {mine && <>Tú tienes {shiftText(mine)}.</>}
+              </span>
+              {coworkers === null ? (
+                <p className="text-sm text-gray-500">Buscando compañeras…</p>
+              ) : coworkers.length === 0 ? (
+                <p className="text-sm text-gray-500">Ese día no hay compañeras con otro horario.</p>
+              ) : (
+                <div className="flex flex-col rounded-xl border border-gray-300 overflow-hidden max-h-64 overflow-y-auto">
+                  {coworkers.map((c) => (
+                    <label
+                      key={c.id}
+                      className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 last:border-b-0 ${
+                        companera === c.id ? 'bg-blue-50' : 'bg-white'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="companera"
+                        checked={companera === c.id}
+                        onChange={() => setCompanera(c.id)}
+                        className="w-5 h-5 accent-blue-700"
+                      />
+                      <span className="flex-1 min-w-0 text-sm font-semibold text-gray-900 truncate">
+                        {c.name}
+                      </span>
+                      <span className="text-sm text-gray-700">
+                        {c.start} a {c.end}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           <label className="flex flex-col gap-1">
@@ -267,15 +376,25 @@ export default function Solicitudes({
             <li key={r.id} className="py-2.5 flex flex-col gap-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-gray-900">
-                    {r.tipo === 'libre' ? 'Día libre' : `Turno ${shiftText(r.turno_pedido)}`}
-                  </p>
+                  <p className="text-sm font-bold text-gray-900">{title(r)}</p>
                   <p className="text-[13px] text-gray-600">{fechaText(r.fecha)}</p>
+                  {r.tipo === 'intercambio' && (
+                    <p className="text-[13px] text-gray-600">
+                      {(() => {
+                        // Al aprobar, la jefa pudo ajustar el turno de la compañera
+                        const suyoFinal = r.turno_companera || r.turno_actual;
+                        const yo = r.mia ? r.turno_pedido : suyoFinal;
+                        const ella = r.mia ? suyoFinal : r.turno_pedido;
+                        const verbo = r.status === 'aprobada' ? 'Quedaste' : 'Quedarías';
+                        return `${verbo} ${shiftText(yo)} y ella ${shiftText(ella)}`;
+                      })()}
+                    </p>
+                  )}
                 </div>
                 <span
-                  className={`shrink-0 text-xs font-bold rounded-full px-2.5 py-1 ${STATUS[r.status].cls}`}
+                  className={`shrink-0 text-xs font-bold rounded-full px-2.5 py-1 text-center ${statusOf(r).cls}`}
                 >
-                  {STATUS[r.status].label}
+                  {statusOf(r).label}
                 </span>
               </div>
               {r.motivo && <p className="text-[13px] text-gray-500">«{r.motivo}»</p>}
@@ -284,7 +403,25 @@ export default function Solicitudes({
                   Respuesta: {r.respuesta}
                 </p>
               )}
-              {r.status === 'pendiente' && (
+              {!r.mia && r.status === 'pendiente' && r.companera_status === 'pendiente' && (
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => answer(r.id, false)}
+                    className="h-11 rounded-xl border border-gray-300 text-gray-700 text-sm font-semibold"
+                  >
+                    No acepto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => answer(r.id, true)}
+                    className="h-11 rounded-xl bg-blue-700 text-white text-sm font-bold"
+                  >
+                    Acepto el cambio
+                  </button>
+                </div>
+              )}
+              {r.mia && r.status === 'pendiente' && (
                 <button
                   type="button"
                   onClick={() => cancel(r.id)}

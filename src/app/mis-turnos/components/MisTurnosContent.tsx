@@ -338,6 +338,10 @@ function MonthScreen({
             Volver a revisar
           </button>
         </div>
+        {/* Las solicitudes se pueden hacer y responder aunque aún no haya malla publicada */}
+        <div className="m-4">
+          <Solicitudes token={token} fecha={null} onSessionEnd={onSessionEnd} />
+        </div>
       </Shell>
     );
   }
