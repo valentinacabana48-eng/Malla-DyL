@@ -13,6 +13,7 @@ import {
   whatsappLink,
   type PublishedMonth,
 } from '@/lib/misTurnos';
+import { checkMalla } from '@/lib/mallaCheck';
 
 export interface PendingChange {
   workerId: string;
@@ -148,6 +149,14 @@ function listDays(days: number[]): string {
   return `días ${nums.slice(0, -1).join(', ')} y ${nums[nums.length - 1]}`;
 }
 
+const DOW = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const hh = (h: number) => `${String(h % 24).padStart(2, '0')}:00`;
+
+function cargoPlural(cargo: string): string {
+  const c = cargo.toLowerCase();
+  return /[aeiou]$/.test(c) ? `${c}s` : `${c}es`;
+}
+
 interface PublishResult {
   firstTime: boolean;
   changedNames: string[];
@@ -168,7 +177,16 @@ export function PublishModal({
   const [result, setResult] = useState<PublishResult | null>(null);
   const [withoutPin, setWithoutPin] = useState<string[] | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [showAllGaps, setShowAllGaps] = useState(false);
   const extraTypes = getAllNonWorkingTypes();
+
+  // Días sin turno y horas sin nadie de un cargo, para avisar antes de publicar
+  const check = useMemo(
+    () => checkMalla(sucursalWorkers, current, getDaysInMonth(monthLabel)),
+    [sucursalWorkers, current, monthLabel]
+  );
+  const [year, month] = monthKey.split('-').map(Number);
+  const dow = (d: number) => DOW[new Date(year, month - 1, d + 1).getDay()];
 
   // Quiénes todavía no tienen clave para entrar a Mis turnos
   useEffect(() => {
@@ -215,7 +233,7 @@ export function PublishModal({
 
   const whatsappText = result
     ? result.firstTime || result.changedNames.length === 0
-      ? `Hola equipo, ya está publicada la malla de ${monthLabel} de ${sucursal}. Revísala en ${misTurnosUrl()} con tu RUT y tu clave.`
+      ? `Hola equipo, ya está publicada la malla de ${monthLabel} de ${sucursal}. Revísala en ${misTurnosUrl()} con tu RUT y tu clave. Ahí mismo puedes tocar «Instalar» para dejarla como app en tu celular.`
       : `Hola, se actualizó la malla de ${monthLabel} de ${sucursal}. Cambió la de: ${result.changedNames.join(', ')}. Revísala en ${misTurnosUrl()}.`
     : '';
 
@@ -334,6 +352,61 @@ export function PublishModal({
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {(check.emptyDays.length > 0 || check.gaps.length > 0) && (
+                <div className="flex flex-col gap-2 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-3 py-2.5">
+                  <div className="flex items-start gap-2 font-semibold">
+                    <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                    <span>Revisa esto antes de publicar</span>
+                  </div>
+                  {check.emptyDays.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide">
+                        Días sin turno
+                      </p>
+                      <ul className="flex flex-col gap-0.5 text-xs">
+                        {check.emptyDays.slice(0, 8).map((e) => (
+                          <li key={e.name}>
+                            <b>{e.name}</b>:{' '}
+                            {e.days.length > 10 ? `${e.days.length} días vacíos` : listDays(e.days)}
+                          </li>
+                        ))}
+                        {check.emptyDays.length > 8 && (
+                          <li>y {check.emptyDays.length - 8} trabajadoras más</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                  {check.gaps.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide">
+                        Horas sin nadie
+                      </p>
+                      <ul className="flex flex-col gap-0.5 text-xs">
+                        {(showAllGaps ? check.gaps : check.gaps.slice(0, 6)).map((g) => (
+                          <li key={`${g.day}-${g.cargo}`}>
+                            <b>
+                              {dow(g.day)} {g.day + 1}
+                            </b>
+                            : sin {cargoPlural(g.cargo)}{' '}
+                            {g.ranges.map(([a, b]) => `de ${hh(a)} a ${hh(b)}`).join(' y ')}
+                          </li>
+                        ))}
+                      </ul>
+                      {check.gaps.length > 6 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllGaps((v) => !v)}
+                          className="self-start text-xs font-semibold underline min-h-[32px]"
+                        >
+                          {showAllGaps ? 'Ver menos' : `Ver los ${check.gaps.length}`}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-xs">Puedes publicar igual y corregirlo después.</p>
                 </div>
               )}
 

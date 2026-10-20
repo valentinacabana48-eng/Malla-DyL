@@ -14,6 +14,7 @@ import {
 import { getPublicSupabase } from '@/lib/supabase/publicClient';
 import AppImage from '@/components/ui/AppImage';
 import Solicitudes from './Solicitudes';
+import InstallBanner from './InstallBanner';
 
 // ¿Hay una sesión de la app de administración abierta en este navegador? Solo para mostrar
 // el acceso directo: la administración pide su propio inicio de sesión igual.
@@ -433,6 +434,7 @@ function MonthScreen({
       </div>
 
       <div className="p-3 flex flex-col gap-3">
+        <InstallBanner />
         {showNotice && (
           <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3.5 flex flex-col gap-2">
             <p className="text-[15px] font-bold text-amber-900">
