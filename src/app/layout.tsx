@@ -44,11 +44,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={plusJakarta.variable} suppressHydrationWarning>
-      <head>
-        {/* Aplica la vista elegida (celular / computador) antes de pintar */}
-        <script dangerouslySetInnerHTML={{ __html: VISTA_INIT_SCRIPT }} />
-      </head>
       <body className={plusJakarta.className}>
+        {/* Aplica la vista elegida (celular / computador) antes de pintar. Va al inicio del
+            <body> y no en el <head>: ahí el navegador agrega otras etiquetas antes de que React
+            hidrate y a veces React fallaba al encontrarlas (error 418) */}
+        <script dangerouslySetInnerHTML={{ __html: VISTA_INIT_SCRIPT }} />
         <PwaSetup />
         <DesktopModeNotice />
         <AppShell>{children}</AppShell>
