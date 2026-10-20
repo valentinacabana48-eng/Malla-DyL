@@ -16,11 +16,13 @@ import {
   ShieldCheck,
   Monitor,
   Smartphone,
+  Inbox,
 } from 'lucide-react';
 import Icon from '@/components/ui/AppIcon';
 import { useAuth } from '@/context/AuthContext';
 import { setVista, useVistaActual } from '@/lib/vista';
 import { routePerm } from '@/lib/permisos';
+import { usePendingRequests } from '@/hooks/usePendingRequests';
 
 const navItems: {
   label: string;
@@ -35,6 +37,7 @@ const navItems: {
   { label: 'Personal', icon: Users, href: '/personal' },
   { label: 'Asistencia', icon: CalendarCheck, href: '/asistencia' },
   { label: 'RRHH', icon: UserCog, href: '/rrhh', adminOnly: true },
+  { label: 'Solicitudes', icon: Inbox, href: '/solicitudes' },
   { label: 'Vista previa', icon: Eye, href: '/vista-previa' },
   { label: 'Ajustes', icon: Settings, href: '/ajustes', adminOnly: true },
 ];
@@ -48,6 +51,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { isAdmin, isGlobalAdmin, canManageSucursal, can } = useAuth();
   const vista = useVistaActual();
+  const pendingRequests = usePendingRequests();
   const visibleItems = navItems.filter(
     (item) =>
       (!item.adminOnly || (isAdmin && canManageSucursal)) &&
@@ -111,6 +115,17 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   className={`text-sm whitespace-nowrap ${isActive ? 'font-semibold text-white' : 'font-medium'}`}
                 >
                   {item.label}
+                </span>
+              )}
+              {item.href === '/solicitudes' && pendingRequests > 0 && (
+                <span
+                  className={`min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center ${
+                    collapsed
+                      ? 'absolute top-1 right-1 min-w-[16px] h-4 px-1 text-[10px]'
+                      : 'ml-auto'
+                  }`}
+                >
+                  {pendingRequests}
                 </span>
               )}
               {collapsed && (

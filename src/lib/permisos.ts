@@ -76,6 +76,7 @@ export const ROUTE_PERMS: { href: string; perm: Perm }[] = [
   { href: '/personal', perm: 'personal_ver' },
   { href: '/asistencia', perm: 'asistencia_ver' },
   { href: '/rrhh', perm: 'rrhh' },
+  { href: '/solicitudes', perm: 'malla_editar' },
   { href: '/vista-previa', perm: 'malla_ver' },
   { href: '/', perm: 'personal_ver' },
 ];

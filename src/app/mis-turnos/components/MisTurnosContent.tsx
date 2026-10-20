@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { getPublicSupabase } from '@/lib/supabase/publicClient';
 import AppImage from '@/components/ui/AppImage';
+import Solicitudes from './Solicitudes';
 
 // ¿Hay una sesión de la app de administración abierta en este navegador? Solo para mostrar
 // el acceso directo: la administración pide su propio inicio de sesión igual.
@@ -290,12 +291,16 @@ function LoginScreen({
 
 // ─── Calendario del mes ──────────────────────────────────────────────────────
 function MonthScreen({
+  token,
   data,
   loading,
   onChangeMonth,
   onRefresh,
   onLogout,
+  onSessionEnd,
 }: {
+  token: string;
+  onSessionEnd: () => void;
   data: MonthData;
   loading: boolean;
   onChangeMonth: (key: string) => void;
@@ -493,6 +498,16 @@ function MonthScreen({
           </div>
         )}
 
+        <Solicitudes
+          token={token}
+          fecha={
+            selected !== null && data.month_key
+              ? `${data.month_key}-${String(selected + 1).padStart(2, '0')}`
+              : null
+          }
+          onSessionEnd={onSessionEnd}
+        />
+
         <p className="text-xs text-gray-500 text-center">
           Publicada el {formatFecha(data.published_at)}
         </p>
@@ -592,6 +607,13 @@ export default function MisTurnosContent() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [token, data?.month_key, load]);
 
+  const endSession = useCallback(() => {
+    clearToken();
+    setToken(null);
+    setData(null);
+    setNotice('Tu sesión terminó. Vuelve a ingresar.');
+  }, []);
+
   const logout = async () => {
     const tok = token;
     clearToken();
@@ -648,6 +670,8 @@ export default function MisTurnosContent() {
 
   return (
     <MonthScreen
+      token={token}
+      onSessionEnd={endSession}
       data={data}
       loading={loading}
       onChangeMonth={(key) => load(token, key)}
