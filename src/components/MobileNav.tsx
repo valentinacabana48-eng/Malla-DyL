@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { CalendarDays, CalendarCheck, Users, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { routePerm } from '@/lib/permisos';
+import { usePendingRequests } from '@/hooks/usePendingRequests';
 
 // Menú inferior para celulares: accesos directos a los módulos más usados y
 // un botón "Más" que abre el menú lateral con el resto.
@@ -26,6 +27,7 @@ export default function MobileNav({ onOpenMenu }: MobileNavProps) {
     const perm = routePerm(t.href);
     return !perm || can(perm);
   });
+  const pendingRequests = usePendingRequests();
   const itemClass = 'flex flex-col items-center justify-center gap-0.5 min-h-[52px] text-xs';
 
   return (
@@ -51,8 +53,16 @@ export default function MobileNav({ onOpenMenu }: MobileNavProps) {
       <button
         type="button"
         onClick={onOpenMenu}
-        className={`${itemClass} text-gray-500 font-medium`}
+        className={`${itemClass} relative text-gray-500 font-medium`}
+        aria-label={
+          pendingRequests > 0 ? `Más (${pendingRequests} solicitudes por responder)` : undefined
+        }
       >
+        {pendingRequests > 0 && (
+          <span className="absolute top-1.5 left-1/2 ml-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+            {pendingRequests}
+          </span>
+        )}
         <Menu size={22} />
         Más
       </button>
