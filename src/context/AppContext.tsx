@@ -1579,7 +1579,6 @@ export function getChileanHolidays(monthIdx: number, year: number): number[] {
     [9, 12],
     [9, 31],
     [10, 1],
-    [10, 2],
     [11, 8],
     [11, 25],
   ];
