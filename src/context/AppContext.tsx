@@ -599,6 +599,46 @@ async function dbWrite(op: PromiseLike<DbResult>, what: string): Promise<boolean
   }
 }
 
+// Ausencias que la Malla impone en la asistencia. Si ese día ya tenía un registro
+// (p. ej. "Presente" marcado antes de poner la licencia), se reemplaza por el de la Malla;
+// si no tenía, la asistencia ya lo muestra desde la Malla.
+const MALLA_ABSENCE_CODES = new Set([
+  'LICENCIA',
+  'VACACIONES',
+  'PERMISO',
+  'PERMISO_CG',
+  'PERMISO_SG',
+  'CUMPLEANOS',
+]);
+
+async function syncAttendanceWithMalla(
+  monthKey: string,
+  workerId: string,
+  dayIndices: number[],
+  typeCode: string | null
+): Promise<void> {
+  if (!typeCode || !MALLA_ABSENCE_CODES.has(typeCode) || dayIndices.length === 0) return;
+  const dates = dayIndices.map((di) => `${monthKey}-${String(di + 1).padStart(2, '0')}`);
+  const supabase = getSupabase();
+  const now = new Date().toISOString();
+  const results = await Promise.all(
+    (['attendance_records', 'attendance_proposals'] as const).map((table) =>
+      supabase
+        .from(table)
+        .update({ status: typeCode, absence_reason: '', updated_at: now })
+        .eq('worker_id', workerId)
+        .in('record_date', dates)
+        .neq('status', typeCode)
+    )
+  );
+  results.forEach(({ error }) => {
+    if (error) console.error('syncAttendanceWithMalla error:', error);
+  });
+  if (results[0].error) {
+    toast.error('La Malla se guardó, pero la asistencia de esos días no se pudo actualizar.');
+  }
+}
+
 function fetchAllRows(table: string, orderBy: string): Promise<Record<string, unknown>[]> {
   return fetchAll((from, to) =>
     getSupabase().from(table).select('*').order(orderBy).range(from, to)
@@ -1203,7 +1243,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         console.error('setSpecialDay error:', error);
         toast.error('No se pudo guardar el día especial. Intenta de nuevo.');
+        return;
       }
+      await syncAttendanceWithMalla(monthKey, workerId, [dayIndex], typeCode);
     },
     [selectedMes, supabase]
   );
@@ -1261,7 +1303,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (error) {
             console.error('bulkAssignSpecialDay error:', error);
             hasError = true;
+            return;
           }
+          await syncAttendanceWithMalla(monthKey, wId, dayIndices, typeCode);
         })
       );
       if (hasError) toast.error('Algunos días especiales no se pudieron guardar.');
