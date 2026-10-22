@@ -705,13 +705,17 @@ export default function AsistenciaContent() {
   }
 
   function getEffectiveStatus(workerId: string, dateStr: string): string {
-    // Sin registro el día queda vacío: nada sale solo hasta que se marque a mano o se
-    // toque "Todas asistieron", que llena el día según la Malla
-    const recorded = attendance[workerId]?.[dateStr]?.status;
-    if (!recorded) return '';
-    // NT from Malla is ABSOLUTE — always wins over what was recorded
+    // NT from Malla is ABSOLUTE — always wins, no DB record can override it
     if (isMallaNT(workerId, dateStr)) return 'NT';
-    return recorded;
+
+    // Check DB record first — manual saves always take priority over auto-status
+    const recorded = attendance[workerId]?.[dateStr]?.status;
+    if (recorded) return recorded;
+
+    // No DB record — fall back to auto status from schedule/special days
+    const auto = getAutoStatus(workerId, dateStr);
+    if (auto === 'NT_SOFT') return 'NT';
+    return auto ?? 'PRESENTE';
   }
 
   // Open daily alert for a date
@@ -1201,8 +1205,7 @@ export default function AsistenciaContent() {
     if (isPanelLocked || lockedDates.has(dateStr)) return;
     setRetiroModal(null);
     const prevRecord = attendance[workerId]?.[dateStr];
-    // Si se retiró antes es porque vino: sin marcar cuenta como presente
-    const status = getEffectiveStatus(workerId, dateStr) || 'PRESENTE';
+    const status = getEffectiveStatus(workerId, dateStr);
     const now = new Date().toISOString();
     const table = attendanceTable(dateStr);
     const pending = table === 'attendance_proposals';
@@ -1261,7 +1264,7 @@ export default function AsistenciaContent() {
         if (lockedDates.has(dt)) continue; // los días bloqueados no se pueden modificar
         if (attendance[w.id]?.[dt]) continue; // ya está guardado
         const status = getEffectiveStatus(w.id, dt);
-        if (!status || status === 'NT') continue; // sin marcar o NT de la Malla: no se guarda
+        if (status === 'NT') continue; // don't save hard NT records
         upserts.push({
           worker_id: w.id,
           record_date: dt,
@@ -1411,10 +1414,11 @@ export default function AsistenciaContent() {
     };
 
     // Report status: DB record first, then effective status (malla-derived)
-    // Día sin marcar: la celda queda en blanco
+    // This ensures every cell shows something — no blank cells for workers with shifts
     function getReportStatus(workerId: string, dateStr: string): string {
       const recorded = freshAttendance[workerId]?.[dateStr]?.status;
       if (recorded) return recorded;
+      // No DB record — use effective status (handles DESCANSO, NT, real shift → PRESENTE)
       return getEffectiveStatus(workerId, dateStr);
     }
 
@@ -2267,6 +2271,7 @@ export default function AsistenciaContent() {
             attendance={attendance}
             overtime={overtime}
             getEffectiveStatus={getEffectiveStatus}
+            getAutoStatus={getAutoStatus}
             isMallaNT={isMallaNT}
             onChangeStatus={changeStatus}
             onOpenOvertime={(w) => {
@@ -2436,6 +2441,7 @@ interface DayViewProps {
   attendance: Record<string, Record<string, AttendanceRecord>>;
   overtime: Record<string, Record<string, OvertimeRecord>>;
   getEffectiveStatus: (wid: string, dt: string) => string;
+  getAutoStatus: (wid: string, dt: string) => string | null;
   isMallaNT: (wid: string, dt: string) => boolean;
   onChangeStatus: (wid: string, dt: string, status: string) => void;
   onOpenOvertime: (w: Worker) => void;
@@ -2473,6 +2479,7 @@ function DayView({
   attendance,
   overtime,
   getEffectiveStatus,
+  getAutoStatus,
   isMallaNT,
   onChangeStatus,
   onOpenOvertime,
@@ -2619,7 +2626,9 @@ function DayView({
         <div className="divide-y divide-gray-100">
           {workers.map((w) => {
             const status = getEffectiveStatus(w.id, date);
+            const autoStatus = getAutoStatus(w.id, date);
             const isNT = isMallaNT(w.id, date);
+            const isAuto = !attendance[w.id]?.[date] && autoStatus !== null;
             const he = overtime[w.id]?.[date]?.hours ?? 0;
             const hePending = he > 0 && !!overtime[w.id]?.[date]?.pending;
 
@@ -2699,12 +2708,7 @@ function DayView({
                           </option>
                         ))}
                         {/* Estado antiguo ya guardado: se muestra para no perderlo */}
-                        {!status && (
-                          <option value="" disabled>
-                            Sin marcar
-                          </option>
-                        )}
-                        {status && !SELECTABLE_STATUSES.some((s) => s.code === status) && (
+                        {!SELECTABLE_STATUSES.some((s) => s.code === status) && (
                           <option value={status}>{getStatusLabel(status)}</option>
                         )}
                       </select>
@@ -2719,6 +2723,9 @@ function DayView({
                 </div>
                 {isNT && (
                   <span className="text-xs lg:text-[9px] text-gray-400 shrink-0">malla</span>
+                )}
+                {!isNT && isAuto && (
+                  <span className="text-xs lg:text-[9px] text-gray-400 shrink-0">auto</span>
                 )}
                 {/* HE button (las horas extra las anota solo un admin) */}
                 {(canEditOvertime || he > 0) && (
@@ -2942,11 +2949,9 @@ export function PeriodOverview({
                             title={
                               retiro > 0
                                 ? `${getStatusLabel(status)} · se retiró antes (-${retiro}h)`
-                                : status
-                                  ? getStatusLabel(status)
-                                  : 'Sin marcar'
+                                : getStatusLabel(status)
                             }
-                            className={`w-5 h-5 rounded-sm mx-auto flex items-center justify-center transition-transform hover:scale-110 ${status ? (statusColors[status] ?? 'bg-gray-200') : 'bg-white border border-dashed border-gray-300'}`}
+                            className={`w-5 h-5 rounded-sm mx-auto flex items-center justify-center transition-transform hover:scale-110 ${statusColors[status] ?? 'bg-gray-200'}`}
                           >
                             <span
                               className={`text-[8px] font-bold leading-none ${letterColors[status] ?? 'text-gray-500'}`}
