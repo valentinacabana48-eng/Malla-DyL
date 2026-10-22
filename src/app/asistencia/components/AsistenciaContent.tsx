@@ -704,7 +704,8 @@ export default function AsistenciaContent() {
     // No DB record — fall back to auto status from schedule/special days
     const auto = getAutoStatus(workerId, dateStr);
     if (auto === 'NT_SOFT') return 'NT';
-    return auto ?? 'PRESENTE';
+    // Con turno y sin marcar: queda vacío hasta que se marque (o se toque "Todas asistieron")
+    return auto ?? '';
   }
 
   // Open daily alert for a date
@@ -1194,7 +1195,8 @@ export default function AsistenciaContent() {
     if (isPanelLocked || lockedDates.has(dateStr)) return;
     setRetiroModal(null);
     const prevRecord = attendance[workerId]?.[dateStr];
-    const status = getEffectiveStatus(workerId, dateStr);
+    // Si se retiró antes es porque vino: sin marcar cuenta como presente
+    const status = getEffectiveStatus(workerId, dateStr) || 'PRESENTE';
     const now = new Date().toISOString();
     const table = attendanceTable(dateStr);
     const pending = table === 'attendance_proposals';
@@ -1253,7 +1255,7 @@ export default function AsistenciaContent() {
         if (lockedDates.has(dt)) continue; // los días bloqueados no se pueden modificar
         if (attendance[w.id]?.[dt]) continue; // ya está guardado
         const status = getEffectiveStatus(w.id, dt);
-        if (status === 'NT') continue; // don't save hard NT records
+        if (!status || status === 'NT') continue; // sin marcar o NT de la Malla: no se guarda
         upserts.push({
           worker_id: w.id,
           record_date: dt,
@@ -1403,11 +1405,11 @@ export default function AsistenciaContent() {
     };
 
     // Report status: DB record first, then effective status (malla-derived)
-    // This ensures every cell shows something — no blank cells for workers with shifts
+    // Con turno y sin marcar la celda queda en blanco
     function getReportStatus(workerId: string, dateStr: string): string {
       const recorded = freshAttendance[workerId]?.[dateStr]?.status;
       if (recorded) return recorded;
-      // No DB record — use effective status (handles DESCANSO, NT, real shift → PRESENTE)
+      // No DB record — use effective status (DESCANSO, NT...; con turno y sin marcar queda vacío)
       return getEffectiveStatus(workerId, dateStr);
     }
 
@@ -2697,7 +2699,12 @@ function DayView({
                           </option>
                         ))}
                         {/* Estado antiguo ya guardado: se muestra para no perderlo */}
-                        {!SELECTABLE_STATUSES.some((s) => s.code === status) && (
+                        {!status && (
+                          <option value="" disabled>
+                            Sin marcar
+                          </option>
+                        )}
+                        {status && !SELECTABLE_STATUSES.some((s) => s.code === status) && (
                           <option value={status}>{getStatusLabel(status)}</option>
                         )}
                       </select>
@@ -2938,9 +2945,11 @@ export function PeriodOverview({
                             title={
                               retiro > 0
                                 ? `${getStatusLabel(status)} · se retiró antes (-${retiro}h)`
-                                : getStatusLabel(status)
+                                : status
+                                  ? getStatusLabel(status)
+                                  : 'Sin marcar'
                             }
-                            className={`w-5 h-5 rounded-sm mx-auto flex items-center justify-center transition-transform hover:scale-110 ${statusColors[status] ?? 'bg-gray-200'}`}
+                            className={`w-5 h-5 rounded-sm mx-auto flex items-center justify-center transition-transform hover:scale-110 ${status ? (statusColors[status] ?? 'bg-gray-200') : 'bg-white border border-dashed border-gray-300'}`}
                           >
                             <span
                               className={`text-[8px] font-bold leading-none ${letterColors[status] ?? 'text-gray-500'}`}
