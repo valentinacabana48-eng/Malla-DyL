@@ -10,6 +10,7 @@ import {
   PenLine,
   Send,
   SlidersHorizontal,
+  Stethoscope,
   Upload,
   Zap,
 } from 'lucide-react';
@@ -22,6 +23,7 @@ import {
   getChileanHolidays,
   shiftsForSucursales,
   type ShiftCode,
+  type Worker,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import { useAuth } from '@/context/AuthContext';
@@ -38,6 +40,7 @@ import MallaExcelPanel from './MallaExcelPanel';
 import MallaDownloadModal from './MallaDownloadModal';
 import MallaMobile from './MallaMobile';
 import { usePublishState, PublishModal } from './PublishMalla';
+import LicenciaModal, { LicenciaAvisos, MESES_CAP } from './LicenciaModal';
 
 const DELETED_BIRTHDAYS_KEY = 'malla_deleted_birthdays';
 
@@ -93,6 +96,11 @@ export default function MallaContent() {
   const [nameSearch, setNameSearch] = useState('');
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showBulkShiftModal, setShowBulkShiftModal] = useState(false);
+  const [showLicenciaModal, setShowLicenciaModal] = useState(false);
+  // "Hacer turnos nuevos" al volver de licencia: Asignar con esa persona desde el día que vuelve
+  const [turnosNuevos, setTurnosNuevos] = useState<{ worker: Worker; fromDay: number } | null>(
+    null
+  );
   const [showExcelPanel, setShowExcelPanel] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   // Celular: filtros plegados y vista simple (por día / por persona) en vez de la grilla
@@ -493,6 +501,13 @@ export default function MallaContent() {
                 onSelect: () => setShowAssignModal(true),
                 disabled: isLocked || isReadonly,
               },
+              {
+                label: 'Registrar licencia',
+                hint: 'Desde qué día y cuántos días; guarda los turnos que tenía',
+                icon: <Stethoscope size={15} />,
+                onSelect: () => setShowLicenciaModal(true),
+                disabled: isReadonly,
+              },
             ]}
           />
           <MenuButton
@@ -533,6 +548,19 @@ export default function MallaContent() {
             <strong>Bloqueada</strong> para ingresar tu PIN y editar.
           </span>
         </div>
+      )}
+
+      {!isReadonly && (
+        <LicenciaAvisos
+          workers={workers}
+          onTurnosNuevos={(workerId, vuelve) => {
+            const worker = workers.find((w) => w.id === workerId);
+            if (!worker) return;
+            const [y, m, d] = vuelve.split('-').map(Number);
+            setSelectedMes(`${MESES_CAP[m - 1]} ${y}`);
+            setTurnosNuevos({ worker, fromDay: d - 1 });
+          }}
+        />
       )}
 
       {canPublish && publishState.pending.length > 0 && (
@@ -684,6 +712,25 @@ export default function MallaContent() {
           shifts={pickerShifts}
           onAssign={handleBulkShiftAssign}
           onClose={() => setShowBulkShiftModal(false)}
+        />
+      )}
+      {showLicenciaModal && (
+        <LicenciaModal
+          workers={filteredWorkers}
+          isLocked={isLocked}
+          onClose={() => setShowLicenciaModal(false)}
+        />
+      )}
+      {turnosNuevos && (
+        <BulkShiftModal
+          workers={[turnosNuevos.worker]}
+          shifts={shiftsForSucursales(shifts, [turnosNuevos.worker.sucursal])}
+          fromDayIndex={turnosNuevos.fromDay}
+          onAssign={async (ids, idxs, shift) => {
+            await handleBulkShiftAssign(ids, idxs, shift);
+            setTurnosNuevos(null);
+          }}
+          onClose={() => setTurnosNuevos(null)}
         />
       )}
       {showAssignModal && (

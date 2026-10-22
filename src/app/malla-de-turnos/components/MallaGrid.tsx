@@ -251,11 +251,14 @@ function ShiftCell({
   isUnderHoursWeek,
   workerSucursal,
   mark,
+  licenciaTurno,
 }: {
   workerId: string;
   dayIndex: number;
   shift: ShiftCode;
   specialDay: string | undefined;
+  /** Turno que tenía programado si está con licencia */
+  licenciaTurno?: string;
   shifts: Record<string, Shift>;
   nonWorkingTypes: NonWorkingType[];
   onCellChange: (wid: string, di: number, s: ShiftCode) => void;
@@ -284,12 +287,25 @@ function ShiftCell({
           ref={btnRef}
           onClick={() => !isReadonly && setOpen(!open)}
           className={`inline-flex flex-col items-center px-0.5 py-0.5 rounded text-[10px] font-bold leading-tight w-full transition-opacity ${isReadonly ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${nwt?.colorClass || 'bg-slate-100 text-slate-700 border border-slate-300'}`}
-          title={nwt?.label || specialDay}
+          title={
+            licenciaTurno
+              ? `${nwt?.label || specialDay} · tenía ${licenciaTurno}${
+                  shifts[licenciaTurno]?.start
+                    ? ` (${shifts[licenciaTurno].start}–${shifts[licenciaTurno].end})`
+                    : ''
+                }`
+              : nwt?.label || specialDay
+          }
         >
           <span>{nwt?.icon || '📌'}</span>
           <span className="font-normal opacity-80 text-[8px]">
             {nwt?.label?.slice(0, 4).toUpperCase() || specialDay.slice(0, 4)}
           </span>
+          {licenciaTurno && (
+            <span className="font-normal opacity-70 text-[8px] line-through">
+              {shifts[licenciaTurno]?.start || licenciaTurno}
+            </span>
+          )}
         </button>
         {!isReadonly && (
           <SmartDropdown anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
@@ -924,6 +940,7 @@ export default function MallaGrid({
     specialDays: fullSpecialDays,
     bulkAssign,
     bulkAssignSpecialDay,
+    getLicenciaTurno,
   } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -1617,6 +1634,14 @@ export default function MallaGrid({
                           onSpecialDayChange={onSpecialDayChange}
                           isUnderHoursWeek={isUnderHoursWeek}
                           mark={requestMarks[`${worker.id}-${i}`]}
+                          licenciaTurno={
+                            workerSpecialDays[i] === 'LICENCIA'
+                              ? getLicenciaTurno(
+                                  worker.id,
+                                  `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
+                                )
+                              : undefined
+                          }
                         />
                       );
                     });
