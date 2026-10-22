@@ -14,6 +14,7 @@ import {
   getStatusLabel,
   ATTENDANCE_STATUSES,
   SELECTABLE_STATUSES,
+  ABSENCE_REASON_STATUS,
 } from './asistenciaUtils';
 import DailyAlertModal from './DailyAlertModal';
 import OvertimeModal from './OvertimeModal';
@@ -957,15 +958,20 @@ export default function AsistenciaContent() {
     const absentSet = new Set(absences.map((a) => a.workerId));
     const absenceReasonMap = Object.fromEntries(absences.map((a) => [a.workerId, a.reason]));
 
-    const upserts = workersForDate.map((w) => ({
-      worker_id: w.id,
-      record_date: date,
-      period_key: periodKey,
-      status: absentSet.has(w.id) ? 'AUSENTE' : 'PRESENTE',
-      absence_reason: absentSet.has(w.id) ? absenceReasonMap[w.id] || 'Falta injustificada' : '',
-      notes: '',
-      updated_at: new Date().toISOString(),
-    }));
+    const upserts = workersForDate.map((w) => {
+      const reason = absentSet.has(w.id) ? absenceReasonMap[w.id] || 'Falta injustificada' : '';
+      // "Falta justificada", licencia, permisos y vacaciones se guardan con su propio estado
+      const ownStatus = ABSENCE_REASON_STATUS[reason];
+      return {
+        worker_id: w.id,
+        record_date: date,
+        period_key: periodKey,
+        status: !absentSet.has(w.id) ? 'PRESENTE' : (ownStatus ?? 'AUSENTE'),
+        absence_reason: ownStatus ? '' : reason,
+        notes: '',
+        updated_at: new Date().toISOString(),
+      };
+    });
 
     // Estados automáticos (descanso, no trabaja…) solo para quienes aún no tienen registro:
     // no se pisa, por ejemplo, a alguien sin turno que vino a cubrir y ya fue marcado presente.
