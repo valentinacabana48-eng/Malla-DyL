@@ -1,8 +1,15 @@
 'use client';
 import React, { useMemo, useState } from 'react';
-import { X, Stethoscope, Trash2 } from 'lucide-react';
+import { X, Stethoscope, Trash2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAppContext, addDaysISO, type Worker } from '@/context/AppContext';
+import {
+  useAppContext,
+  addDaysISO,
+  type Licencia,
+  type TipoAusencia,
+  type Worker,
+} from '@/context/AppContext';
+import { imprimirHojaPermiso } from '@/lib/hojaPermiso';
 
 const DOW = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const MES = [
@@ -21,6 +28,14 @@ const MES = [
 ];
 export const MESES_CAP = MES.map((m) => m[0].toUpperCase() + m.slice(1));
 
+export const TIPOS: { code: TipoAusencia; label: string }[] = [
+  { code: 'LICENCIA', label: 'Licencia médica' },
+  { code: 'PERMISO_CG', label: 'Permiso con goce' },
+  { code: 'PERMISO_SG', label: 'Permiso sin goce' },
+  { code: 'VACACIONES', label: 'Vacaciones' },
+];
+export const tipoLabel = (t: TipoAusencia) => TIPOS.find((x) => x.code === t)?.label ?? t;
+
 /** "2026-10-24" → "viernes 24 de octubre" */
 export function fechaLarga(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -33,6 +48,35 @@ export function hoyISO(): string {
   return new Date().toLocaleDateString('en-CA');
 }
 
+/** Días entre dos fechas "YYYY-MM-DD", contando las dos */
+function diasEntre(desde: string, hasta: string): number {
+  const [a, b] = [desde, hasta].map((s) => {
+    const [y, m, d] = s.split('-').map(Number);
+    return Date.UTC(y, m - 1, d);
+  });
+  return Math.round((b - a) / 86400000) + 1;
+}
+
+/** Hoja para firmar de un permiso o vacaciones registrado */
+export function imprimirHoja(
+  l: Licencia,
+  w: Worker | undefined,
+  fechas?: { fecha: string; autorizada: string }
+) {
+  if (l.tipo === 'LICENCIA') return;
+  imprimirHojaPermiso({
+    nombre: w?.name ?? '',
+    cargo: w?.cargo || w?.role || '',
+    area: w?.area ?? '',
+    tipo: l.tipo,
+    desde: l.desde,
+    hasta: l.hasta,
+    observacion: l.motivo,
+    fecha: fechas?.fecha || l.creada || hoyISO(),
+    autorizada: fechas?.autorizada || l.creada || hoyISO(),
+  });
+}
+
 interface Props {
   workers: Worker[];
   isLocked: boolean;
@@ -40,33 +84,46 @@ interface Props {
 }
 
 export default function LicenciaModal({ workers, isLocked, onClose }: Props) {
-  const { licencias, registrarLicencia, quitarLicencia, scheduleData, shifts } = useAppContext();
+  const { licencias, registrarLicencia, quitarLicencia, scheduleData, specialDays, shifts } =
+    useAppContext();
   const sorted = useMemo(
     () => [...workers].sort((a, b) => a.name.localeCompare(b.name)),
     [workers]
   );
+  const [tipo, setTipo] = useState<TipoAusencia>('LICENCIA');
   const [workerId, setWorkerId] = useState('');
   const [desde, setDesde] = useState(hoyISO());
   const [dias, setDias] = useState('');
+  const [hastaInput, setHastaInput] = useState(hoyISO());
+  const [motivo, setMotivo] = useState('');
   const [saving, setSaving] = useState(false);
   const [quitando, setQuitando] = useState<string | null>(null);
 
-  const n = Math.floor(Number(dias));
+  const esLicencia = tipo === 'LICENCIA';
+  // Licencia: desde + días corridos. Permiso o vacaciones: desde + hasta (como la hoja)
+  const n = esLicencia
+    ? Math.floor(Number(dias))
+    : desde && hastaInput
+      ? diasEntre(desde, hastaInput)
+      : 0;
   const validDias = n >= 1 && n <= 366;
   const hasta = validDias && desde ? addDaysISO(desde, n - 1) : '';
   const vuelve = validDias && desde ? addDaysISO(desde, n) : '';
 
-  // Turnos que tenía programados en esos días (se guardan, no se pierden)
+  // Días con turno programado en ese rango (se guardan, no se pierden)
   const turnosProgramados = useMemo(() => {
     if (!workerId || !validDias || !desde) return 0;
     let count = 0;
     for (let i = 0; i < n; i++) {
       const d = addDaysISO(desde, i);
-      const sh = ((scheduleData[d.slice(0, 7)] || {})[workerId] || [])[Number(d.slice(8)) - 1];
-      if (sh && shifts[sh]?.start) count++;
+      const mk = d.slice(0, 7);
+      const di = Number(d.slice(8)) - 1;
+      const sh = ((scheduleData[mk] || {})[workerId] || [])[di];
+      const sp = ((specialDays[mk] || {})[workerId] || {})[di];
+      if (sh && !sp && shifts[sh]?.start) count++;
     }
     return count;
-  }, [workerId, validDias, desde, n, scheduleData, shifts]);
+  }, [workerId, validDias, desde, n, scheduleData, specialDays, shifts]);
 
   const overlap =
     workerId && hasta
@@ -74,34 +131,46 @@ export default function LicenciaModal({ workers, isLocked, onClose }: Props) {
       : undefined;
 
   const workerIds = new Set(workers.map((w) => w.id));
-  const nameOf = (id: string) => workers.find((w) => w.id === id)?.name ?? '';
+  const workerOf = (id: string) => workers.find((w) => w.id === id);
+  const nameOf = (id: string) => workerOf(id)?.name ?? '';
   const hoy = hoyISO();
   const visibles = licencias
     .filter((l) => workerIds.has(l.workerId) && l.hasta >= addDaysISO(hoy, -30))
     .sort((a, b) => a.desde.localeCompare(b.desde));
 
-  const canSubmit = !isLocked && !saving && !!workerId && validDias && !!desde && !overlap;
+  const sinTurno = !esLicencia && !!workerId && validDias && turnosProgramados === 0;
+  const canSubmit =
+    !isLocked && !saving && !!workerId && validDias && !!desde && !overlap && !sinTurno;
 
   const submit = async () => {
     if (!canSubmit) return;
     setSaving(true);
-    const ok = await registrarLicencia(workerId, desde, n);
+    const ok = await registrarLicencia(workerId, desde, n, tipo, motivo.trim());
     setSaving(false);
     if (ok) {
-      toast.success(`Licencia registrada: ${nameOf(workerId)}, vuelve el ${fechaLarga(vuelve)}`);
+      toast.success(
+        esLicencia
+          ? `Licencia registrada: ${nameOf(workerId)}, vuelve el ${fechaLarga(vuelve)}`
+          : `${tipoLabel(tipo)} registrado para ${nameOf(workerId)}. Puedes imprimir la hoja abajo.`
+      );
       setWorkerId('');
       setDias('');
+      setMotivo('');
     }
   };
 
-  const quitar = async (id: string) => {
+  const quitar = async (l: Licencia) => {
     if (isLocked) return;
-    if (!window.confirm('¿Quitar esta licencia? Se devuelven los turnos que tenía esos días.'))
+    if (
+      !window.confirm(
+        `¿Quitar ${tipoLabel(l.tipo).toLowerCase()}? Se devuelven los turnos que tenía esos días.`
+      )
+    )
       return;
-    setQuitando(id);
-    const ok = await quitarLicencia(id);
+    setQuitando(l.id);
+    const ok = await quitarLicencia(l.id);
     setQuitando(null);
-    if (ok) toast.success('Licencia quitada. Los turnos volvieron a la malla.');
+    if (ok) toast.success('Quitado. Los turnos volvieron a la malla.');
   };
 
   return (
@@ -113,9 +182,9 @@ export default function LicenciaModal({ workers, isLocked, onClose }: Props) {
               <Stethoscope size={16} className="text-yellow-700" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-foreground">Registrar licencia</h2>
+              <h2 className="text-sm font-bold text-foreground">Licencia, permiso o vacaciones</h2>
               <p className="text-xs text-muted-foreground">
-                Los turnos que tenía quedan guardados debajo de la licencia
+                Los turnos que tenía quedan guardados debajo
               </p>
             </div>
           </div>
@@ -125,6 +194,24 @@ export default function LicenciaModal({ workers, isLocked, onClose }: Props) {
         </div>
 
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
+          <div className="grid grid-cols-2 gap-1.5">
+            {TIPOS.map((t) => (
+              <button
+                key={t.code}
+                type="button"
+                onClick={() => setTipo(t.code)}
+                aria-pressed={tipo === t.code}
+                className={`h-10 rounded-xl border text-xs font-bold ${
+                  tipo === t.code
+                    ? 'border-secondary bg-secondary text-white'
+                    : 'border-border text-muted-foreground hover:bg-muted/50'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-semibold text-muted-foreground">Persona</span>
             <select
@@ -147,26 +234,59 @@ export default function LicenciaModal({ workers, isLocked, onClose }: Props) {
               <input
                 type="date"
                 value={desde}
-                onChange={(e) => setDesde(e.target.value)}
+                onChange={(e) => {
+                  setDesde(e.target.value);
+                  if (hastaInput < e.target.value) setHastaInput(e.target.value);
+                }}
                 className="h-11 px-3 rounded-xl border border-border bg-background text-sm"
               />
             </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-muted-foreground">Días de licencia</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={366}
-                value={dias}
-                onChange={(e) => setDias(e.target.value)}
-                placeholder="Ej: 7"
-                className="h-11 px-3 rounded-xl border border-border bg-background text-sm"
-              />
-            </label>
+            {esLicencia ? (
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Días de licencia
+                </span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={366}
+                  value={dias}
+                  onChange={(e) => setDias(e.target.value)}
+                  placeholder="Ej: 7"
+                  className="h-11 px-3 rounded-xl border border-border bg-background text-sm"
+                />
+              </label>
+            ) : (
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-semibold text-muted-foreground">Hasta</span>
+                <input
+                  type="date"
+                  value={hastaInput}
+                  min={desde}
+                  onChange={(e) => setHastaInput(e.target.value)}
+                  className="h-11 px-3 rounded-xl border border-border bg-background text-sm"
+                />
+              </label>
+            )}
           </div>
 
-          {hasta && (
+          {!esLicencia && (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-muted-foreground">
+                Motivo u observación (sale en la hoja)
+              </span>
+              <input
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                maxLength={200}
+                placeholder="Ej: hora al médico"
+                className="h-11 px-3 rounded-xl border border-border bg-background text-sm"
+              />
+            </label>
+          )}
+
+          {hasta && esLicencia && (
             <div className="rounded-xl bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-900 space-y-1">
               <p>
                 Último día de licencia: <strong>{fechaLarga(hasta)}</strong>
@@ -186,16 +306,28 @@ export default function LicenciaModal({ workers, isLocked, onClose }: Props) {
               </p>
             </div>
           )}
+          {hasta && !esLicencia && workerId && !sinTurno && (
+            <p className="text-sm text-teal-900 bg-teal-50 border border-teal-200 rounded-xl px-3 py-2">
+              Se marca en {turnosProgramados} día(s) en que tenía turno; los días libres quedan
+              igual.
+            </p>
+          )}
+          {sinTurno && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              Esos días no tiene turno: ya está libre, no necesita{' '}
+              {tipo === 'VACACIONES' ? 'vacaciones' : 'permiso'}.
+            </p>
+          )}
 
           {overlap && (
             <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-              Ya tiene una licencia del {fechaLarga(overlap.desde)} al {fechaLarga(overlap.hasta)}.
-              Quítala primero si quieres cambiarla.
+              Ya tiene {tipoLabel(overlap.tipo).toLowerCase()} del {fechaLarga(overlap.desde)} al{' '}
+              {fechaLarga(overlap.hasta)}. Quítalo primero si quieres cambiarlo.
             </p>
           )}
           {isLocked && (
             <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-              La malla está bloqueada. Desbloquéala para registrar licencias.
+              La malla está bloqueada. Desbloquéala para registrar.
             </p>
           )}
 
@@ -205,32 +337,50 @@ export default function LicenciaModal({ workers, isLocked, onClose }: Props) {
             disabled={!canSubmit}
             className="w-full h-11 rounded-xl bg-yellow-500 text-yellow-950 text-sm font-bold hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? 'Guardando…' : 'Registrar licencia'}
+            {saving ? 'Guardando…' : `Registrar ${tipoLabel(tipo).toLowerCase()}`}
           </button>
 
           {visibles.length > 0 && (
             <div className="pt-2 border-t border-border">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Licencias registradas
+                Registrados
               </p>
               <ul className="space-y-2">
                 {visibles.map((l) => (
                   <li
                     key={l.id}
-                    className="flex items-center gap-3 rounded-xl border border-border px-3 py-2"
+                    className="flex items-center gap-2 rounded-xl border border-border px-3 py-2"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{nameOf(l.workerId)}</p>
+                      <p className="text-sm font-semibold truncate">
+                        {nameOf(l.workerId)}{' '}
+                        <span className="font-normal text-muted-foreground">
+                          · {tipoLabel(l.tipo)}
+                        </span>
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        {fechaLarga(l.desde)} al {fechaLarga(l.hasta)} · {l.dias} día(s) · vuelve el{' '}
-                        {fechaLarga(addDaysISO(l.hasta, 1))}
+                        {l.desde === l.hasta
+                          ? fechaLarga(l.desde)
+                          : `${fechaLarga(l.desde)} al ${fechaLarga(l.hasta)}`}
+                        {l.tipo === 'LICENCIA' &&
+                          ` · ${l.dias} día(s) · vuelve el ${fechaLarga(addDaysISO(l.hasta, 1))}`}
                       </p>
                     </div>
+                    {l.tipo !== 'LICENCIA' && (
+                      <button
+                        type="button"
+                        onClick={() => imprimirHoja(l, workerOf(l.workerId))}
+                        title="Imprimir hoja para firmar"
+                        className="p-2 rounded-lg text-secondary hover:bg-muted"
+                      >
+                        <Printer size={15} />
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => quitar(l.id)}
+                      onClick={() => quitar(l)}
                       disabled={isLocked || quitando === l.id}
-                      title="Quitar licencia y devolver sus turnos"
+                      title="Quitar y devolver sus turnos"
                       className="p-2 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-40"
                     >
                       <Trash2 size={15} />
@@ -257,7 +407,11 @@ export function LicenciaAvisos({
   const { licencias, resolverAvisoLicencia } = useAppContext();
   const hoy = hoyISO();
   const pendientes = licencias.filter(
-    (l) => !l.avisoResuelto && l.hasta <= hoy && workers.some((w) => w.id === l.workerId)
+    (l) =>
+      l.tipo === 'LICENCIA' &&
+      !l.avisoResuelto &&
+      l.hasta <= hoy &&
+      workers.some((w) => w.id === l.workerId)
   );
   if (pendientes.length === 0) return null;
 

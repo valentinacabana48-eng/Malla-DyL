@@ -1635,7 +1635,7 @@ export default function MallaGrid({
                           isUnderHoursWeek={isUnderHoursWeek}
                           mark={requestMarks[`${worker.id}-${i}`]}
                           licenciaTurno={
-                            workerSpecialDays[i] === 'LICENCIA'
+                            workerSpecialDays[i]
                               ? getLicenciaTurno(
                                   worker.id,
                                   `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`

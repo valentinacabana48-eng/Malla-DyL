@@ -218,10 +218,17 @@ export type AreaCargos = Record<string, string[]>;
 
 export const HORAS_OPTIONS = [10, 20, 30, 42];
 
-/** Licencia registrada desde la Malla (días corridos desde `desde`) */
+export type TipoAusencia = 'LICENCIA' | 'PERMISO_CG' | 'PERMISO_SG' | 'VACACIONES';
+
+/** Licencia, permiso o vacaciones registrados desde la Malla (desde `desde`, `dias` días) */
 export interface Licencia {
   id: string;
   workerId: string;
+  tipo: TipoAusencia;
+  /** Motivo u observación (sale en la hoja de permiso) */
+  motivo: string;
+  /** Cuándo se registró, "YYYY-MM-DD" */
+  creada: string;
   /** Primer día, "YYYY-MM-DD" */
   desde: string;
   dias: number;
@@ -245,6 +252,9 @@ function rowToLicencia(r: Record<string, unknown>): Licencia {
   return {
     id: r.id as string,
     workerId: r.worker_id as string,
+    tipo: ((r.tipo as string) || 'LICENCIA') as TipoAusencia,
+    motivo: (r.motivo as string) || '',
+    creada: ((r.created_at as string) || '').slice(0, 10),
     desde: r.desde as string,
     dias: r.dias as number,
     hasta: (r.hasta as string) || addDaysISO(r.desde as string, (r.dias as number) - 1),
@@ -525,8 +535,17 @@ interface AppContextValue {
   deleteCustomNonWorkingType: (code: string) => void;
   getAllNonWorkingTypes: () => NonWorkingType[];
   licencias: Licencia[];
-  /** Pone LICENCIA desde `desde` por `dias` días corridos y guarda los turnos que tenía */
-  registrarLicencia: (workerId: string, desde: string, dias: number) => Promise<boolean>;
+  /**
+   * Pone LICENCIA desde `desde` por `dias` días corridos y guarda los turnos que tenía.
+   * Un permiso o vacaciones solo marca los días en que tenía turno.
+   */
+  registrarLicencia: (
+    workerId: string,
+    desde: string,
+    dias: number,
+    tipo?: TipoAusencia,
+    motivo?: string
+  ) => Promise<boolean>;
   /** Quita la licencia y devuelve los turnos que tenía */
   quitarLicencia: (id: string) => Promise<boolean>;
   resolverAvisoLicencia: (id: string) => Promise<void>;
@@ -1585,28 +1604,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   const registrarLicencia = useCallback(
-    async (workerId: string, desde: string, dias: number): Promise<boolean> => {
-      const dates = Array.from({ length: dias }, (_, i) => addDaysISO(desde, i));
+    async (
+      workerId: string,
+      desde: string,
+      dias: number,
+      tipo: TipoAusencia = 'LICENCIA',
+      motivo = ''
+    ): Promise<boolean> => {
+      const allDates = Array.from({ length: dias }, (_, i) => addDaysISO(desde, i));
       // Lo que había antes en la malla, para mostrarlo y poder devolverlo
       const turnos: Record<string, string> = {};
       const especiales: Record<string, string> = {};
-      dates.forEach((d) => {
+      const conTurno = new Set<string>();
+      allDates.forEach((d) => {
         const mk = d.slice(0, 7);
         const di = Number(d.slice(8, 10)) - 1;
         const sp = ((specialDaysRef.current[mk] || {})[workerId] || {})[di];
         const sh = ((scheduleDataRef.current[mk] || {})[workerId] || [])[di];
-        if (sp && sp !== 'LICENCIA') especiales[d] = sp;
-        else if (sh) turnos[d] = sh;
+        if (sp && sp !== tipo) especiales[d] = sp;
+        else if (sh) {
+          turnos[d] = sh;
+          if (!sp && sh !== 'DESC' && sh !== 'NOT') conTurno.add(d);
+        }
       });
+      // La licencia corre todos los días; un permiso o vacaciones solo los días con turno
+      const dates = tipo === 'LICENCIA' ? allDates : allDates.filter((d) => conTurno.has(d));
+      if (dates.length === 0) {
+        toast.error('Esos días no tiene turno: ya está libre, no necesita permiso.');
+        return false;
+      }
+      if (tipo !== 'LICENCIA') {
+        Object.keys(especiales).forEach((d) => delete especiales[d]);
+        Object.keys(turnos).forEach((d) => !conTurno.has(d) && delete turnos[d]);
+      }
 
       const { data, error } = await supabase
         .from('licencias')
-        .insert({ worker_id: workerId, desde, dias, turnos, especiales })
+        .insert({ worker_id: workerId, desde, dias, turnos, especiales, tipo, motivo })
         .select()
         .single();
       if (error || !data) {
         console.error('registrarLicencia error:', error);
-        toast.error('No se pudo registrar la licencia. Intenta de nuevo.');
+        toast.error('No se pudo guardar. Intenta de nuevo.');
         return false;
       }
       setLicencias((prev) => [...prev, rowToLicencia(data as Record<string, unknown>)]);
@@ -1616,7 +1655,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const next = { ...prev };
         Object.entries(byMonth).forEach(([mk, idxs]) => {
           const workerData = { ...((next[mk] || {})[workerId] || {}) };
-          idxs.forEach((di) => (workerData[di] = 'LICENCIA'));
+          idxs.forEach((di) => (workerData[di] = tipo));
           next[mk] = { ...(next[mk] || {}), [workerId]: workerData };
         });
         return next;
@@ -1637,15 +1676,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           p_month_key: mk,
           p_worker_id: workerId,
           p_day_indices: idxs,
-          p_type_code: 'LICENCIA',
+          p_type_code: tipo,
         });
         if (e) {
           console.error('registrarLicencia malla error:', e);
           ok = false;
         }
       }
-      if (!ok)
-        toast.error('La licencia quedó registrada, pero algunos días no se marcaron en la malla.');
+      if (!ok) toast.error('Quedó registrado, pero algunos días no se marcaron en la malla.');
       return ok;
     },
     [supabase]
@@ -1656,11 +1694,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const lic = licencias.find((l) => l.id === id);
       if (!lic) return false;
       const dates = Array.from({ length: lic.dias }, (_, i) => addDaysISO(lic.desde, i));
-      // Solo los días que siguen con LICENCIA (si alguien ya los cambió a mano, se respetan)
+      // Solo los días que siguen marcados (si alguien ya los cambió a mano, se respetan)
       const still = dates.filter((d) => {
         const mk = d.slice(0, 7);
         const di = Number(d.slice(8, 10)) - 1;
-        return ((specialDaysRef.current[mk] || {})[lic.workerId] || {})[di] === 'LICENCIA';
+        return ((specialDaysRef.current[mk] || {})[lic.workerId] || {})[di] === lic.tipo;
       });
 
       let ok = true;
