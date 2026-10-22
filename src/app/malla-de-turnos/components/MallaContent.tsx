@@ -81,7 +81,10 @@ export default function MallaContent() {
     getSucursalCajas,
     globalSucursal,
     globalArea,
+    isMonthLoaded,
   } = useAppContext();
+  // Mientras llega la malla de un mes no se muestra (para no editar sobre algo vacío)
+  const monthReady = isMonthLoaded(monthLabelToKey(selectedMes));
   const isReadonly = useReadonly();
   const { can, allowedSucursales } = useAuth();
 
@@ -598,83 +601,92 @@ export default function MallaContent() {
         />
       </div>
 
-      {/* Celular: vista simple; la grilla completa queda a un toque */}
-      <div className={showFullGridMobile ? 'hidden' : 'lg:hidden mt-4'}>
-        <MallaMobile
-          workers={filteredWorkers}
-          scheduleData={currentMonthSchedule}
-          specialDaysData={currentMonthSpecialDays}
-          shifts={shifts}
-          daysInMonth={daysInMonth}
-          monthLabel={selectedMes}
-          holidayDayIndices={holidayDayIndices}
-          isLocked={isLocked}
-          onCellChange={handleCellChange}
-          onSpecialDayChange={handleSpecialDayChange}
-          requestMarks={requestMarks}
-        />
-      </div>
-      <button
-        type="button"
-        onClick={() => setShowFullGridMobile((v) => !v)}
-        className="lg:hidden mt-4 w-full py-3 rounded-xl border border-border bg-card text-sm font-semibold text-foreground"
-      >
-        {showFullGridMobile ? 'Volver a la vista simple' : 'Ver la malla completa del mes'}
-      </button>
-
-      <div className={showFullGridMobile ? '' : 'hidden lg:block'}>
-        <div
-          className="mt-4 bg-card rounded-2xl border border-border"
-          style={{ boxShadow: 'var(--shadow-card)' }}
-        >
-          <MallaGrid
-            workers={filteredWorkers}
-            scheduleData={currentMonthSchedule}
-            specialDaysData={currentMonthSpecialDays}
-            shifts={shifts}
-            daysOfWeek={daysOfWeek}
-            daysInMonth={daysInMonth}
-            monthLabel={selectedMes}
-            getAlerts={getAlerts}
-            getCompliance={getCompliance}
-            getWeekUnderHours={getWeekUnderHours}
-            onCellChange={handleCellChange}
-            onSpecialDayChange={handleSpecialDayChange}
-            contractedHoursOverride={contractedHoursOverride}
-            onContractedHoursChange={handleContractedHoursChange}
-            holidayDayIndices={holidayDayIndices}
-            requestMarks={requestMarks}
-          />
+      {!monthReady ? (
+        <div className="mt-4 flex items-center justify-center gap-3 py-16 bg-card rounded-2xl border border-border text-sm text-muted-foreground">
+          <div className="w-6 h-6 rounded-full border-[3px] border-secondary/20 border-t-secondary animate-spin" />
+          Cargando la malla de {selectedMes}…
         </div>
+      ) : (
+        <>
+          {/* Celular: vista simple; la grilla completa queda a un toque */}
+          <div className={showFullGridMobile ? 'hidden' : 'lg:hidden mt-4'}>
+            <MallaMobile
+              workers={filteredWorkers}
+              scheduleData={currentMonthSchedule}
+              specialDaysData={currentMonthSpecialDays}
+              shifts={shifts}
+              daysInMonth={daysInMonth}
+              monthLabel={selectedMes}
+              holidayDayIndices={holidayDayIndices}
+              isLocked={isLocked}
+              onCellChange={handleCellChange}
+              onSpecialDayChange={handleSpecialDayChange}
+              requestMarks={requestMarks}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowFullGridMobile((v) => !v)}
+            className="lg:hidden mt-4 w-full py-3 rounded-xl border border-border bg-card text-sm font-semibold text-foreground"
+          >
+            {showFullGridMobile ? 'Volver a la vista simple' : 'Ver la malla completa del mes'}
+          </button>
 
-        <div className="mt-6">
-          <CoberturaHorasDia
-            workers={filteredWorkers}
-            scheduleData={currentMonthSchedule}
-            specialDaysData={currentMonthSpecialDays}
-            shifts={shifts}
-            daysInMonth={daysInMonth}
-            monthLabel={selectedMes}
-          />
-        </div>
+          <div className={showFullGridMobile ? '' : 'hidden lg:block'}>
+            <div
+              className="mt-4 bg-card rounded-2xl border border-border"
+              style={{ boxShadow: 'var(--shadow-card)' }}
+            >
+              <MallaGrid
+                workers={filteredWorkers}
+                scheduleData={currentMonthSchedule}
+                specialDaysData={currentMonthSpecialDays}
+                shifts={shifts}
+                daysOfWeek={daysOfWeek}
+                daysInMonth={daysInMonth}
+                monthLabel={selectedMes}
+                getAlerts={getAlerts}
+                getCompliance={getCompliance}
+                getWeekUnderHours={getWeekUnderHours}
+                onCellChange={handleCellChange}
+                onSpecialDayChange={handleSpecialDayChange}
+                contractedHoursOverride={contractedHoursOverride}
+                onContractedHoursChange={handleContractedHoursChange}
+                holidayDayIndices={holidayDayIndices}
+                requestMarks={requestMarks}
+              />
+            </div>
 
-        <div className="mt-6">
-          <MallaSummary
-            workers={filteredWorkers}
-            scheduleData={currentMonthSchedule}
-            specialDaysData={currentMonthSpecialDays}
-            shifts={shifts}
-            totalCajas={
-              selectedSucursales.length > 0
-                ? selectedSucursales.reduce((sum, s) => sum + getSucursalCajas(s), 0)
-                : 20
-            }
-            daysInMonth={daysInMonth}
-            monthLabel={selectedMes}
-            selectedCargo={selectedCargos.length === 1 ? selectedCargos[0] : 'Todos'}
-          />
-        </div>
-      </div>
+            <div className="mt-6">
+              <CoberturaHorasDia
+                workers={filteredWorkers}
+                scheduleData={currentMonthSchedule}
+                specialDaysData={currentMonthSpecialDays}
+                shifts={shifts}
+                daysInMonth={daysInMonth}
+                monthLabel={selectedMes}
+              />
+            </div>
+
+            <div className="mt-6">
+              <MallaSummary
+                workers={filteredWorkers}
+                scheduleData={currentMonthSchedule}
+                specialDaysData={currentMonthSpecialDays}
+                shifts={shifts}
+                totalCajas={
+                  selectedSucursales.length > 0
+                    ? selectedSucursales.reduce((sum, s) => sum + getSucursalCajas(s), 0)
+                    : 20
+                }
+                daysInMonth={daysInMonth}
+                monthLabel={selectedMes}
+                selectedCargo={selectedCargos.length === 1 ? selectedCargos[0] : 'Todos'}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       {showDownloadModal && (
         <MallaDownloadModal

@@ -276,6 +276,7 @@ export default function AsistenciaContent() {
     globalSucursal,
     globalArea,
     getLicenciaTurno,
+    isMonthLoaded,
   } = useAppContext();
 
   const defaultStart = getDefaultStartDate();
@@ -422,6 +423,8 @@ export default function AsistenciaContent() {
 
   // Period key for DB queries — use actual date range, not fixed month
   const periodKey = `${startDate}_${endDate}`;
+  // La malla de los meses del período ya llegó (sin ella "Todas asistieron" marcaría mal)
+  const periodReady = [...new Set(dates.map((d) => d.slice(0, 7)))].every(isMonthLoaded);
 
   // Filter workers
   const filteredWorkers = workers.filter((w) => {
@@ -713,7 +716,7 @@ export default function AsistenciaContent() {
 
   // Open daily alert for a date
   function openDailyAlert(dateStr: string) {
-    if (!canMarkAttendance) return;
+    if (!canMarkAttendance || !periodReady) return;
     const { day, dow, monthShort } = formatDateLabel(dateStr);
     const workersForDate = getWorkersForDate(dateStr);
     if (workersForDate.length === 0) return;
@@ -870,7 +873,7 @@ export default function AsistenciaContent() {
   // - Sin nada en la Malla → No trabajaba, salvo que ya tenga un registro hecho a mano
   //   (p. ej. vino a cubrir), que se respeta.
   async function markAllPresent(dateStr: string) {
-    if (isPanelLocked) return;
+    if (isPanelLocked || !periodReady) return;
     if (lockedDates.has(dateStr)) return;
     setMarkingAll(true);
     setSavingDate(dateStr);
@@ -2292,7 +2295,7 @@ export default function AsistenciaContent() {
             }}
             onOpenDailyAlert={() => openDailyAlert(selectedDate)}
             onMarkAllPresent={() => markAllPresent(selectedDate)}
-            markingAll={markingAll}
+            markingAll={markingAll || !periodReady}
             scheduledCount={selectedDateWorkers.length}
             recordedCount={dateRecorded}
             isLocked={lockedDates.has(selectedDate)}

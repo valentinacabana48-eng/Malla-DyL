@@ -8,6 +8,7 @@ import {
   type ScheduleData,
   type SpecialDaysData,
   MESES,
+  useAppContext,
 } from '@/context/AppContext';
 import { applyPrintSetup } from '@/lib/excel';
 
@@ -345,14 +346,7 @@ function monthLabelToDateRange(monthLabel: string): { start: Date; end: Date } {
   return { start, end };
 }
 
-export default function MallaDownloadModal({
-  workers,
-  scheduleData,
-  specialDays,
-  shifts,
-  currentMonth,
-  onClose,
-}: Props) {
+export default function MallaDownloadModal({ workers, shifts, currentMonth, onClose }: Props) {
   const [mode, setMode] = useState<'month' | 'range'>('month');
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [startDate, setStartDate] = useState(() => {
@@ -364,6 +358,7 @@ export default function MallaDownloadModal({
     return end.toISOString().slice(0, 10);
   });
   const [exporting, setExporting] = useState(false);
+  const { loadMonths } = useAppContext();
   const [error, setError] = useState<string | null>(null);
 
   const handleExport = async () => {
@@ -402,7 +397,9 @@ export default function MallaDownloadModal({
         fileName = `Malla_${fmt(start)}_al_${fmt(end)}.xlsx`;
       }
 
-      await exportToExcel(workers, scheduleData, specialDays, shifts, days, fileName);
+      // Meses que quizá no están cargados todavía (por ejemplo un rango antiguo)
+      const fresh = await loadMonths([...new Set(days.map(dateToMonthKey))]);
+      await exportToExcel(workers, fresh.scheduleData, fresh.specialDays, shifts, days, fileName);
     } catch {
       setError('Error al generar el archivo. Intenta de nuevo.');
     } finally {
