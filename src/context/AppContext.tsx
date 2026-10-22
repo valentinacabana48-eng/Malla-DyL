@@ -485,6 +485,14 @@ interface AppContextValue {
   shifts: Record<string, Shift>;
   scheduleData: ScheduleData;
   specialDays: SpecialDaysData;
+  /** Carga esos meses de la malla si todavía no están ("YYYY-MM") */
+  ensureMonths: (monthKeys: string[]) => Promise<void>;
+  /** Carga esos meses y devuelve la malla al día (para exportar meses que no se ven) */
+  loadMonths: (
+    monthKeys: string[]
+  ) => Promise<{ scheduleData: ScheduleData; specialDays: SpecialDaysData }>;
+  /** Si la malla de ese mes ya está completa */
+  isMonthLoaded: (monthKey: string) => boolean;
   sucursales: Sucursal[];
   areas: string[];
   areaCargos: AreaCargos;
@@ -662,6 +670,82 @@ async function dbWrite(op: PromiseLike<DbResult>, what: string): Promise<boolean
   }
 }
 
+/** "2026-10" desplazado n meses → "2027-01" */
+function shiftMonthKey(key: string, n: number): string {
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Meses que se cargan al abrir: desde 3 meses antes hasta 3 después del actual */
+function initialMonthKeys(): string[] {
+  const now = new Date();
+  const cur = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return Array.from({ length: 7 }, (_, i) => shiftMonthKey(cur, i - 3));
+}
+
+const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
+
+/** Filas de la malla y de los días especiales de esos meses */
+async function fetchMonths(monthKeys: string[]) {
+  const supabase = getSupabase();
+  const [scheduleRows, specialRows] = await Promise.all([
+    fetchAll((from, to) =>
+      supabase
+        .from('schedule_data')
+        .select('*')
+        .in('month_key', monthKeys)
+        .order('id')
+        .range(from, to)
+    ),
+    fetchAll((from, to) =>
+      supabase
+        .from('special_days_v2')
+        .select('*')
+        .in('month_key', monthKeys)
+        .order('id')
+        .range(from, to)
+    ),
+  ]);
+  const sd: ScheduleData = {};
+  const spd: SpecialDaysData = {};
+  monthKeys.forEach((mk) => {
+    sd[mk] = {};
+    spd[mk] = {};
+  });
+  scheduleRows.forEach((r) => {
+    sd[r.month_key as string][r.worker_id as string] =
+      (r.days as ShiftCode[]) || Array(31).fill(null);
+  });
+  specialRows.forEach((r) => {
+    const workerDays: Record<number, string> = {};
+    Object.entries((r.days as Record<string, string>) || {}).forEach(([di, tc]) => {
+      workerDays[Number(di)] = tc;
+    });
+    spd[r.month_key as string][r.worker_id as string] = workerDays;
+  });
+  return { sd, spd };
+}
+
+/**
+ * Envuelve la malla (por mes) para que leer un mes no cargado lo pida. El pedido se hace
+ * fuera del render para no actualizar estado mientras React dibuja.
+ */
+function lazyMonths<T extends object>(
+  data: T,
+  requested: React.MutableRefObject<Set<string>>,
+  ensure: (keys: string[]) => Promise<void>
+): T {
+  return new Proxy(data, {
+    get(target, prop, receiver) {
+      if (typeof prop === 'string' && MONTH_KEY_RE.test(prop) && !requested.current.has(prop)) {
+        queueMicrotask(() => ensure([prop]));
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+}
+
 function fetchAllRows(table: string, orderBy: string): Promise<Record<string, unknown>[]> {
   return fetchAll((from, to) =>
     getSupabase().from(table).select('*').order(orderBy).range(from, to)
@@ -710,6 +794,53 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [licencias, setLicencias] = useState<Licencia[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ── Malla por meses: al abrir se cargan solo los meses cercanos y los demás cuando
+  // alguna pantalla los pide. loadedMonths dice qué meses ya están completos. ──
+  const [loadedMonths, setLoadedMonths] = useState<ReadonlySet<string>>(() => new Set());
+  const requestedMonthsRef = useRef<Set<string>>(new Set());
+  const loadedMonthsRef = useRef<Set<string>>(new Set());
+  const ensureMonths = useCallback(async (monthKeys: string[]) => {
+    const missing = monthKeys.filter(
+      (mk) => MONTH_KEY_RE.test(mk) && !requestedMonthsRef.current.has(mk)
+    );
+    if (missing.length === 0) return;
+    missing.forEach((mk) => requestedMonthsRef.current.add(mk));
+    try {
+      const { sd, spd } = await fetchMonths(missing);
+      // Lo que llegó mientras tanto (cambios en vivo o recién guardados) es más nuevo.
+      // Las referencias se actualizan al tiro para quien lea justo después de esperar.
+      const nextSd = { ...scheduleDataRef.current };
+      const nextSpd = { ...specialDaysRef.current };
+      missing.forEach((mk) => {
+        nextSd[mk] = { ...sd[mk], ...(nextSd[mk] || {}) };
+        nextSpd[mk] = { ...spd[mk], ...(nextSpd[mk] || {}) };
+      });
+      scheduleDataRef.current = nextSd;
+      specialDaysRef.current = nextSpd;
+      setScheduleData((prev) => {
+        const next = { ...prev };
+        missing.forEach((mk) => (next[mk] = { ...sd[mk], ...(prev[mk] || {}) }));
+        return next;
+      });
+      setSpecialDaysState((prev) => {
+        const next = { ...prev };
+        missing.forEach((mk) => (next[mk] = { ...spd[mk], ...(prev[mk] || {}) }));
+        return next;
+      });
+      missing.forEach((mk) => loadedMonthsRef.current.add(mk));
+      setLoadedMonths((prev) => new Set([...prev, ...missing]));
+    } catch (err) {
+      // Se puede volver a pedir
+      missing.forEach((mk) => requestedMonthsRef.current.delete(mk));
+      console.error('Error al cargar la malla de', missing.join(', '), err);
+      toast.error('No se pudo cargar la malla de ese mes. Revisa tu conexión.');
+    }
+  }, []);
+  const isMonthLoaded = useCallback(
+    (monthKey: string) => loadedMonths.has(monthKey),
+    [loadedMonths]
+  );
+
   // Sucursales que esta persona puede ver (null = todas)
   const visibleSucursales = useMemo(
     () =>
@@ -734,25 +865,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function loadAll() {
       try {
-        const [
-          workersData,
-          shiftsData,
-          sucursalesData,
-          areasData,
-          areaCargosData,
-          nwtData,
-          scheduleRows,
-          specialDaysV2Rows,
-        ] = await Promise.all([
-          fetchAllRows('workers', 'name'),
-          fetchAllRows('shifts', 'label'),
-          fetchAllRows('sucursales', 'name'),
-          fetchAllRows('areas', 'name'),
-          fetchAllRows('area_cargos', 'area_name'),
-          fetchAllRows('custom_non_working_types', 'label'),
-          fetchAllRows('schedule_data', 'id'),
-          fetchAllRows('special_days_v2', 'id'),
-        ]);
+        const [workersData, shiftsData, sucursalesData, areasData, areaCargosData, nwtData] =
+          await Promise.all([
+            fetchAllRows('workers', 'name'),
+            fetchAllRows('shifts', 'label'),
+            fetchAllRows('sucursales', 'name'),
+            fetchAllRows('areas', 'name'),
+            fetchAllRows('area_cargos', 'area_name'),
+            fetchAllRows('custom_non_working_types', 'label'),
+            // La malla: solo los meses cercanos al actual (los demás, cuando se piden)
+            ensureMonths(initialMonthKeys()),
+          ]);
 
         if (workersData)
           setWorkers(workersData.map((r) => rowToWorker(r as Record<string, unknown>)));
@@ -781,35 +904,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         if (nwtData)
           setCustomNonWorkingTypes(nwtData.map((r) => rowToNWT(r as Record<string, unknown>)));
-
-        // Rebuild scheduleData from flat rows
-        if (scheduleRows) {
-          const sd: ScheduleData = {};
-          scheduleRows.forEach((r) => {
-            const mk = r.month_key as string;
-            const wid = r.worker_id as string;
-            if (!sd[mk]) sd[mk] = {};
-            sd[mk][wid] = (r.days as ShiftCode[]) || Array(31).fill(null);
-          });
-          setScheduleData(sd);
-        }
-
-        // Rebuild specialDays from special_days_v2 rows (JSONB per worker+month)
-        if (specialDaysV2Rows) {
-          const spd: SpecialDaysData = {};
-          specialDaysV2Rows.forEach((r) => {
-            const mk = r.month_key as string;
-            const wid = r.worker_id as string;
-            const daysObj = (r.days as Record<string, string>) || {};
-            if (!spd[mk]) spd[mk] = {};
-            const workerDays: Record<number, string> = {};
-            Object.entries(daysObj).forEach(([di, tc]) => {
-              workerDays[Number(di)] = tc;
-            });
-            spd[mk][wid] = workerDays;
-          });
-          setSpecialDaysState(spd);
-        }
       } catch (err) {
         console.error('Error loading data from Supabase:', err);
         toast.error('No se pudieron cargar los datos. Recarga la página para intentar de nuevo.');
@@ -818,7 +912,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
     loadAll();
-  }, []);
+  }, [ensureMonths]);
+
+  // El mes elegido y sus vecinos siempre cargados (las funciones de la Malla los usan)
+  useEffect(() => {
+    const key = monthLabelToKey(selectedMes);
+    ensureMonths([-1, 0, 1].map((n) => shiftMonthKey(key, n)));
+  }, [selectedMes, ensureMonths]);
+
+  const loadMonths = useCallback(
+    async (monthKeys: string[]) => {
+      await ensureMonths(monthKeys);
+      // Si otra pantalla ya lo estaba pidiendo, se espera a que termine
+      for (let i = 0; i < 100 && monthKeys.some((mk) => !loadedMonthsRef.current.has(mk)); i++) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return { scheduleData: scheduleDataRef.current, specialDays: specialDaysRef.current };
+    },
+    [ensureMonths]
+  );
+
+  // Para las pantallas: leer un mes que todavía no está cargado lo pide a la base; mientras
+  // llega se ve vacío y al llegar la pantalla se actualiza sola
+  const scheduleDataView = useMemo(
+    () => lazyMonths(scheduleData, requestedMonthsRef, ensureMonths),
+    [scheduleData, ensureMonths]
+  );
+  const specialDaysView = useMemo(
+    () => lazyMonths(specialDays, requestedMonthsRef, ensureMonths),
+    [specialDays, ensureMonths]
+  );
 
   // ── Licencias (aparte: si la tabla aún no existe, el resto de la app sigue funcionando) ──
   const reloadLicencias = useCallback(async () => {
@@ -1622,6 +1745,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       motivo = ''
     ): Promise<boolean> => {
       const allDates = Array.from({ length: dias }, (_, i) => addDaysISO(desde, i));
+      // Hay que tener cargados esos meses para saber qué turno tenía
+      await ensureMonths([...new Set(allDates.map((d) => d.slice(0, 7)))]);
       // Lo que había antes en la malla, para mostrarlo y poder devolverlo
       const turnos: Record<string, string> = {};
       const especiales: Record<string, string> = {};
@@ -1696,7 +1821,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!ok) toast.error('Quedó registrado, pero algunos días no se marcaron en la malla.');
       return ok;
     },
-    [supabase]
+    [supabase, ensureMonths]
   );
 
   const quitarLicencia = useCallback(
@@ -1704,6 +1829,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const lic = licencias.find((l) => l.id === id);
       if (!lic) return false;
       const dates = Array.from({ length: lic.dias }, (_, i) => addDaysISO(lic.desde, i));
+      await ensureMonths([...new Set(dates.map((d) => d.slice(0, 7)))]);
       // Solo los días que siguen marcados (si alguien ya los cambió a mano, se respetan)
       const still = dates.filter((d) => {
         const mk = d.slice(0, 7);
@@ -1781,7 +1907,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setLicencias((prev) => prev.filter((l) => l.id !== id));
       return true;
     },
-    [licencias, supabase]
+    [licencias, supabase, ensureMonths]
   );
 
   const resolverAvisoLicencia = useCallback(
@@ -1819,8 +1945,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       value={{
         workers,
         shifts,
-        scheduleData,
-        specialDays,
+        scheduleData: scheduleDataView,
+        specialDays: specialDaysView,
+        ensureMonths,
+        loadMonths,
+        isMonthLoaded,
         sucursales: visibleSucursales,
         areas: visibleAreas,
         areaCargos,
