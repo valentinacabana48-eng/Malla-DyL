@@ -10,6 +10,8 @@ interface LockToggleProps {
   onToggle: (locked: boolean) => Promise<boolean> | boolean | void;
   /** Si se indica, el botón queda deshabilitado con este motivo */
   disabledReason?: string;
+  /** Solo el candado cuando está desbloqueado (bloqueado sigue diciendo «Bloqueada») */
+  compact?: boolean;
 }
 
 /** Botón de bloqueo sin PIN: solo administradores pueden cambiarlo. */
@@ -18,6 +20,7 @@ export default function LockToggle({
   subject,
   onToggle,
   disabledReason,
+  compact = false,
 }: LockToggleProps) {
   // Bloquear afecta a toda la sucursal: solo quien maneja la sucursal completa
   const { canManageSucursal: isAdmin } = useAuth();
@@ -38,9 +41,14 @@ export default function LockToggle({
         disabled={!isAdmin || !!disabledReason}
         title={
           disabledReason ??
-          (isAdmin ? undefined : 'Solo quien administra toda la sucursal puede cambiar el bloqueo')
+          (isAdmin
+            ? compact && !isLocked
+              ? `Bloquear ${subject}`
+              : undefined
+            : 'Solo quien administra toda la sucursal puede cambiar el bloqueo')
         }
-        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed ${
+        aria-label={isLocked ? 'Bloqueada' : 'Bloquear'}
+        className={`flex items-center gap-2 ${compact && !isLocked ? 'px-3' : 'px-4'} py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed ${
           isLocked
             ? 'bg-red-500 text-white hover:bg-red-600 disabled:hover:bg-red-500'
             : 'border border-border bg-card text-foreground hover:bg-muted disabled:opacity-60'
@@ -48,7 +56,7 @@ export default function LockToggle({
         style={isLocked ? { boxShadow: '0 2px 8px rgba(239,68,68,0.3)' } : {}}
       >
         {isLocked ? <Lock size={15} /> : <Unlock size={15} />}
-        {isLocked ? 'Bloqueada' : 'Bloquear'}
+        {isLocked ? 'Bloqueada' : compact ? null : 'Bloquear'}
       </button>
 
       {confirming && (

@@ -14,15 +14,23 @@ interface Props {
   shifts: Record<string, Shift>;
   onAssign: (workerIds: string[], dayIndices: number[], shift: ShiftCode) => void;
   onClose: () => void;
+  /** Solo desde este día del mes (p. ej. al volver de una licencia) */
+  fromDayIndex?: number;
 }
 
-export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: Props) {
+export default function BulkShiftModal({
+  workers,
+  shifts,
+  onAssign,
+  onClose,
+  fromDayIndex = 0,
+}: Props) {
   const { scheduleData, specialDays, selectedMes, areas } = useAppContext();
   const [selectedShift, setSelectedShift] = useState<ShiftCode>(Object.keys(shifts)[0] || null);
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>(workers.map((w) => w.id));
   const [workerSearch, setWorkerSearch] = useState('');
   const [areaFilter, setAreaFilter] = useState('Todas');
-  const [applyMode, setApplyMode] = useState<'all' | 'empty'>('empty');
+  const [applyMode, setApplyMode] = useState<'all' | 'empty'>(fromDayIndex > 0 ? 'all' : 'empty');
 
   const areaOptions = useMemo(() => ['Todas', ...areas], [areas]);
 
@@ -86,7 +94,7 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
     if (applyMode === 'all') {
       // Skip days where ALL selected workers already have a special day
       dayIndices = [];
-      for (let i = 0; i < daysInMonth; i++) {
+      for (let i = fromDayIndex; i < daysInMonth; i++) {
         const allHaveSpecial = selectedWorkers.every((wId) => {
           const workerSpecial = currentSpecialDays[wId] || {};
           return !!workerSpecial[i];
@@ -96,7 +104,7 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
     } else {
       // Only empty days: no shift AND no special day
       dayIndices = [];
-      for (let i = 0; i < daysInMonth; i++) {
+      for (let i = fromDayIndex; i < daysInMonth; i++) {
         const anyEmpty = selectedWorkers.some((wId) => {
           const sched = currentMonthSchedule[wId] || [];
           const workerSpecial = currentSpecialDays[wId] || {};
@@ -185,13 +193,16 @@ export default function BulkShiftModal({ workers, shifts, onAssign, onClose }: P
                     : 'border-border text-muted-foreground hover:bg-muted/50'
                 }`}
               >
-                Todos los días del mes
+                {fromDayIndex > 0
+                  ? `Todos desde el día ${fromDayIndex + 1}`
+                  : 'Todos los días del mes'}
               </button>
             </div>
             {applyMode === 'all' && (
               <p className="mt-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
-                ⚠️ Esto sobreescribirá todos los turnos existentes del mes para las trabajadoras
-                seleccionadas.
+                ⚠️ Esto sobreescribirá los turnos existentes{' '}
+                {fromDayIndex > 0 ? `desde el día ${fromDayIndex + 1}` : 'del mes'} para las
+                trabajadoras seleccionadas.
               </p>
             )}
           </div>
