@@ -694,18 +694,13 @@ export default function AsistenciaContent() {
   }
 
   function getEffectiveStatus(workerId: string, dateStr: string): string {
-    // NT from Malla is ABSOLUTE — always wins, no DB record can override it
-    if (isMallaNT(workerId, dateStr)) return 'NT';
-
-    // Check DB record first — manual saves always take priority over auto-status
+    // Sin registro el día queda vacío: nada sale solo hasta que se marque a mano o se
+    // toque "Todas asistieron", que llena el día según la Malla
     const recorded = attendance[workerId]?.[dateStr]?.status;
-    if (recorded) return recorded;
-
-    // No DB record — fall back to auto status from schedule/special days
-    const auto = getAutoStatus(workerId, dateStr);
-    if (auto === 'NT_SOFT') return 'NT';
-    // Con turno y sin marcar: queda vacío hasta que se marque (o se toque "Todas asistieron")
-    return auto ?? '';
+    if (!recorded) return '';
+    // NT from Malla is ABSOLUTE — always wins over what was recorded
+    if (isMallaNT(workerId, dateStr)) return 'NT';
+    return recorded;
   }
 
   // Open daily alert for a date
@@ -1405,11 +1400,10 @@ export default function AsistenciaContent() {
     };
 
     // Report status: DB record first, then effective status (malla-derived)
-    // Con turno y sin marcar la celda queda en blanco
+    // Día sin marcar: la celda queda en blanco
     function getReportStatus(workerId: string, dateStr: string): string {
       const recorded = freshAttendance[workerId]?.[dateStr]?.status;
       if (recorded) return recorded;
-      // No DB record — use effective status (DESCANSO, NT...; con turno y sin marcar queda vacío)
       return getEffectiveStatus(workerId, dateStr);
     }
 
@@ -2262,7 +2256,6 @@ export default function AsistenciaContent() {
             attendance={attendance}
             overtime={overtime}
             getEffectiveStatus={getEffectiveStatus}
-            getAutoStatus={getAutoStatus}
             isMallaNT={isMallaNT}
             onChangeStatus={changeStatus}
             onOpenOvertime={(w) => {
@@ -2432,7 +2425,6 @@ interface DayViewProps {
   attendance: Record<string, Record<string, AttendanceRecord>>;
   overtime: Record<string, Record<string, OvertimeRecord>>;
   getEffectiveStatus: (wid: string, dt: string) => string;
-  getAutoStatus: (wid: string, dt: string) => string | null;
   isMallaNT: (wid: string, dt: string) => boolean;
   onChangeStatus: (wid: string, dt: string, status: string) => void;
   onOpenOvertime: (w: Worker) => void;
@@ -2470,7 +2462,6 @@ function DayView({
   attendance,
   overtime,
   getEffectiveStatus,
-  getAutoStatus,
   isMallaNT,
   onChangeStatus,
   onOpenOvertime,
@@ -2617,9 +2608,7 @@ function DayView({
         <div className="divide-y divide-gray-100">
           {workers.map((w) => {
             const status = getEffectiveStatus(w.id, date);
-            const autoStatus = getAutoStatus(w.id, date);
             const isNT = isMallaNT(w.id, date);
-            const isAuto = !attendance[w.id]?.[date] && autoStatus !== null;
             const he = overtime[w.id]?.[date]?.hours ?? 0;
             const hePending = he > 0 && !!overtime[w.id]?.[date]?.pending;
 
@@ -2719,9 +2708,6 @@ function DayView({
                 </div>
                 {isNT && (
                   <span className="text-xs lg:text-[9px] text-gray-400 shrink-0">malla</span>
-                )}
-                {!isNT && isAuto && (
-                  <span className="text-xs lg:text-[9px] text-gray-400 shrink-0">auto</span>
                 )}
                 {/* HE button (las horas extra las anota solo un admin) */}
                 {(canEditOvertime || he > 0) && (
