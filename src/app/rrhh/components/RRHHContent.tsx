@@ -183,11 +183,17 @@ export default function RRHHContent() {
   const loadAttendance = useCallback(async () => {
     setLoadingAttendance(true);
     try {
-      const { data } = await supabase
-        .from('attendance_records')
-        .select('worker_id, record_date, status, absence_reason')
-        .gte('record_date', monthStartDate)
-        .lte('record_date', monthEndDate);
+      // Un mes tiene más de 1000 registros: se piden por páginas
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from('attendance_records')
+          .select('worker_id, record_date, status, absence_reason')
+          .gte('record_date', monthStartDate)
+          .lte('record_date', monthEndDate)
+          .order('worker_id')
+          .order('record_date')
+          .range(from, to)
+      );
 
       const map: AttendanceMap = {};
       (data ?? []).forEach((r: Record<string, unknown>) => {
