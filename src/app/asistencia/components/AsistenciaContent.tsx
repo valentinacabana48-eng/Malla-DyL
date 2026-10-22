@@ -489,11 +489,19 @@ export default function AsistenciaContent() {
           .select('*')
           .gte('record_date', startDate)
           .lte('record_date', endDate),
-        supabase
-          .from('attendance_proposals')
-          .select('*')
-          .gte('record_date', startDate)
-          .lte('record_date', endDate),
+        fetchAll((from, to) =>
+          supabase
+            .from('attendance_proposals')
+            .select('*')
+            .gte('record_date', startDate)
+            .lte('record_date', endDate)
+            .order('worker_id')
+            .order('record_date')
+            .range(from, to)
+        ).then(
+          (data) => ({ data, error: null }),
+          (error) => ({ data: null, error })
+        ),
       ]);
 
       // Merge freshly fetched DB records into the persistent allAttendanceRef store.

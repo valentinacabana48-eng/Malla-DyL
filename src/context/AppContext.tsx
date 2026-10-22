@@ -822,9 +822,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Licencias (aparte: si la tabla aún no existe, el resto de la app sigue funcionando) ──
   const reloadLicencias = useCallback(async () => {
-    const { data, error } = await supabase.from('licencias').select('*').order('desde');
-    if (error) {
-      console.warn('Licencias no disponibles:', error.message);
+    let data: Record<string, unknown>[];
+    try {
+      data = await fetchAll((from, to) =>
+        supabase.from('licencias').select('*').order('desde').order('id').range(from, to)
+      );
+    } catch (error) {
+      console.warn('Licencias no disponibles:', (error as Error).message);
       return;
     }
     setLicencias((data || []).map((r) => rowToLicencia(r as Record<string, unknown>)));
@@ -1078,11 +1082,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       )
         return;
       // Actualizar solo las filas de la malla que contienen este turno
-      const { data: affectedRows, error } = await supabase
-        .from('schedule_data')
-        .select('id, days')
-        .contains('days', [code]);
-      if (error) {
+      let affectedRows: Record<string, unknown>[];
+      try {
+        affectedRows = await fetchAll((from, to) =>
+          supabase
+            .from('schedule_data')
+            .select('id, days')
+            .contains('days', [code])
+            .order('id')
+            .range(from, to)
+        );
+      } catch (error) {
         console.error('Error buscando mallas con el turno eliminado:', error);
         return;
       }
