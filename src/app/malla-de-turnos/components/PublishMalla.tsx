@@ -1,7 +1,7 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Send, X, CheckCircle2, AlertTriangle, KeyRound } from 'lucide-react';
+import { Send, X, CheckCircle2, AlertTriangle, KeyRound, UserX, Plus, Trash2 } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
 import { useAppContext, getDaysInMonth, monthLabelToKey } from '@/context/AppContext';
@@ -14,6 +14,15 @@ import {
   type PublishedMonth,
 } from '@/lib/misTurnos';
 import { checkMalla } from '@/lib/mallaCheck';
+
+/** Tramo de días sin contrato de una trabajadora: [desde, hasta], días desde 1, ambos incluidos */
+export type Oculto = [number, number];
+
+/** Deja vacíos los días sin contrato (lo mismo que hace publish_schedule) */
+function ocultar(days: PublishedMonth, o: Oculto | undefined): PublishedMonth {
+  if (!o) return days;
+  return days.map((d, i) => (i + 1 >= o[0] && i + 1 <= o[1] ? null : d));
+}
 
 export interface PendingChange {
   workerId: string;
@@ -31,12 +40,14 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
   const monthKey = monthLabelToKey(monthLabel);
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [snapshots, setSnapshots] = useState<Record<string, PublishedMonth>>({});
+  const [ocultos, setOcultos] = useState<Record<string, Oculto>>({});
   const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!sucursal) {
       setPublishedAt(null);
       setSnapshots({});
+      setOcultos({});
       setLoaded(false);
       return;
     }
@@ -60,6 +71,17 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
         ),
       ]);
       if (error) throw error;
+      // Si la tabla todavía no existe, se publica sin días ocultos
+      const { data: oc, error: ocError } = await supabase
+        .from('publish_ocultos')
+        .select('worker_id, desde_dia, hasta_dia')
+        .eq('month_key', monthKey);
+      if (ocError) console.warn('No se pudieron leer los días sin contrato:', ocError.message);
+      const ocMap: Record<string, Oculto> = {};
+      (oc || []).forEach((r) => {
+        ocMap[r.worker_id as string] = [r.desde_dia as number, r.hasta_dia as number];
+      });
+      setOcultos(ocMap);
       setPublishedAt((pub?.published_at as string | undefined) ?? null);
       const snap: Record<string, PublishedMonth> = {};
       rows.forEach((r) => {
@@ -99,13 +121,20 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
   const pending = useMemo<PendingChange[]>(() => {
     if (!loaded || !publishedAt) return [];
     const list: PendingChange[] = [];
+    const n = getDaysInMonth(monthLabel);
     sucursalWorkers.forEach((w) => {
       const snap = snapshots[w.id];
+      const o = ocultos[w.id];
+      if (o && o[0] <= 1 && o[1] >= n) {
+        // Sin contrato todo el mes: no se le publica
+        if (snap) list.push({ workerId: w.id, name: w.name, kind: 'sale', days: [] });
+        return;
+      }
       if (!snap) {
         list.push({ workerId: w.id, name: w.name, kind: 'nueva', days: [] });
         return;
       }
-      const days = changedDays(current[w.id], snap);
+      const days = changedDays(ocultar(current[w.id], o), snap);
       if (days.length > 0) list.push({ workerId: w.id, name: w.name, kind: 'cambio', days });
     });
     const activeIds = new Set(sucursalWorkers.map((w) => w.id));
@@ -116,7 +145,7 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
       }
     });
     return list.sort((a, b) => a.name.localeCompare(b.name, 'es'));
-  }, [loaded, publishedAt, sucursalWorkers, snapshots, current, workers]);
+  }, [loaded, publishedAt, sucursalWorkers, snapshots, ocultos, current, workers, monthLabel]);
 
   return {
     monthKey,
@@ -124,6 +153,7 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
     loaded,
     publishedAt,
     snapshots,
+    ocultos,
     current,
     pending,
     sucursalWorkers,
@@ -173,6 +203,11 @@ export function PublishModal({
 }) {
   const { getAllNonWorkingTypes } = useAppContext();
   const { sucursal, monthKey, publishedAt, pending, snapshots, current, sucursalWorkers } = state;
+  const nDias = getDaysInMonth(monthLabel);
+  // Días sin contrato que se van a publicar (se editan aquí antes de publicar)
+  const [ocultos, setOcultos] = useState<Record<string, Oculto>>(state.ocultos);
+  useEffect(() => setOcultos(state.ocultos), [state.ocultos]);
+  const [nuevoOculto, setNuevoOculto] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<PublishResult | null>(null);
   const [withoutPin, setWithoutPin] = useState<string[] | null>(null);
@@ -182,8 +217,8 @@ export function PublishModal({
 
   // Días sin turno y horas sin nadie de un cargo, para avisar antes de publicar
   const check = useMemo(
-    () => checkMalla(sucursalWorkers, current, getDaysInMonth(monthLabel)),
-    [sucursalWorkers, current, monthLabel]
+    () => checkMalla(sucursalWorkers, current, nDias, ocultos),
+    [sucursalWorkers, current, nDias, ocultos]
   );
   const [year, month] = monthKey.split('-').map(Number);
   const dow = (d: number) => DOW[new Date(year, month - 1, d + 1).getDay()];
@@ -216,6 +251,7 @@ export function PublishModal({
     const { data, error } = await getSupabase().rpc('publish_schedule', {
       p_month_key: monthKey,
       p_sucursal: sucursal,
+      p_ocultos: ocultos,
     });
     setPublishing(false);
     if (error) {
@@ -409,6 +445,112 @@ export function PublishModal({
                   <p className="text-xs">Puedes publicar igual y corregirlo después.</p>
                 </div>
               )}
+
+              <div className="flex flex-col gap-2 border border-border rounded-xl px-3 py-2.5">
+                <div className="flex items-start gap-2 font-semibold text-foreground">
+                  <UserX size={16} className="shrink-0 mt-0.5" />
+                  <span>Días sin contrato</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Esos días no se ven en Mis turnos. Si marcas el mes completo, a esa persona no se
+                  le publica este mes. Queda guardado para las próximas publicaciones.
+                </p>
+                {Object.entries(ocultos)
+                  .map(([id, o]) => ({ id, o, w: sucursalWorkers.find((x) => x.id === id) }))
+                  .filter((x) => x.w)
+                  .sort((a, b) => a.w!.name.localeCompare(b.w!.name, 'es'))
+                  .map(({ id, o, w }) => {
+                    const set = (desde: number, hasta: number) =>
+                      setOcultos((prev) => ({ ...prev, [id]: [desde, hasta] }));
+                    return (
+                      <div key={id} className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="font-semibold text-foreground min-w-[8rem] flex-1">
+                          {w!.name}
+                        </span>
+                        <label className="flex items-center gap-1">
+                          del
+                          <select
+                            value={o[0]}
+                            onChange={(e) => {
+                              const d = Number(e.target.value);
+                              set(d, Math.max(d, o[1]));
+                            }}
+                            className="h-9 rounded-lg border border-border bg-card px-1"
+                          >
+                            {Array.from({ length: nDias }, (_, i) => (
+                              <option key={i} value={i + 1}>
+                                {i + 1}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="flex items-center gap-1">
+                          al
+                          <select
+                            value={o[1]}
+                            onChange={(e) => {
+                              const d = Number(e.target.value);
+                              set(Math.min(d, o[0]), d);
+                            }}
+                            className="h-9 rounded-lg border border-border bg-card px-1"
+                          >
+                            {Array.from({ length: nDias }, (_, i) => (
+                              <option key={i} value={i + 1}>
+                                {i + 1}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {o[0] <= 1 && o[1] >= nDias && (
+                          <span className="text-amber-700 font-semibold">No se publica</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOcultos((prev) => {
+                              const next = { ...prev };
+                              delete next[id];
+                              return next;
+                            })
+                          }
+                          aria-label={`Quitar días sin contrato de ${w!.name}`}
+                          className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={nuevoOculto}
+                    onChange={(e) => setNuevoOculto(e.target.value)}
+                    className="flex-1 h-9 rounded-lg border border-border bg-card px-2 text-xs"
+                  >
+                    <option value="">Elegir trabajadora…</option>
+                    {sucursalWorkers
+                      .filter((w) => !ocultos[w.id])
+                      .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+                      .map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.name}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!nuevoOculto}
+                    onClick={() => {
+                      setOcultos((prev) => ({ ...prev, [nuevoOculto]: [1, nDias] }));
+                      setNuevoOculto('');
+                    }}
+                    className="flex items-center gap-1 h-9 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-muted disabled:opacity-50"
+                  >
+                    <Plus size={14} />
+                    Agregar
+                  </button>
+                </div>
+              </div>
 
               {withoutPin && withoutPin.length > 0 && (
                 <div className="flex items-start gap-2 text-muted-foreground bg-muted/40 rounded-xl px-3 py-2.5">
