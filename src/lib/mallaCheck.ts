@@ -35,12 +35,16 @@ function span(d: PublishedMonth[number]): [number, number] | null {
 export function checkMalla(
   workers: Worker[],
   current: Record<string, PublishedMonth>,
-  daysInMonth: number
+  daysInMonth: number,
+  /** Días sin contrato por trabajadora ([desde, hasta], desde 1): no cuentan como vacíos */
+  sinContrato: Record<string, [number, number]> = {}
 ): MallaCheck {
   const emptyDays: EmptyDays[] = [];
   workers.forEach((w) => {
     const days: number[] = [];
-    for (let i = 0; i < daysInMonth; i++) if (!current[w.id]?.[i]) days.push(i);
+    const o = sinContrato[w.id];
+    for (let i = 0; i < daysInMonth; i++)
+      if (!current[w.id]?.[i] && !(o && i + 1 >= o[0] && i + 1 <= o[1])) days.push(i);
     if (days.length) emptyDays.push({ name: w.name, days });
   });
 
