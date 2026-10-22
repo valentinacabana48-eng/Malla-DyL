@@ -267,8 +267,16 @@ function MultiSelect({
 }
 
 export default function AsistenciaContent() {
-  const { workers, sucursales, shifts, scheduleData, specialDays, globalSucursal, globalArea } =
-    useAppContext();
+  const {
+    workers,
+    sucursales,
+    shifts,
+    scheduleData,
+    specialDays,
+    globalSucursal,
+    globalArea,
+    getLicenciaTurno,
+  } = useAppContext();
 
   const defaultStart = getDefaultStartDate();
   const defaultEnd = getDefaultEndDate(defaultStart);
@@ -2300,7 +2308,14 @@ export default function AsistenciaContent() {
             getShiftText={(wid: string) => {
               const code = getShiftForDate(wid, selectedDate);
               const sh = code ? shifts[code] : undefined;
-              return sh?.start && sh?.end ? `${sh.start} a ${sh.end}` : '';
+              if (sh?.start && sh?.end) return `${sh.start} a ${sh.end}`;
+              // Con licencia: el turno que tenía programado
+              if (getSpecialForDate(wid, selectedDate) === 'LICENCIA') {
+                const lic = getLicenciaTurno(wid, selectedDate);
+                const ls = lic ? shifts[lic] : undefined;
+                if (ls?.start && ls?.end) return `Licencia (tenía ${ls.start} a ${ls.end})`;
+              }
+              return '';
             }}
           />
         ) : (

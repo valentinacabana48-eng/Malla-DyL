@@ -218,6 +218,42 @@ export type AreaCargos = Record<string, string[]>;
 
 export const HORAS_OPTIONS = [10, 20, 30, 42];
 
+/** Licencia registrada desde la Malla (días corridos desde `desde`) */
+export interface Licencia {
+  id: string;
+  workerId: string;
+  /** Primer día, "YYYY-MM-DD" */
+  desde: string;
+  dias: number;
+  /** Último día de licencia; vuelve el día siguiente */
+  hasta: string;
+  /** Turno que tenía programado cada día: { "2026-10-22": "M1" } */
+  turnos: Record<string, string>;
+  /** Día especial que había antes (descanso, etc.), para devolverlo si se quita */
+  especiales: Record<string, string>;
+  avisoResuelto: boolean;
+}
+
+/** "2026-10-22" + n días → "YYYY-MM-DD" (fechas locales, sin problemas de zona horaria) */
+export function addDaysISO(dateStr: string, n: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + n);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+
+function rowToLicencia(r: Record<string, unknown>): Licencia {
+  return {
+    id: r.id as string,
+    workerId: r.worker_id as string,
+    desde: r.desde as string,
+    dias: r.dias as number,
+    hasta: (r.hasta as string) || addDaysISO(r.desde as string, (r.dias as number) - 1),
+    turnos: (r.turnos as Record<string, string>) || {},
+    especiales: (r.especiales as Record<string, string>) || {},
+    avisoResuelto: r.aviso_resuelto === true,
+  };
+}
+
 export interface Sucursal {
   name: string;
   cajas: number;
@@ -488,6 +524,14 @@ interface AppContextValue {
   updateCustomNonWorkingType: (t: NonWorkingType) => void;
   deleteCustomNonWorkingType: (code: string) => void;
   getAllNonWorkingTypes: () => NonWorkingType[];
+  licencias: Licencia[];
+  /** Pone LICENCIA desde `desde` por `dias` días corridos y guarda los turnos que tenía */
+  registrarLicencia: (workerId: string, desde: string, dias: number) => Promise<boolean>;
+  /** Quita la licencia y devuelve los turnos que tenía */
+  quitarLicencia: (id: string) => Promise<boolean>;
+  resolverAvisoLicencia: (id: string) => Promise<void>;
+  /** Turno que tenía programado un día de licencia (o undefined) */
+  getLicenciaTurno: (workerId: string, dateStr: string) => string | undefined;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -644,6 +688,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [specialDays, setSpecialDaysState] = useState<SpecialDaysData>({});
   const [customNonWorkingTypes, setCustomNonWorkingTypes] = useState<NonWorkingType[]>([]);
+  const [licencias, setLicencias] = useState<Licencia[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Sucursales que esta persona puede ver (null = todas)
@@ -755,6 +800,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     loadAll();
   }, []);
+
+  // ── Licencias (aparte: si la tabla aún no existe, el resto de la app sigue funcionando) ──
+  const reloadLicencias = useCallback(async () => {
+    const { data, error } = await supabase.from('licencias').select('*').order('desde');
+    if (error) {
+      console.warn('Licencias no disponibles:', error.message);
+      return;
+    }
+    setLicencias((data || []).map((r) => rowToLicencia(r as Record<string, unknown>)));
+  }, [supabase]);
+
+  useEffect(() => {
+    reloadLicencias();
+    const channel = supabase
+      .channel('realtime-licencias')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'licencias' }, () => {
+        reloadLicencias();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, reloadLicencias]);
 
   // ── Supabase real-time subscriptions ──────────────────────────────────────
   useEffect(() => {
@@ -1505,6 +1573,195 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [supabase]
   );
 
+  // ── Licencias ──
+  // Agrupa fechas "YYYY-MM-DD" por mes: { "2026-10": [21, 22], "2026-11": [0] }
+  function groupByMonth(dates: string[]): Record<string, number[]> {
+    const out: Record<string, number[]> = {};
+    dates.forEach((d) => {
+      const mk = d.slice(0, 7);
+      (out[mk] ||= []).push(Number(d.slice(8, 10)) - 1);
+    });
+    return out;
+  }
+
+  const registrarLicencia = useCallback(
+    async (workerId: string, desde: string, dias: number): Promise<boolean> => {
+      const dates = Array.from({ length: dias }, (_, i) => addDaysISO(desde, i));
+      // Lo que había antes en la malla, para mostrarlo y poder devolverlo
+      const turnos: Record<string, string> = {};
+      const especiales: Record<string, string> = {};
+      dates.forEach((d) => {
+        const mk = d.slice(0, 7);
+        const di = Number(d.slice(8, 10)) - 1;
+        const sp = ((specialDaysRef.current[mk] || {})[workerId] || {})[di];
+        const sh = ((scheduleDataRef.current[mk] || {})[workerId] || [])[di];
+        if (sp && sp !== 'LICENCIA') especiales[d] = sp;
+        else if (sh) turnos[d] = sh;
+      });
+
+      const { data, error } = await supabase
+        .from('licencias')
+        .insert({ worker_id: workerId, desde, dias, turnos, especiales })
+        .select()
+        .single();
+      if (error || !data) {
+        console.error('registrarLicencia error:', error);
+        toast.error('No se pudo registrar la licencia. Intenta de nuevo.');
+        return false;
+      }
+      setLicencias((prev) => [...prev, rowToLicencia(data as Record<string, unknown>)]);
+
+      const byMonth = groupByMonth(dates);
+      setSpecialDaysState((prev) => {
+        const next = { ...prev };
+        Object.entries(byMonth).forEach(([mk, idxs]) => {
+          const workerData = { ...((next[mk] || {})[workerId] || {}) };
+          idxs.forEach((di) => (workerData[di] = 'LICENCIA'));
+          next[mk] = { ...(next[mk] || {}), [workerId]: workerData };
+        });
+        return next;
+      });
+      setScheduleData((prev) => {
+        const next = { ...prev };
+        Object.entries(byMonth).forEach(([mk, idxs]) => {
+          const arr = [...((next[mk] || {})[workerId] || Array(31).fill(null))];
+          idxs.forEach((di) => (arr[di] = null));
+          next[mk] = { ...(next[mk] || {}), [workerId]: arr };
+        });
+        return next;
+      });
+
+      let ok = true;
+      for (const [mk, idxs] of Object.entries(byMonth)) {
+        const { error: e } = await supabase.rpc('set_special_day_cells', {
+          p_month_key: mk,
+          p_worker_id: workerId,
+          p_day_indices: idxs,
+          p_type_code: 'LICENCIA',
+        });
+        if (e) {
+          console.error('registrarLicencia malla error:', e);
+          ok = false;
+        }
+      }
+      if (!ok)
+        toast.error('La licencia quedó registrada, pero algunos días no se marcaron en la malla.');
+      return ok;
+    },
+    [supabase]
+  );
+
+  const quitarLicencia = useCallback(
+    async (id: string): Promise<boolean> => {
+      const lic = licencias.find((l) => l.id === id);
+      if (!lic) return false;
+      const dates = Array.from({ length: lic.dias }, (_, i) => addDaysISO(lic.desde, i));
+      // Solo los días que siguen con LICENCIA (si alguien ya los cambió a mano, se respetan)
+      const still = dates.filter((d) => {
+        const mk = d.slice(0, 7);
+        const di = Number(d.slice(8, 10)) - 1;
+        return ((specialDaysRef.current[mk] || {})[lic.workerId] || {})[di] === 'LICENCIA';
+      });
+
+      let ok = true;
+      for (const [mk, idxs] of Object.entries(groupByMonth(still))) {
+        const { error } = await supabase.rpc('set_special_day_cells', {
+          p_month_key: mk,
+          p_worker_id: lic.workerId,
+          p_day_indices: idxs,
+          p_type_code: null,
+        });
+        if (error) ok = false;
+      }
+      // Devolver los turnos y días especiales que tenía
+      for (const d of still) {
+        const mk = d.slice(0, 7);
+        const di = Number(d.slice(8, 10)) - 1;
+        if (lic.especiales[d]) {
+          const { error } = await supabase.rpc('set_special_day_cell', {
+            p_month_key: mk,
+            p_worker_id: lic.workerId,
+            p_day_index: di,
+            p_type_code: lic.especiales[d],
+          });
+          if (error) ok = false;
+        } else if (lic.turnos[d]) {
+          const { error } = await supabase.rpc('set_schedule_cell', {
+            p_month_key: mk,
+            p_worker_id: lic.workerId,
+            p_day_index: di,
+            p_shift: lic.turnos[d],
+          });
+          if (error) ok = false;
+        }
+      }
+
+      setSpecialDaysState((prev) => {
+        const next = { ...prev };
+        still.forEach((d) => {
+          const mk = d.slice(0, 7);
+          const di = Number(d.slice(8, 10)) - 1;
+          const workerData = { ...((next[mk] || {})[lic.workerId] || {}) };
+          if (lic.especiales[d]) workerData[di] = lic.especiales[d];
+          else delete workerData[di];
+          next[mk] = { ...(next[mk] || {}), [lic.workerId]: workerData };
+        });
+        return next;
+      });
+      setScheduleData((prev) => {
+        const next = { ...prev };
+        still.forEach((d) => {
+          if (!lic.turnos[d] || lic.especiales[d]) return;
+          const mk = d.slice(0, 7);
+          const di = Number(d.slice(8, 10)) - 1;
+          const arr = [...((next[mk] || {})[lic.workerId] || Array(31).fill(null))];
+          arr[di] = lic.turnos[d];
+          next[mk] = { ...(next[mk] || {}), [lic.workerId]: arr };
+        });
+        return next;
+      });
+
+      if (!ok) {
+        toast.error('No se pudieron devolver todos los turnos. Revisa la malla de esos días.');
+        return false;
+      }
+      const { error } = await supabase.from('licencias').delete().eq('id', id);
+      if (error) {
+        toast.error('No se pudo quitar la licencia. Intenta de nuevo.');
+        return false;
+      }
+      setLicencias((prev) => prev.filter((l) => l.id !== id));
+      return true;
+    },
+    [licencias, supabase]
+  );
+
+  const resolverAvisoLicencia = useCallback(
+    async (id: string) => {
+      setLicencias((prev) => prev.map((l) => (l.id === id ? { ...l, avisoResuelto: true } : l)));
+      const { error } = await supabase
+        .from('licencias')
+        .update({ aviso_resuelto: true })
+        .eq('id', id);
+      if (error) {
+        console.error('resolverAvisoLicencia error:', error);
+        setLicencias((prev) => prev.map((l) => (l.id === id ? { ...l, avisoResuelto: false } : l)));
+        toast.error('No se pudo guardar. Intenta de nuevo.');
+      }
+    },
+    [supabase]
+  );
+
+  const getLicenciaTurno = useCallback(
+    (workerId: string, dateStr: string): string | undefined => {
+      const lic = licencias.find(
+        (l) => l.workerId === workerId && l.desde <= dateStr && dateStr <= l.hasta
+      );
+      return lic?.turnos[dateStr];
+    },
+    [licencias]
+  );
+
   const getAllNonWorkingTypes = useCallback((): NonWorkingType[] => {
     return [...NON_WORKING_TYPES, ...customNonWorkingTypes];
   }, [customNonWorkingTypes]);
@@ -1551,6 +1808,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateCustomNonWorkingType,
         deleteCustomNonWorkingType,
         getAllNonWorkingTypes,
+        licencias,
+        registrarLicencia,
+        quitarLicencia,
+        resolverAvisoLicencia,
+        getLicenciaTurno,
       }}
     >
       {children}
