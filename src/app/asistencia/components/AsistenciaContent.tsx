@@ -2309,11 +2309,13 @@ export default function AsistenciaContent() {
               const code = getShiftForDate(wid, selectedDate);
               const sh = code ? shifts[code] : undefined;
               if (sh?.start && sh?.end) return `${sh.start} a ${sh.end}`;
-              // Con licencia: el turno que tenía programado
-              if (getSpecialForDate(wid, selectedDate) === 'LICENCIA') {
+              // Con licencia, permiso o vacaciones: el turno que tenía programado
+              const special = getSpecialForDate(wid, selectedDate);
+              if (special) {
                 const lic = getLicenciaTurno(wid, selectedDate);
                 const ls = lic ? shifts[lic] : undefined;
-                if (ls?.start && ls?.end) return `Licencia (tenía ${ls.start} a ${ls.end})`;
+                if (ls?.start && ls?.end)
+                  return `${getStatusLabel(special)} (tenía ${ls.start} a ${ls.end})`;
               }
               return '';
             }}

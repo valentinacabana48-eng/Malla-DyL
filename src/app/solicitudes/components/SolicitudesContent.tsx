@@ -1,6 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Inbox, X } from 'lucide-react';
+import { Check, Inbox, Printer, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase/client';
 import {
@@ -8,8 +8,10 @@ import {
   shiftsForSucursales,
   timeToMinutes,
   useAppContext,
+  type TipoAusencia,
   type Worker,
 } from '@/context/AppContext';
+import { imprimirHoja, tipoLabel } from '@/app/malla-de-turnos/components/LicenciaModal';
 
 // Solicitudes que las trabajadoras hacen desde Mis turnos: día libre o cambio de turno.
 // Al aprobar, la base de datos cambia la malla de ese día (queda por publicar).
@@ -51,7 +53,15 @@ function fechaText(iso: string) {
 
 export default function SolicitudesContent() {
   const supabase = getSupabase();
-  const { workers, shifts, scheduleData, specialDays, getAllNonWorkingTypes } = useAppContext();
+  const {
+    workers,
+    shifts,
+    scheduleData,
+    specialDays,
+    getAllNonWorkingTypes,
+    licencias,
+    registrarLicencia,
+  } = useAppContext();
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [missingTable, setMissingTable] = useState(false);
@@ -59,7 +69,10 @@ export default function SolicitudesContent() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   // Turno que queda a cada una al aprobar (se puede ajustar antes de aprobar)
-  const [chosen, setChosen] = useState<Record<string, { turno?: string; comp?: string }>>({});
+  // En un día libre con turno: cómo queda (descanso o permiso con/sin goce)
+  const [chosen, setChosen] = useState<
+    Record<string, { turno?: string; comp?: string; dia?: 'DESC' | TipoAusencia }>
+  >({});
 
   const load = useCallback(async () => {
     const since = new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10);
@@ -128,7 +141,25 @@ export default function SolicitudesContent() {
   const defaults = (r: Request) => ({
     turno: chosen[r.id]?.turno ?? (r.tipo === 'libre' ? 'DESC' : r.turno_pedido),
     comp: chosen[r.id]?.comp ?? (r.turno_actual || 'DESC'),
+    dia: chosen[r.id]?.dia ?? 'DESC',
   });
+
+  // Turno que tiene en la malla el día de la solicitud (si tiene uno de verdad)
+  const turnoHoy = (r: Request): string | null => {
+    const [y, m, d] = r.fecha.split('-').map(Number);
+    const code = codeOn(r.worker_id, new Date(y, m - 1, d));
+    return shifts[code]?.start ? code : null;
+  };
+
+  // Permiso o vacaciones registrado ese día (al aprobar un día libre como permiso)
+  const permisoDe = (r: Request) =>
+    licencias.find(
+      (l) =>
+        l.tipo !== 'LICENCIA' &&
+        l.workerId === r.worker_id &&
+        l.desde <= r.fecha &&
+        r.fecha <= l.hasta
+    );
 
   // Cuántas del mismo cargo y sucursal hay a cada hora ese día, hoy y si se aprueba
   const coverage = (r: Request, turno: string, comp: string) => {
@@ -186,18 +217,30 @@ export default function SolicitudesContent() {
   const resolve = async (r: Request, aprobar: boolean) => {
     setBusy(r.id);
     const pick = defaults(r);
+    // Día libre como permiso: la malla mantiene el turno y después se marca el permiso,
+    // que guarda el turno que tenía (igual que una licencia)
+    const actual = turnoHoy(r);
+    const comoPermiso =
+      aprobar && r.tipo === 'libre' && pick.turno === 'DESC' && pick.dia !== 'DESC' && !!actual;
+    const nota = (notes[r.id] ?? '').trim();
     const { error } = await supabase.rpc('resolve_shift_request', {
       p_id: r.id,
       p_aprobar: aprobar,
-      p_respuesta: notes[r.id] ?? '',
-      p_turno: aprobar ? pick.turno : null,
+      p_respuesta: comoPermiso
+        ? `${tipoLabel(pick.dia as TipoAusencia)}.${nota ? ` ${nota}` : ''}`
+        : nota,
+      p_turno: aprobar ? (comoPermiso ? actual : pick.turno) : null,
       p_turno_companera: aprobar && r.tipo === 'intercambio' ? pick.comp : null,
     });
-    setBusy(null);
     if (error) {
+      setBusy(null);
       toast.error(error.message || 'No se pudo responder la solicitud.');
       return;
     }
+    if (comoPermiso) {
+      await registrarLicencia(r.worker_id, r.fecha, 1, pick.dia as TipoAusencia, r.motivo);
+    }
+    setBusy(null);
     toast.success(
       aprobar
         ? 'Aprobada. La malla quedó cambiada; recuerda publicarla para que ella la vea.'
@@ -351,7 +394,9 @@ export default function SolicitudesContent() {
                     <p className="text-muted-foreground">
                       Quedó:{' '}
                       <span className="font-semibold text-foreground">
-                        {shiftText(r.turno_pedido)}
+                        {r.tipo === 'libre' && permisoDe(r)
+                          ? tipoLabel(permisoDe(r)!.tipo)
+                          : shiftText(r.turno_pedido)}
                       </span>
                       {r.tipo === 'intercambio' && (
                         <>
@@ -374,6 +419,44 @@ export default function SolicitudesContent() {
                     </span>
                     {pickRow(w, r.worker_id, pick.turno, r.turno_actual, (v) =>
                       setChosen((c) => ({ ...c, [r.id]: { ...c[r.id], turno: v } }))
+                    )}
+                    {r.tipo === 'libre' && pick.turno === 'DESC' && turnoHoy(r) && (
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-xs text-muted-foreground">
+                          Ese día tiene turno. ¿Cómo queda?
+                        </span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(
+                            [
+                              ['PERMISO_CG', 'Permiso con goce'],
+                              ['PERMISO_SG', 'Permiso sin goce'],
+                              ['DESC', 'Descanso'],
+                            ] as const
+                          ).map(([code, label]) => (
+                            <button
+                              key={code}
+                              type="button"
+                              onClick={() =>
+                                setChosen((c) => ({ ...c, [r.id]: { ...c[r.id], dia: code } }))
+                              }
+                              aria-pressed={pick.dia === code}
+                              className={`px-2 py-2 rounded-xl border text-xs font-semibold ${
+                                pick.dia === code
+                                  ? 'border-secondary bg-secondary text-white'
+                                  : 'border-border text-muted-foreground hover:bg-muted/50'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                        {pick.dia !== 'DESC' && (
+                          <span className="text-xs text-muted-foreground">
+                            Se guarda el turno que tenía y después puedes imprimir la hoja para
+                            firmar.
+                          </span>
+                        )}
+                      </div>
                     )}
                     {r.tipo === 'intercambio' &&
                       r.companera_id &&
@@ -482,6 +565,21 @@ export default function SolicitudesContent() {
                       {r.resolved_by_email && <>· {r.resolved_by_email}</>}
                     </p>
                   )
+                )}
+                {r.status === 'aprobada' && r.tipo === 'libre' && permisoDe(r) && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      imprimirHoja(permisoDe(r)!, w, {
+                        fecha: r.created_at.slice(0, 10),
+                        autorizada: (r.resolved_at ?? r.created_at).slice(0, 10),
+                      })
+                    }
+                    className="self-start flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted/50"
+                  >
+                    <Printer size={15} />
+                    Imprimir hoja de permiso
+                  </button>
                 )}
               </li>
             );

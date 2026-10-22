@@ -502,8 +502,8 @@ export default function MallaContent() {
                 disabled: isLocked || isReadonly,
               },
               {
-                label: 'Registrar licencia',
-                hint: 'Desde qué día y cuántos días; guarda los turnos que tenía',
+                label: 'Licencia, permiso o vacaciones',
+                hint: 'Guarda los turnos que tenía; imprime la hoja de permiso',
                 icon: <Stethoscope size={15} />,
                 onSelect: () => setShowLicenciaModal(true),
                 disabled: isReadonly,
