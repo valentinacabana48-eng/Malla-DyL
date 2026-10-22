@@ -165,6 +165,16 @@ export const ABSENCE_REASONS = [
   'Otro',
 ];
 
+// Motivos de la ventana diaria que tienen su propio estado: se guardan con ese estado
+// (p. ej. J) en vez de como falta injustificada con el motivo de comentario.
+export const ABSENCE_REASON_STATUS: Record<string, string> = {
+  'Falta justificada': 'FALTA_JUSTIFICADA',
+  'Licencia médica': 'LICENCIA',
+  'Permiso con goce': 'PERMISO_CG',
+  'Permiso sin goce': 'PERMISO_SG',
+  Vacaciones: 'VACACIONES',
+};
+
 export interface AttendanceStatus {
   code: string;
   label: string;
