@@ -37,7 +37,7 @@ export function checkMalla(
   current: Record<string, PublishedMonth>,
   daysInMonth: number,
   /** Días ocultos por trabajadora ([desde, hasta], desde 1): no cuentan como vacíos */
-  ocultos: Record<string, [number, number]> = {}
+  ocultos: Record<string, [number, number, string?]> = {}
 ): MallaCheck {
   const emptyDays: EmptyDays[] = [];
   workers.forEach((w) => {
