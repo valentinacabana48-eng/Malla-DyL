@@ -12,6 +12,13 @@ import {
 } from 'lucide-react';
 import AppImage from '@/components/ui/AppImage';
 import { useAppContext, monthLabelToKey } from '@/context/AppContext';
+import MultiSelect from '@/components/ui/MultiSelect';
+import { useCargoOptions } from '@/hooks/useCargoOptions';
+
+const MULTI_LABEL =
+  'block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5';
+const MULTI_BUTTON =
+  'w-full py-2.5 bg-input border border-border rounded-xl text-sm font-medium text-foreground transition-colors hover:border-secondary/40';
 
 const BRANCH_LOGOS = [
   {
@@ -82,7 +89,6 @@ export default function DashboardContent() {
     scheduleData,
     sucursales,
     areas,
-    areaCargos,
     getSucursalCajas,
     globalSucursal,
     globalArea,
@@ -92,8 +98,9 @@ export default function DashboardContent() {
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
-  const [areaFilter, setAreaFilter] = useState(
-    globalArea && globalArea !== 'Todas' ? globalArea : 'all'
+  // [] = todas / todos
+  const [selectedAreas, setSelectedAreas] = useState<string[]>(
+    globalArea && globalArea !== 'Todas' ? [globalArea] : []
   );
 
   const DATES = useMemo(
@@ -106,8 +113,10 @@ export default function DashboardContent() {
     const todayVal = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
     return today.find((d) => d.value === todayVal)?.value || today[0]?.value || '';
   });
-  const [selectedSucursal, setSelectedSucursal] = useState('');
-  const [selectedCargo, setSelectedCargo] = useState('Todos');
+  const [selectedSucursales, setSelectedSucursales] = useState<string[]>(
+    globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []
+  );
+  const [selectedCargos, setSelectedCargos] = useState<string[]>([]);
 
   // El mes elegido puede no estar cargado todavía (solo se cargan los cercanos)
   useEffect(() => {
@@ -115,37 +124,39 @@ export default function DashboardContent() {
   }, [selectedYear, selectedMonth, ensureMonths]);
 
   useEffect(() => {
-    if (globalArea && globalArea !== 'Todas') setAreaFilter(globalArea);
+    if (globalArea && globalArea !== 'Todas') setSelectedAreas([globalArea]);
   }, [globalArea]);
 
-  // Cargos del área elegida (o de todas), según Ajustes y los que tienen las trabajadoras
-  const cargoOptions = useMemo(() => {
-    const areaList = areaFilter === 'all' ? areas : [areaFilter];
-    const set = new Set<string>();
-    areaList.forEach((a) => (areaCargos[a] || []).forEach((c) => set.add(c)));
-    workers.forEach((w) => {
-      if (w.cargo && areaList.includes(w.area)) set.add(w.cargo);
-    });
-    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
-  }, [areas, areaCargos, areaFilter, workers]);
-
   useEffect(() => {
-    if (selectedCargo !== 'Todos' && !cargoOptions.includes(selectedCargo)) {
-      setSelectedCargo('Todos');
-    }
-  }, [cargoOptions, selectedCargo]);
+    setSelectedSucursales(globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []);
+  }, [globalSucursal]);
+
+  const cargoOptions = useCargoOptions(selectedAreas, selectedCargos, setSelectedCargos);
+
+  // Sucursales que cuentan: las elegidas o, sin ninguna, todas las que se ven
+  const sucursalList = useMemo(
+    () => (selectedSucursales.length > 0 ? selectedSucursales : sucursales.map((s) => s.name)),
+    [selectedSucursales, sucursales]
+  );
 
   const filteredWorkers = useMemo(
     () =>
       workers.filter(
         (w) =>
-          w.sucursal === selectedSucursal &&
+          sucursalList.includes(w.sucursal) &&
           w.estado === 'Activo' &&
-          (areaFilter === 'all' ? areas.includes(w.area) : w.area === areaFilter) &&
-          (selectedCargo === 'Todos' || w.cargo === selectedCargo)
+          (selectedAreas.length > 0 ? selectedAreas : areas).includes(w.area) &&
+          (selectedCargos.length === 0 || selectedCargos.includes(w.cargo))
       ),
-    [workers, selectedSucursal, areaFilter, areas, selectedCargo]
+    [workers, sucursalList, selectedAreas, areas, selectedCargos]
   );
+
+  const cajasCount = useMemo(
+    () => sucursalList.reduce((sum, name) => sum + getSucursalCajas(name), 0),
+    [sucursalList, getSucursalCajas]
+  );
+  // Las cajas vacías solo tienen sentido mirando a las cajeras
+  const isCajeras = selectedCargos.length === 1 && selectedCargos[0] === 'Cajera';
 
   useEffect(() => {
     const newDates = getDatesForMonth(selectedYear, selectedMonth);
@@ -162,14 +173,6 @@ export default function DashboardContent() {
     }
   }, [selectedYear, selectedMonth]);
 
-  useEffect(() => {
-    if (globalSucursal && globalSucursal !== 'Todas') {
-      setSelectedSucursal(globalSucursal);
-    } else if (sucursales.length > 0) {
-      setSelectedSucursal(sucursales[0].name);
-    }
-  }, [globalSucursal, sucursales]);
-
   const dayIndex = useMemo(() => {
     const idx = DATES.findIndex((d) => d.value === selectedDate);
     return idx >= 0 ? idx : 0;
@@ -181,7 +184,7 @@ export default function DashboardContent() {
         if (!w.birthday) return false;
         const [, bMonth] = w.birthday.split('-').map(Number);
         if (bMonth !== selectedMonth + 1) return false;
-        if (areaFilter !== 'all' && w.area !== areaFilter) return false;
+        if (selectedAreas.length > 0 && !selectedAreas.includes(w.area)) return false;
         return true;
       })
       .sort((a, b) => {
@@ -189,14 +192,12 @@ export default function DashboardContent() {
         const [, , bDay] = (b.birthday || '').split('-').map(Number);
         return aDay - bDay;
       });
-  }, [workers, selectedMonth, areaFilter]);
+  }, [workers, selectedMonth, selectedAreas]);
 
   const hourlySummary = useMemo((): HourlySummary[] => {
     const monthLabel = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
     const monthKey = monthLabelToKey(monthLabel);
     const monthSched = scheduleData[monthKey] || {};
-    const cajasCount = getSucursalCajas(selectedSucursal);
-    const isCajeras = selectedCargo === 'Cajera';
     const slotHour = (time: string) => parseInt(time.split(':')[0], 10);
     return HOUR_SLOTS.map((hour) => {
       const slotH = slotHour(hour);
@@ -222,11 +223,10 @@ export default function DashboardContent() {
     shifts,
     scheduleData,
     dayIndex,
-    selectedSucursal,
     selectedMonth,
     selectedYear,
-    getSucursalCajas,
-    selectedCargo,
+    cajasCount,
+    isCajeras,
   ]);
 
   const totalWorkers = useMemo(() => {
@@ -461,77 +461,36 @@ export default function DashboardContent() {
               />
             </div>
           </div>
-          {/* Sucursal */}
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Sucursal
-            </label>
-            <div className="relative">
-              <select
-                value={selectedSucursal}
-                onChange={(e) => setSelectedSucursal(e.target.value)}
-                className="w-full px-3 py-2.5 bg-input border border-border rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none pr-8 transition-colors hover:border-secondary/40"
-              >
-                {sucursales.map((s) => (
-                  <option key={s.name} value={s.name}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={13}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-              />
-            </div>
-          </div>
-          {/* Cargo */}
-          <div className="min-w-[180px]">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Cargo
-            </label>
-            <div className="relative">
-              <select
-                value={selectedCargo}
-                onChange={(e) => setSelectedCargo(e.target.value)}
-                className="w-full px-3 py-2.5 bg-input border border-border rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none pr-8 transition-colors hover:border-secondary/40"
-              >
-                <option value="Todos">Todos</option>
-                {cargoOptions.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={13}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-              />
-            </div>
-          </div>
-          {/* Área */}
-          <div className="min-w-[160px]">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Área
-            </label>
-            <div className="relative">
-              <select
-                value={areaFilter}
-                onChange={(e) => setAreaFilter(e.target.value)}
-                className="w-full px-3 py-2.5 bg-input border border-border rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none pr-8 transition-colors hover:border-secondary/40"
-              >
-                <option value="all">Todas las áreas</option>
-                {areas.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={13}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-              />
-            </div>
-          </div>
+          <MultiSelect
+            label="Sucursal"
+            options={sucursales.map((s) => s.name)}
+            selected={selectedSucursales}
+            onChange={setSelectedSucursales}
+            allLabel="Todas"
+            className="flex-1 min-w-[200px] max-w-[320px]"
+            labelClassName={MULTI_LABEL}
+            buttonClassName={MULTI_BUTTON}
+          />
+          <MultiSelect
+            label="Área"
+            options={areas}
+            selected={selectedAreas}
+            onChange={setSelectedAreas}
+            allLabel="Todas las áreas"
+            className="min-w-[160px] max-w-[280px]"
+            labelClassName={MULTI_LABEL}
+            buttonClassName={MULTI_BUTTON}
+          />
+          <MultiSelect
+            label="Cargo"
+            options={cargoOptions}
+            selected={selectedCargos}
+            onChange={setSelectedCargos}
+            allLabel="Todos"
+            className="min-w-[180px] max-w-[280px]"
+            labelClassName={MULTI_LABEL}
+            buttonClassName={MULTI_BUTTON}
+          />
         </div>
 
         {/* KPI cards */}
@@ -577,9 +536,7 @@ export default function DashboardContent() {
               <Package size={18} className="text-orange-500" />
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-orange-600 leading-none">
-                {getSucursalCajas(selectedSucursal)}
-              </p>
+              <p className="text-2xl font-extrabold text-orange-600 leading-none">{cajasCount}</p>
               <p className="text-xs text-orange-400 font-semibold mt-1">Cajas disponibles</p>
             </div>
           </div>
@@ -628,7 +585,7 @@ export default function DashboardContent() {
                   <th className="text-center px-4 py-3 text-xs font-bold text-blue-600 uppercase tracking-wider">
                     Activas
                   </th>
-                  {selectedCargo === 'Cajera' && (
+                  {isCajeras && (
                     <th className="text-center px-4 py-3 text-xs font-bold text-orange-500 uppercase tracking-wider">
                       Cajas vacías
                     </th>
@@ -665,7 +622,7 @@ export default function DashboardContent() {
                         {row.active}
                       </span>
                     </td>
-                    {selectedCargo === 'Cajera' && (
+                    {isCajeras && (
                       <td className="px-4 py-3 text-center">
                         <span
                           className={`inline-flex items-center justify-center w-8 h-7 rounded-lg font-bold text-sm ${row.vacantCajas > 5 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-500'}`}

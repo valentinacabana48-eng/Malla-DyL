@@ -19,6 +19,14 @@ import {
   MESES,
   monthLabelToKey,
 } from '@/context/AppContext';
+import MultiSelect from '@/components/ui/MultiSelect';
+import { useCargoOptions } from '@/hooks/useCargoOptions';
+
+const MULTI_WRAPPER = 'flex-1 min-w-[180px] max-w-[300px]';
+const MULTI_LABEL =
+  'block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5';
+const MULTI_BUTTON =
+  'w-full py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground';
 
 // Build a Mon-Sun weekly calendar grid for the month
 function buildCalendarWeeks(monthLabel: string): {
@@ -201,9 +209,10 @@ interface GroupedListPrintProps {
   shifts: Record<string, import('@/context/AppContext').Shift>;
   scheduleData: import('@/context/AppContext').ScheduleData;
   monthLabel: string;
-  sucursal: string;
-  area: string;
-  cargo: string;
+  /** [] = todas / todos */
+  sucursales: string[];
+  areas: string[];
+  cargos: string[];
 }
 
 function GroupedListPrint({
@@ -211,9 +220,9 @@ function GroupedListPrint({
   shifts,
   scheduleData,
   monthLabel,
-  sucursal,
-  area,
-  cargo,
+  sucursales,
+  areas,
+  cargos,
 }: GroupedListPrintProps) {
   const monthKey = monthLabelToKey(monthLabel);
   const monthParts = monthLabel.split(' ');
@@ -223,9 +232,9 @@ function GroupedListPrint({
   // Filter workers
   const filtered = workers.filter((w) => {
     if (w.estado !== 'Activo') return false;
-    if (sucursal !== 'Todas' && w.sucursal !== sucursal) return false;
-    if (area !== 'Todas' && w.area !== area) return false;
-    if (cargo !== 'Todos' && w.cargo !== cargo) return false;
+    if (sucursales.length > 0 && !sucursales.includes(w.sucursal)) return false;
+    if (areas.length > 0 && !areas.includes(w.area)) return false;
+    if (cargos.length > 0 && !cargos.includes(w.cargo)) return false;
     return true;
   });
 
@@ -304,12 +313,14 @@ function GroupedListPrint({
       <h1 className="text-center text-xl font-black tracking-widest text-gray-900 mb-1 uppercase">
         LISTADO DE TURNOS — {monthName} {monthYear}
       </h1>
-      {(sucursal !== 'Todas' || area !== 'Todas' || cargo !== 'Todos') && (
+      {(sucursales.length > 0 || areas.length > 0 || cargos.length > 0) && (
         <p className="text-center text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">
           {[
-            sucursal !== 'Todas' ? `Sucursal: ${sucursal}` : '',
-            area !== 'Todas' ? `Área: ${area}` : '',
-            cargo !== 'Todos' ? `Cargo: ${cargo}` : '',
+            sucursales.length > 0
+              ? `Sucursal${sucursales.length > 1 ? 'es' : ''}: ${sucursales.join(', ')}`
+              : '',
+            areas.length > 0 ? `Área${areas.length > 1 ? 's' : ''}: ${areas.join(', ')}` : '',
+            cargos.length > 0 ? `Cargo${cargos.length > 1 ? 's' : ''}: ${cargos.join(', ')}` : '',
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -379,19 +390,19 @@ export default function VistaPreviaContent() {
     specialDays,
     sucursales,
     areas,
-    areaCargos,
     selectedMes,
     getAllNonWorkingTypes,
     globalSucursal,
     ensureMonths,
   } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
-  const sucursalOptions = ['Todas', ...sucursales.map((s) => s.name)];
-  const areaOptions = ['Todas', ...areas];
 
-  const [selectedArea, setSelectedArea] = useState('Todas');
-  const [selectedCargo, setSelectedCargo] = useState('Todos');
-  const [selectedSucursal, setSelectedSucursal] = useState(globalSucursal);
+  // [] = todas / todos
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [selectedCargos, setSelectedCargos] = useState<string[]>([]);
+  const [selectedSucursales, setSelectedSucursales] = useState<string[]>(
+    globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []
+  );
   const [selectedWorkerId, setSelectedWorkerId] = useState<string>('');
   const [exportMes, setExportMes] = useState(selectedMes);
   const [activeTab, setActiveTab] = useState<'individual' | 'lista'>('individual');
@@ -401,7 +412,7 @@ export default function VistaPreviaContent() {
   const printRef = useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    setSelectedSucursal(globalSucursal);
+    setSelectedSucursales(globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []);
     setSelectedWorkerId('');
   }, [globalSucursal]);
 
@@ -410,34 +421,19 @@ export default function VistaPreviaContent() {
     ensureMonths([monthLabelToKey(exportMes)]);
   }, [exportMes, ensureMonths]);
 
-  // Cargos del área elegida (o de todas), según Ajustes y los que tienen las trabajadoras
-  const cargoOptions = useMemo(() => {
-    const areaList = selectedArea === 'Todas' ? areas : [selectedArea];
-    const set = new Set<string>();
-    areaList.forEach((a) => (areaCargos[a] || []).forEach((c) => set.add(c)));
-    workers.forEach((w) => {
-      if (w.cargo && (selectedArea === 'Todas' || w.area === selectedArea)) set.add(w.cargo);
-    });
-    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
-  }, [areas, areaCargos, selectedArea, workers]);
-
-  React.useEffect(() => {
-    if (selectedCargo !== 'Todos' && !cargoOptions.includes(selectedCargo)) {
-      setSelectedCargo('Todos');
-    }
-  }, [cargoOptions, selectedCargo]);
+  const cargoOptions = useCargoOptions(selectedAreas, selectedCargos, setSelectedCargos);
 
   const filteredWorkers = useMemo(() => {
     const query = normalizeText(searchName);
     return workers.filter((w) => {
       if (w.estado !== 'Activo') return false;
-      if (selectedArea !== 'Todas' && w.area !== selectedArea) return false;
-      if (selectedSucursal !== 'Todas' && w.sucursal !== selectedSucursal) return false;
-      if (selectedCargo !== 'Todos' && w.cargo !== selectedCargo) return false;
+      if (selectedAreas.length > 0 && !selectedAreas.includes(w.area)) return false;
+      if (selectedSucursales.length > 0 && !selectedSucursales.includes(w.sucursal)) return false;
+      if (selectedCargos.length > 0 && !selectedCargos.includes(w.cargo)) return false;
       if (query && !normalizeText(w.name).includes(query)) return false;
       return true;
     });
-  }, [workers, selectedArea, selectedSucursal, selectedCargo, searchName]);
+  }, [workers, selectedAreas, selectedSucursales, selectedCargos, searchName]);
 
   // Si la búsqueda deja una sola trabajadora, se elige sola
   React.useEffect(() => {
@@ -597,81 +593,45 @@ export default function VistaPreviaContent() {
               />
             </div>
           </div>
-          <div className="flex-1 min-w-[180px]">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Sucursal
-            </label>
-            <div className="relative">
-              <select
-                value={selectedSucursal}
-                onChange={(e) => {
-                  setSelectedSucursal(e.target.value);
-                  setSelectedWorkerId('');
-                }}
-                className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8"
-              >
-                {sucursalOptions.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={14}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-              />
-            </div>
-          </div>
-          <div className="flex-1 min-w-[180px]">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Área
-            </label>
-            <div className="relative">
-              <select
-                value={selectedArea}
-                onChange={(e) => {
-                  setSelectedArea(e.target.value);
-                  setSelectedWorkerId('');
-                }}
-                className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8"
-              >
-                {areaOptions.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={14}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-              />
-            </div>
-          </div>
-          <div className="flex-1 min-w-[180px]">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Cargo
-            </label>
-            <div className="relative">
-              <select
-                value={selectedCargo}
-                onChange={(e) => {
-                  setSelectedCargo(e.target.value);
-                  setSelectedWorkerId('');
-                }}
-                className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8"
-              >
-                {['Todos', ...cargoOptions].map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={14}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-              />
-            </div>
-          </div>
+          <MultiSelect
+            label="Sucursal"
+            options={sucursales.map((s) => s.name)}
+            selected={selectedSucursales}
+            onChange={(v) => {
+              setSelectedSucursales(v);
+              setSelectedWorkerId('');
+            }}
+            allLabel="Todas"
+            className={MULTI_WRAPPER}
+            labelClassName={MULTI_LABEL}
+            buttonClassName={MULTI_BUTTON}
+          />
+          <MultiSelect
+            label="Área"
+            options={areas}
+            selected={selectedAreas}
+            onChange={(v) => {
+              setSelectedAreas(v);
+              setSelectedWorkerId('');
+            }}
+            allLabel="Todas"
+            className={MULTI_WRAPPER}
+            labelClassName={MULTI_LABEL}
+            buttonClassName={MULTI_BUTTON}
+          />
+          <MultiSelect
+            label="Cargo"
+            options={cargoOptions}
+            selected={selectedCargos}
+            onChange={(v) => {
+              setSelectedCargos(v);
+              setSelectedWorkerId('');
+            }}
+            allLabel="Todos"
+            className={MULTI_WRAPPER}
+            labelClassName={MULTI_LABEL}
+            buttonClassName={MULTI_BUTTON}
+          />
           {activeTab === 'individual' && (
             <div className="flex-1 min-w-[200px]">
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
@@ -758,9 +718,9 @@ export default function VistaPreviaContent() {
             shifts={shifts}
             scheduleData={scheduleData}
             monthLabel={exportMes}
-            sucursal={selectedSucursal}
-            area={selectedArea}
-            cargo={selectedCargo}
+            sucursales={selectedSucursales}
+            areas={selectedAreas}
+            cargos={selectedCargos}
           />
         </div>
       )}

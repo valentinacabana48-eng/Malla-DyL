@@ -1,7 +1,8 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, MapPin, Users, Clock, Briefcase, Search, Hash } from 'lucide-react';
 import { MESES, useAppContext } from '@/context/AppContext';
+import MultiSelect from '@/components/ui/MultiSelect';
 
 interface Props {
   selectedMes: string;
@@ -67,102 +68,6 @@ function FilterSelect({
 }
 
 const HORAS_OPTIONS = ['10 hrs', '20 hrs', '30 hrs', '42 hrs', '45 hrs'];
-
-/** Selector con casillas para elegir varias opciones; sin ninguna marcada = todas */
-function MultiSelect({
-  label,
-  icon: IconComp,
-  options,
-  selected,
-  onChange,
-  allLabel,
-}: {
-  label: string;
-  icon: React.ElementType;
-  options: string[];
-  selected: string[];
-  onChange: (v: string[]) => void;
-  allLabel: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const IconEl = IconComp as React.ElementType;
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  const toggle = (opt: string) => {
-    if (selected.includes(opt)) {
-      onChange(selected.filter((h) => h !== opt));
-    } else {
-      onChange([...selected, opt]);
-    }
-  };
-
-  const buttonLabel =
-    selected.length === 0 || selected.length === options.length ? allLabel : selected.join(', ');
-
-  return (
-    <div className="flex flex-col gap-1 min-w-[160px] max-w-[260px]" ref={ref}>
-      <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-        {label}
-      </span>
-      <div className="relative">
-        <IconEl
-          size={14}
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none z-10"
-        />
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          title={buttonLabel}
-          className="w-full pl-8 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground text-left focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer truncate"
-        >
-          {buttonLabel}
-        </button>
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-          ▾
-        </div>
-
-        {open && (
-          <div className="absolute z-50 top-full mt-1 left-0 w-full bg-card border border-border rounded-lg shadow-lg py-1 min-w-[200px] max-h-72 overflow-y-auto">
-            <label className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm font-medium text-foreground">
-              <input
-                type="checkbox"
-                checked={selected.length === 0}
-                onChange={() => onChange([])}
-                className="accent-primary"
-              />
-              {allLabel}
-            </label>
-            <div className="border-t border-border my-1" />
-            {options.map((opt) => (
-              <label
-                key={opt}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm font-medium text-foreground"
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.includes(opt)}
-                  onChange={() => toggle(opt)}
-                  className="accent-primary"
-                />
-                {opt}
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function MallaFilters({
   selectedMes,
