@@ -35,6 +35,16 @@ interface Coworker extends ShiftOption {
   name: string;
 }
 
+// "HH:MM" a minutos, para ordenar por hora
+const toMinutes = (time: string) => {
+  const [h, m] = time.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
+// Por hora de entrada y, si empiezan igual, por hora de salida
+const byHour = (a: ShiftOption, b: ShiftOption) =>
+  toMinutes(a.start) - toMinutes(b.start) || toMinutes(a.end) - toMinutes(b.end);
+
 const STATUS: Record<Request['status'], { label: string; cls: string }> = {
   pendiente: { label: 'Pendiente', cls: 'bg-amber-100 text-amber-900' },
   aprobada: { label: 'Aprobada', cls: 'bg-green-100 text-green-800' },
@@ -105,7 +115,7 @@ export default function Solicitudes({
   const loadShifts = useCallback(async () => {
     const { data } = await getPublicSupabase().rpc('mis_turnos_shifts', { p_token: token });
     const r = data as { ok: boolean; shifts?: ShiftOption[] } | null;
-    if (r?.ok) setShifts(r.shifts ?? []);
+    if (r?.ok) setShifts([...(r.shifts ?? [])].sort(byHour));
   }, [token]);
 
   useEffect(() => {
@@ -124,7 +134,13 @@ export default function Solicitudes({
       .then(({ data }) => {
         const r = data as { ok: boolean; mine?: string; coworkers?: Coworker[] } | null;
         if (!active) return;
-        setCoworkers(r?.ok ? (r.coworkers ?? []) : []);
+        setCoworkers(
+          r?.ok
+            ? [...(r.coworkers ?? [])].sort(
+                (a, b) => byHour(a, b) || a.name.localeCompare(b.name, 'es')
+              )
+            : []
+        );
         setMine(r?.mine ?? '');
       });
     return () => {
