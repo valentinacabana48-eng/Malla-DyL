@@ -972,6 +972,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Supabase real-time subscriptions ──────────────────────────────────────
   useEffect(() => {
+    // Si cambian muchas trabajadoras o turnos seguidos (p. ej. al importar un Excel),
+    // se espera a que terminen y se recarga la lista una sola vez.
+    const RELOAD_DELAY_MS = 800;
+    let workersTimer: ReturnType<typeof setTimeout> | undefined;
+    let shiftsTimer: ReturnType<typeof setTimeout> | undefined;
+    let workersReq = 0;
+    let shiftsReq = 0;
+
+    const reloadWorkers = async () => {
+      const req = ++workersReq;
+      try {
+        const data = await fetchAllRows('workers', 'name');
+        // Si mientras tanto se pidió otra recarga, esta respuesta ya quedó vieja
+        if (req === workersReq) setWorkers(data.map(rowToWorker));
+      } catch (err) {
+        console.error('Error reloading workers:', err);
+      }
+    };
+
+    const reloadShifts = async () => {
+      const req = ++shiftsReq;
+      const { data } = await supabase.from('shifts').select('*').order('label');
+      if (data && req === shiftsReq) {
+        const map: Record<string, Shift> = {};
+        data.forEach((r) => {
+          const s = rowToShift(r as Record<string, unknown>);
+          map[s.code] = s;
+        });
+        setShifts(map);
+      }
+    };
+
     const channel = supabase
       .channel('realtime-app-data')
       .on(
@@ -1034,28 +1066,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
       )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'workers' }, async () => {
-        try {
-          const data = await fetchAllRows('workers', 'name');
-          setWorkers(data.map(rowToWorker));
-        } catch (err) {
-          console.error('Error reloading workers:', err);
-        }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workers' }, () => {
+        clearTimeout(workersTimer);
+        workersTimer = setTimeout(reloadWorkers, RELOAD_DELAY_MS);
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, async () => {
-        const { data } = await supabase.from('shifts').select('*').order('label');
-        if (data) {
-          const map: Record<string, Shift> = {};
-          data.forEach((r) => {
-            const s = rowToShift(r as Record<string, unknown>);
-            map[s.code] = s;
-          });
-          setShifts(map);
-        }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, () => {
+        clearTimeout(shiftsTimer);
+        shiftsTimer = setTimeout(reloadShifts, RELOAD_DELAY_MS);
       })
       .subscribe();
 
     return () => {
+      clearTimeout(workersTimer);
+      clearTimeout(shiftsTimer);
       supabase.removeChannel(channel);
     };
   }, [supabase]);
