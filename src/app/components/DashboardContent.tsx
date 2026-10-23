@@ -76,13 +76,25 @@ function getDatesForMonth(year: number, month: number) {
 }
 
 export default function DashboardContent() {
-  const { workers, shifts, scheduleData, sucursales, areas, getSucursalCajas, globalSucursal } =
-    useAppContext();
+  const {
+    workers,
+    shifts,
+    scheduleData,
+    sucursales,
+    areas,
+    areaCargos,
+    getSucursalCajas,
+    globalSucursal,
+    globalArea,
+    ensureMonths,
+  } = useAppContext();
 
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
-  const [areaFilter, setAreaFilter] = useState('all');
+  const [areaFilter, setAreaFilter] = useState(
+    globalArea && globalArea !== 'Todas' ? globalArea : 'all'
+  );
 
   const DATES = useMemo(
     () => getDatesForMonth(selectedYear, selectedMonth),
@@ -95,7 +107,45 @@ export default function DashboardContent() {
     return today.find((d) => d.value === todayVal)?.value || today[0]?.value || '';
   });
   const [selectedSucursal, setSelectedSucursal] = useState('');
-  const [selectedCargo, setSelectedCargo] = useState('Cajera');
+  const [selectedCargo, setSelectedCargo] = useState('Todos');
+
+  // El mes elegido puede no estar cargado todavía (solo se cargan los cercanos)
+  useEffect(() => {
+    ensureMonths([`${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`]);
+  }, [selectedYear, selectedMonth, ensureMonths]);
+
+  useEffect(() => {
+    if (globalArea && globalArea !== 'Todas') setAreaFilter(globalArea);
+  }, [globalArea]);
+
+  // Cargos del área elegida (o de todas), según Ajustes y los que tienen las trabajadoras
+  const cargoOptions = useMemo(() => {
+    const areaList = areaFilter === 'all' ? areas : [areaFilter];
+    const set = new Set<string>();
+    areaList.forEach((a) => (areaCargos[a] || []).forEach((c) => set.add(c)));
+    workers.forEach((w) => {
+      if (w.cargo && areaList.includes(w.area)) set.add(w.cargo);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+  }, [areas, areaCargos, areaFilter, workers]);
+
+  useEffect(() => {
+    if (selectedCargo !== 'Todos' && !cargoOptions.includes(selectedCargo)) {
+      setSelectedCargo('Todos');
+    }
+  }, [cargoOptions, selectedCargo]);
+
+  const filteredWorkers = useMemo(
+    () =>
+      workers.filter(
+        (w) =>
+          w.sucursal === selectedSucursal &&
+          w.estado === 'Activo' &&
+          (areaFilter === 'all' ? areas.includes(w.area) : w.area === areaFilter) &&
+          (selectedCargo === 'Todos' || w.cargo === selectedCargo)
+      ),
+    [workers, selectedSucursal, areaFilter, areas, selectedCargo]
+  );
 
   useEffect(() => {
     const newDates = getDatesForMonth(selectedYear, selectedMonth);
@@ -145,14 +195,6 @@ export default function DashboardContent() {
     const monthLabel = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
     const monthKey = monthLabelToKey(monthLabel);
     const monthSched = scheduleData[monthKey] || {};
-    let sucursalWorkers = workers.filter(
-      (w) => w.sucursal === selectedSucursal && w.estado === 'Activo'
-    );
-    if (selectedCargo === 'Cajera') {
-      sucursalWorkers = sucursalWorkers.filter((w) => w.cargo === 'Cajera');
-    } else if (selectedCargo === 'Jefa de Caja') {
-      sucursalWorkers = sucursalWorkers.filter((w) => w.cargo === 'Jefa de Caja');
-    }
     const cajasCount = getSucursalCajas(selectedSucursal);
     const isCajeras = selectedCargo === 'Cajera';
     const slotHour = (time: string) => parseInt(time.split(':')[0], 10);
@@ -161,7 +203,7 @@ export default function DashboardContent() {
       let entering = 0,
         exiting = 0,
         active = 0;
-      sucursalWorkers.forEach((w) => {
+      filteredWorkers.forEach((w) => {
         const shiftCode = (monthSched[w.id] || [])[dayIndex];
         if (!shiftCode || shiftCode === 'DESC') return;
         const shift = shifts[shiftCode];
@@ -176,7 +218,7 @@ export default function DashboardContent() {
       return { hour, entering, exiting, active, vacantCajas };
     }).filter((s) => s.entering > 0 || s.exiting > 0 || s.active > 0);
   }, [
-    workers,
+    filteredWorkers,
     shifts,
     scheduleData,
     dayIndex,
@@ -191,23 +233,17 @@ export default function DashboardContent() {
     const monthLabel = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
     const monthKey = monthLabelToKey(monthLabel);
     const monthSched = scheduleData[monthKey] || {};
-    return workers.filter(
-      (w) =>
-        w.sucursal === selectedSucursal &&
-        w.estado === 'Activo' &&
-        monthSched[w.id]?.[dayIndex] &&
-        monthSched[w.id]?.[dayIndex] !== 'DESC'
+    return filteredWorkers.filter(
+      (w) => monthSched[w.id]?.[dayIndex] && monthSched[w.id]?.[dayIndex] !== 'DESC'
     ).length;
-  }, [workers, scheduleData, dayIndex, selectedSucursal, selectedMonth, selectedYear]);
+  }, [filteredWorkers, scheduleData, dayIndex, selectedMonth, selectedYear]);
 
   const totalResting = useMemo(() => {
     const monthLabel = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
     const monthKey = monthLabelToKey(monthLabel);
     const monthSched = scheduleData[monthKey] || {};
-    return workers.filter(
-      (w) => w.sucursal === selectedSucursal && monthSched[w.id]?.[dayIndex] === 'DESC'
-    ).length;
-  }, [workers, scheduleData, dayIndex, selectedSucursal, selectedMonth, selectedYear]);
+    return filteredWorkers.filter((w) => monthSched[w.id]?.[dayIndex] === 'DESC').length;
+  }, [filteredWorkers, scheduleData, dayIndex, selectedMonth, selectedYear]);
 
   const selectedDateLabel = DATES.find((d) => d.value === selectedDate)?.label || '';
   const yearOptions = [2026, 2027, 2028, 2029, 2030];
@@ -460,8 +496,11 @@ export default function DashboardContent() {
                 className="w-full px-3 py-2.5 bg-input border border-border rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none pr-8 transition-colors hover:border-secondary/40"
               >
                 <option value="Todos">Todos</option>
-                <option value="Cajera">Cajera</option>
-                <option value="Jefa de Caja">Jefa de Caja</option>
+                {cargoOptions.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
               </select>
               <ChevronDown
                 size={13}
