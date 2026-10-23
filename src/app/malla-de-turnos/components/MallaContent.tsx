@@ -88,8 +88,10 @@ export default function MallaContent() {
   const isReadonly = useReadonly();
   const { can, allowedSucursales } = useAuth();
 
-  const [selectedArea, setSelectedArea] = useState('Todas');
-  // Sucursales y cargos elegidos ([] = todas / todos)
+  // Áreas, sucursales y cargos elegidos ([] = todas / todos)
+  const [selectedAreas, setSelectedAreas] = useState<string[]>(
+    globalArea && globalArea !== 'Todas' ? [globalArea] : []
+  );
   const [selectedSucursales, setSelectedSucursales] = useState<string[]>(
     globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []
   );
@@ -148,7 +150,7 @@ export default function MallaContent() {
 
   React.useEffect(() => {
     if (globalArea && globalArea !== 'Todas') {
-      setSelectedArea(globalArea);
+      setSelectedAreas([globalArea]);
     }
   }, [globalArea]);
 
@@ -264,7 +266,7 @@ export default function MallaContent() {
   const filteredWorkers = useMemo(() => {
     return workers.filter((w) => {
       if (w.estado !== 'Activo') return false;
-      if (selectedArea !== 'Todas' && w.area !== selectedArea) return false;
+      if (selectedAreas.length > 0 && !selectedAreas.includes(w.area)) return false;
       if (selectedSucursales.length > 0 && !selectedSucursales.includes(w.sucursal)) return false;
       if (selectedCargos.length > 0 && !selectedCargos.includes(w.cargo)) return false;
       // Contracted hours multi-select filter
@@ -294,7 +296,7 @@ export default function MallaContent() {
     });
   }, [
     workers,
-    selectedArea,
+    selectedAreas,
     selectedSucursales,
     selectedCargos,
     selectedTurno,
@@ -585,8 +587,8 @@ export default function MallaContent() {
         <MallaFilters
           selectedMes={selectedMes}
           setSelectedMes={setSelectedMes}
-          selectedArea={selectedArea}
-          setSelectedArea={setSelectedArea}
+          selectedAreas={selectedAreas}
+          setSelectedAreas={setSelectedAreas}
           selectedSucursales={selectedSucursales}
           setSelectedSucursales={setSelectedSucursales}
           selectedTurno={selectedTurno}

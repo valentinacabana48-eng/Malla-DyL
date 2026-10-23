@@ -3,12 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, MapPin, Users, Clock, Briefcase, Search, Hash } from 'lucide-react';
 import { MESES, useAppContext } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
+import { useCargoOptions } from '@/hooks/useCargoOptions';
 
 interface Props {
   selectedMes: string;
   setSelectedMes: (v: string) => void;
-  selectedArea: string;
-  setSelectedArea: (v: string) => void;
+  /** [] = todas */
+  selectedAreas: string[];
+  setSelectedAreas: (v: string[]) => void;
   /** [] = todas */
   selectedSucursales: string[];
   setSelectedSucursales: (v: string[]) => void;
@@ -72,8 +74,8 @@ const HORAS_OPTIONS = ['10 hrs', '20 hrs', '30 hrs', '42 hrs', '45 hrs'];
 export default function MallaFilters({
   selectedMes,
   setSelectedMes,
-  selectedArea,
-  setSelectedArea,
+  selectedAreas,
+  setSelectedAreas,
   selectedSucursales,
   setSelectedSucursales,
   selectedTurno,
@@ -86,22 +88,22 @@ export default function MallaFilters({
   nameSearch,
   setNameSearch,
 }: Props) {
-  const { sucursales, areas, workers } = useAppContext();
+  const { sucursales, areas } = useAppContext();
 
   const [clientSucursales, setClientSucursales] = useState<string[]>([]);
-  const [clientAreas, setClientAreas] = useState<string[]>(['Todas']);
+  const [clientAreas, setClientAreas] = useState<string[]>([]);
   const [clientTurnoOptions, setClientTurnoOptions] = useState<string[]>(['Todos']);
-  const [clientCargoOptions, setClientCargoOptions] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setClientSucursales(sucursales.map((s) => s.name));
-    setClientAreas(['Todas', ...areas]);
+    setClientAreas(areas);
     setClientTurnoOptions(turnoOptions);
-    const uniqueCargos = Array.from(new Set(workers.map((w) => w.cargo).filter(Boolean))).sort();
-    setClientCargoOptions(uniqueCargos);
     setMounted(true);
-  }, [sucursales, areas, turnoOptions, workers]);
+  }, [sucursales, areas, turnoOptions]);
+
+  // Cargos de las áreas elegidas
+  const cargoOptions = useCargoOptions(selectedAreas, selectedCargos, setSelectedCargos);
 
   return (
     <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-wrap gap-4 items-end">
@@ -112,12 +114,13 @@ export default function MallaFilters({
         onChange={setSelectedMes}
         options={MESES}
       />
-      <FilterSelect
+      <MultiSelect
         label="Área"
         icon={Users}
-        value={selectedArea}
-        onChange={setSelectedArea}
-        options={mounted ? clientAreas : ['Todas']}
+        options={mounted ? clientAreas : []}
+        selected={selectedAreas}
+        onChange={setSelectedAreas}
+        allLabel="Todas"
       />
       <MultiSelect
         label="Sucursal"
@@ -130,7 +133,7 @@ export default function MallaFilters({
       <MultiSelect
         label="Cargo"
         icon={Briefcase}
-        options={mounted ? clientCargoOptions : []}
+        options={mounted ? cargoOptions : []}
         selected={selectedCargos}
         onChange={setSelectedCargos}
         allLabel="Todos"
