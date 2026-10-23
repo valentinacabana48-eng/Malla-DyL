@@ -52,10 +52,11 @@ const normalizar = (t: string) =>
     .trim();
 
 /**
- * Tramo de días ocultos de una trabajadora: [desde, hasta], días desde 1, ambos incluidos.
+ * Tramo de días ocultos de una trabajadora: [desde, hasta], días desde 1, ambos incluidos,
+ * y opcionalmente desde qué día ve su malla ("YYYY-MM-DD"; si no, la fecha de la malla).
  * Si cubre el mes completo, a esa trabajadora no se le publica el mes.
  */
-export type Oculto = [number, number];
+export type Oculto = [number, number, string?];
 
 /** Deja vacíos los días ocultos (lo mismo que hace publish_schedule) */
 function ocultar(days: PublishedMonth, o: Oculto | undefined): PublishedMonth {
@@ -116,12 +117,15 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
       // Si la tabla todavía no existe, se publica sin días ocultos
       const { data: oc, error: ocError } = await supabase
         .from('publish_ocultos')
-        .select('worker_id, desde_dia, hasta_dia')
+        .select('*')
         .eq('month_key', monthKey);
       if (ocError) console.warn('No se pudieron leer los días ocultos:', ocError.message);
       const ocMap: Record<string, Oculto> = {};
       (oc || []).forEach((r) => {
-        ocMap[r.worker_id as string] = [r.desde_dia as number, r.hasta_dia as number];
+        const desde = r.visible_desde as string | null | undefined;
+        ocMap[r.worker_id as string] = desde
+          ? [r.desde_dia as number, r.hasta_dia as number, desde]
+          : [r.desde_dia as number, r.hasta_dia as number];
       });
       setOcultos(ocMap);
       setPublishedAt((pub?.published_at as string | undefined) ?? null);
@@ -656,6 +660,11 @@ export function PublishModal({
                             >
                               {w.name}
                             </span>
+                            {publicar && ocultos[w.id]?.[2] && (
+                              <span className="text-xs text-amber-700 font-semibold shrink-0">
+                                la ve desde el {fechaLarga(ocultos[w.id]![2]!)}
+                              </span>
+                            )}
                             <span className="text-xs text-muted-foreground shrink-0">
                               {w.cargo}
                             </span>
@@ -674,8 +683,9 @@ export function PublishModal({
                   <span>Ocultar días</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Esos días no se ven en Mis turnos (quedan en blanco). Queda guardado para las
-                  próximas publicaciones.
+                  Esos días no se ven en Mis turnos (quedan en blanco). Si pones una fecha en «la ve
+                  desde», esa trabajadora ve su malla recién ese día (por ejemplo, cuando empieza su
+                  contrato nuevo). Queda guardado para las próximas publicaciones.
                 </p>
                 {Object.entries(ocultos)
                   .filter(([, o]) => !isMesCompleto(o))
@@ -683,8 +693,12 @@ export function PublishModal({
                   .filter((x) => x.w)
                   .sort((a, b) => a.w!.name.localeCompare(b.w!.name, 'es'))
                   .map(({ id, o, w }) => {
-                    const set = (desde: number, hasta: number) =>
-                      setOcultos((prev) => ({ ...prev, [id]: [desde, hasta] }));
+                    // Al cambiar los días se mantiene la fecha propia (si tiene)
+                    const set = (desde: number, hasta: number, fecha = o[2]) =>
+                      setOcultos((prev) => ({
+                        ...prev,
+                        [id]: fecha ? [desde, hasta, fecha] : [desde, hasta],
+                      }));
                     return (
                       <div key={id} className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="font-semibold text-foreground min-w-[8rem] flex-1">
@@ -723,6 +737,17 @@ export function PublishModal({
                               </option>
                             ))}
                           </select>
+                        </label>
+                        <label className="flex items-center gap-1 basis-full sm:basis-auto">
+                          la ve desde
+                          <input
+                            type="date"
+                            value={o[2] ?? ''}
+                            onChange={(e) => set(o[0], o[1], e.target.value || undefined)}
+                            title="Vacío = desde la misma fecha que las demás"
+                            className="h-9 rounded-lg border border-border bg-card px-1"
+                          />
+                          {!o[2] && <span className="text-muted-foreground">(como las demás)</span>}
                         </label>
                         <button
                           type="button"
