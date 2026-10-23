@@ -382,6 +382,502 @@ function GroupedListPrint({
   );
 }
 
+type NonWorkingTypeInfo = { code: string; label: string };
+
+/** Malla mensual de una trabajadora: copia trabajador/a (opcional) y copia empresa para firmar */
+function MallaDocument({
+  worker,
+  monthLabel,
+  schedule,
+  specialDaysMap,
+  shifts,
+  nonWorkingTypes,
+  printVersion,
+  breakBefore,
+}: {
+  worker: import('@/context/AppContext').Worker;
+  monthLabel: string;
+  schedule: (string | null)[];
+  specialDaysMap: Record<number, string>;
+  shifts: Record<string, import('@/context/AppContext').Shift>;
+  nonWorkingTypes: NonWorkingTypeInfo[];
+  printVersion: 'trabajador' | 'empresa';
+  /** Empieza en una hoja nueva (cuando se imprimen varias seguidas) */
+  breakBefore: boolean;
+}) {
+  const calendarWeeks = useMemo(() => buildCalendarWeeks(monthLabel), [monthLabel]);
+  const monthCalendarWeeks = useMemo(
+    () => calendarWeeks.filter((week) => week.some((cell) => !cell.isOtherMonth && cell.date > 0)),
+    [calendarWeeks]
+  );
+  const summary = useMemo(
+    () => computeSummary(monthLabel, schedule, specialDaysMap, shifts),
+    [monthLabel, schedule, specialDaysMap, shifts]
+  );
+  const monthParts = monthLabel.split(' ');
+  const monthName = monthParts[0] || 'Julio';
+  const monthYear = monthParts[1] || '2026';
+
+  return (
+    <>
+      {/* ── COPY 1: Worker's copy (solo en la versión trabajador/a) ── */}
+      {printVersion === 'trabajador' && (
+        <div
+          className={`pdf-page bg-white p-3 lg:p-8 print:p-8 rounded-xl border border-border shadow-sm ${breakBefore ? 'pdf-page-break mt-8' : ''}`}
+        >
+          {/* Copy label */}
+          <div className="text-right mb-2">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
+              Copia trabajador/a
+            </span>
+          </div>
+
+          {/* Logos */}
+          <div className="flex justify-center items-center gap-3 lg:gap-6 print:gap-6 mb-6">
+            <img
+              src="/assets/images/descarga-1784608578238.png"
+              alt="Mayorista DyL"
+              className="h-14 lg:h-24 print:h-24 object-contain"
+            />
+            <img
+              src="/assets/images/descarga__2_-1784608577889.png"
+              alt="Envases DyL"
+              className="h-14 lg:h-24 print:h-24 object-contain"
+            />
+            <img
+              src="/assets/images/descarga__1_-1784608578251.png"
+              alt="Distribuidora DyL"
+              className="h-14 lg:h-24 print:h-24 object-contain"
+            />
+          </div>
+
+          {/* Title */}
+          <h1 className="text-center text-2xl font-black tracking-widest text-gray-900 mb-6 uppercase">
+            MALLA MENSUAL
+          </h1>
+
+          {/* Worker name + Month boxes */}
+          <div className="flex gap-3 lg:gap-6 print:gap-6 mb-6">
+            <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
+              <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
+                {worker.name}
+              </span>
+            </div>
+            <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
+              <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
+                {monthName} {monthYear}
+              </span>
+            </div>
+          </div>
+
+          {/* Calendar grid */}
+          <div className="border-2 border-gray-400 rounded overflow-hidden mb-6">
+            {/* Header row */}
+            <div className="grid grid-cols-7 border-b-2 border-gray-400">
+              {['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'].map(
+                (day) => (
+                  <div
+                    key={day}
+                    className="text-center py-2 text-[11px] lg:text-xs print:text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
+                  >
+                    {/* Celular: día abreviado (LUN, MAR…) para que quepa */}
+                    <span className="lg:hidden print:hidden">{day.slice(0, 3)}</span>
+                    <span className="hidden lg:inline print:inline">{day}</span>
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Week rows */}
+            {calendarWeeks.map((week, wi) => (
+              <div
+                key={`week-${wi}`}
+                className="grid grid-cols-7 border-b border-gray-300 last:border-b-0"
+              >
+                {week.map((cell, ci) => {
+                  if (cell.isOtherMonth) {
+                    return (
+                      <div
+                        key={`other-${wi}-${ci}`}
+                        className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start bg-gray-50/70"
+                      >
+                        <span className="text-xs font-bold text-gray-300 mb-1">
+                          {cell.otherMonthDate}
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (!cell.date) {
+                    return (
+                      <div
+                        key={`empty-${wi}-${ci}`}
+                        className="border-r border-gray-300 last:border-r-0 min-h-[60px] bg-gray-50/50"
+                      />
+                    );
+                  }
+                  const idx = dayIndexFromDate(cell.date);
+                  const code = schedule[idx] ?? null;
+                  const specialDayCode = specialDaysMap[idx];
+                  const shiftInfo =
+                    code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
+                  const isSunday = ci === 6;
+
+                  let cellLabel: string | null = null;
+                  let cellColor = 'text-gray-500';
+
+                  if (specialDayCode) {
+                    const nwt = nonWorkingTypes.find((t) => t.code === specialDayCode);
+                    cellLabel = nwt ? nwt.label.toUpperCase() : specialDayCode;
+                    cellColor = 'text-yellow-700';
+                  } else if (code === 'DESC') {
+                    cellLabel = 'DESCANSO';
+                    cellColor = 'text-gray-500';
+                  } else if (!code) {
+                    cellLabel = 'DESCANSO';
+                    cellColor = 'text-gray-400';
+                  }
+
+                  return (
+                    <div
+                      key={`cell-${wi}-${ci}`}
+                      className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
+                    >
+                      <span className="text-xs font-bold text-gray-700 mb-1">{cell.date}</span>
+                      {shiftInfo ? (
+                        <>
+                          <span className="hidden lg:block print:block text-[10px] font-bold text-blue-700 text-center leading-tight">
+                            {shiftInfo.label.toUpperCase()}
+                          </span>
+                          <span className="text-[10px] lg:text-[9px] print:text-[9px] font-bold lg:font-semibold print:font-semibold text-blue-600 text-center leading-tight [overflow-wrap:anywhere]">
+                            {shiftInfo.start} - {shiftInfo.end}
+                          </span>
+                          {shiftInfo.colacion > 0 && (
+                            <span className="text-[8px] font-semibold text-amber-700 text-center leading-tight flex items-center gap-0.5 mt-0.5">
+                              <Coffee size={7} className="text-amber-700 flex-shrink-0" />
+                              {shiftInfo.colacion}m
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span
+                          className={`text-[9px] lg:text-[10px] print:text-[10px] font-semibold text-center leading-tight [overflow-wrap:anywhere] ${cellColor}`}
+                        >
+                          {/* Celular: palabras largas abreviadas (DESCANSO → DESC.) */}
+                          <span className="lg:hidden print:hidden">
+                            {cellLabel && cellLabel.length > 7
+                              ? `${cellLabel.slice(0, 4)}.`
+                              : cellLabel}
+                          </span>
+                          <span className="hidden lg:inline print:inline">{cellLabel}</span>
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* Resumen de turno */}
+          <div className="border-2 border-gray-400 rounded overflow-hidden">
+            <div className="bg-gray-100 border-b-2 border-gray-400 py-2 text-center">
+              <span className="text-sm font-black text-gray-800 uppercase tracking-wider">
+                RESUMEN DE TURNO
+              </span>
+            </div>
+            <div className="p-4">
+              <div className="flex items-center gap-8 mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black text-gray-800 underline">JORNADA</span>
+                  <span className="text-2xl font-black text-gray-900 underline">
+                    {worker.horasContratadas}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black text-gray-800 underline">
+                    DOMINGOS TRABAJADOS
+                  </span>
+                  <span className="text-2xl font-black text-gray-900 underline">
+                    {summary?.sundaysWorked ?? 0}
+                  </span>
+                </div>
+              </div>
+
+              {(() => {
+                const weekHours = summary?.weeklyHours || [];
+                const totalWeeks = Math.max(weekHours.length, monthCalendarWeeks.length);
+                const colsClass =
+                  totalWeeks === 6
+                    ? 'grid-cols-6'
+                    : totalWeeks === 4
+                      ? 'grid-cols-4'
+                      : 'grid-cols-5';
+                return (
+                  <div className={`grid ${colsClass} gap-3`}>
+                    {Array.from({ length: totalWeeks }).map((_, wi) => (
+                      <div key={`week-sum-${wi}`} className="text-center">
+                        <p className="text-xs font-bold text-gray-700 mb-1">Semana {wi + 1}</p>
+                        <p className="text-xl font-black text-gray-900">{weekHours[wi] ?? 0}</p>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── COPY 2: Signature copy ── */}
+      <div
+        className={`pdf-page bg-white p-3 lg:p-8 print:p-8 rounded-xl border border-border shadow-sm ${printVersion === 'trabajador' || breakBefore ? 'pdf-page-break mt-8' : ''}`}
+      >
+        {/* Copy label */}
+        <div className="text-right mb-2">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
+            Copia empresa — para firmar
+          </span>
+        </div>
+
+        {/* Logos */}
+        <div className="flex justify-center items-center gap-3 lg:gap-6 print:gap-6 mb-6">
+          <img
+            src="/assets/images/descarga-1784608578238.png"
+            alt="Mayorista DyL"
+            className="h-14 lg:h-24 print:h-24 object-contain"
+          />
+          <img
+            src="/assets/images/descarga__2_-1784608577889.png"
+            alt="Envases DyL"
+            className="h-14 lg:h-24 print:h-24 object-contain"
+          />
+          <img
+            src="/assets/images/descarga__1_-1784608578251.png"
+            alt="Distribuidora DyL"
+            className="h-14 lg:h-24 print:h-24 object-contain"
+          />
+        </div>
+
+        <h1 className="text-center text-2xl font-black tracking-widest text-gray-900 mb-6 uppercase">
+          MALLA MENSUAL
+        </h1>
+
+        <div className="flex gap-3 lg:gap-6 print:gap-6 mb-6">
+          <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
+            <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
+              {worker.name}
+            </span>
+          </div>
+          <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
+            <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
+              {monthName} {monthYear}
+            </span>
+          </div>
+        </div>
+
+        <div className="border-2 border-gray-400 rounded overflow-hidden mb-6">
+          <div className="grid grid-cols-7 border-b-2 border-gray-400">
+            {['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'].map(
+              (day) => (
+                <div
+                  key={day}
+                  className="text-center py-2 text-[11px] lg:text-xs print:text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
+                >
+                  {/* Celular: día abreviado (LUN, MAR…) para que quepa */}
+                  <span className="lg:hidden print:hidden">{day.slice(0, 3)}</span>
+                  <span className="hidden lg:inline print:inline">{day}</span>
+                </div>
+              )
+            )}
+          </div>
+          {calendarWeeks.map((week, wi) => (
+            <div
+              key={`week2-${wi}`}
+              className="grid grid-cols-7 border-b border-gray-300 last:border-b-0"
+            >
+              {week.map((cell, ci) => {
+                if (cell.isOtherMonth) {
+                  return (
+                    <div
+                      key={`other2-${wi}-${ci}`}
+                      className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start bg-gray-50/70"
+                    >
+                      <span className="text-xs font-bold text-gray-300 mb-1">
+                        {cell.otherMonthDate}
+                      </span>
+                    </div>
+                  );
+                }
+                if (!cell.date) {
+                  return (
+                    <div
+                      key={`empty2-${wi}-${ci}`}
+                      className="border-r border-gray-300 last:border-r-0 min-h-[60px] bg-gray-50/50"
+                    />
+                  );
+                }
+                const idx = dayIndexFromDate(cell.date);
+                const code = schedule[idx] ?? null;
+                const specialDayCode = specialDaysMap[idx];
+                const shiftInfo = code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
+                const isSunday = ci === 6;
+
+                let cellLabel: string | null = null;
+                let cellColor = 'text-gray-500';
+
+                if (specialDayCode) {
+                  const nwt = nonWorkingTypes.find((t) => t.code === specialDayCode);
+                  cellLabel = nwt ? nwt.label.toUpperCase() : specialDayCode;
+                  cellColor = 'text-yellow-700';
+                } else if (code === 'DESC') {
+                  cellLabel = 'DESCANSO';
+                  cellColor = 'text-gray-500';
+                } else if (!code) {
+                  cellLabel = 'DESCANSO';
+                  cellColor = 'text-gray-400';
+                }
+
+                return (
+                  <div
+                    key={`cell2-${wi}-${ci}`}
+                    className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
+                  >
+                    <span className="text-xs font-bold text-gray-700 mb-1">{cell.date}</span>
+                    {shiftInfo ? (
+                      <>
+                        <span className="hidden lg:block print:block text-[10px] font-bold text-blue-700 text-center leading-tight">
+                          {shiftInfo.label.toUpperCase()}
+                        </span>
+                        <span className="text-[10px] lg:text-[9px] print:text-[9px] font-bold lg:font-semibold print:font-semibold text-blue-600 text-center leading-tight [overflow-wrap:anywhere]">
+                          {shiftInfo.start} - {shiftInfo.end}
+                        </span>
+                        {shiftInfo.colacion > 0 && (
+                          <span className="text-[8px] font-semibold text-amber-700 text-center leading-tight flex items-center gap-0.5 mt-0.5">
+                            <Coffee size={7} className="text-amber-700 flex-shrink-0" />
+                            {shiftInfo.colacion}m
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span
+                        className={`text-[9px] lg:text-[10px] print:text-[10px] font-semibold text-center leading-tight [overflow-wrap:anywhere] ${cellColor}`}
+                      >
+                        {/* Celular: palabras largas abreviadas (DESCANSO → DESC.) */}
+                        <span className="lg:hidden print:hidden">
+                          {cellLabel && cellLabel.length > 7
+                            ? `${cellLabel.slice(0, 4)}.`
+                            : cellLabel}
+                        </span>
+                        <span className="hidden lg:inline print:inline">{cellLabel}</span>
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        <div className="border-2 border-gray-400 rounded overflow-hidden mb-8">
+          <div className="bg-gray-100 border-b-2 border-gray-400 py-2 text-center">
+            <span className="text-sm font-black text-gray-800 uppercase tracking-wider">
+              RESUMEN DE TURNO
+            </span>
+          </div>
+          <div className="p-4">
+            <div className="flex items-center gap-8 mb-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-black text-gray-800 underline">JORNADA</span>
+                <span className="text-2xl font-black text-gray-900 underline">
+                  {worker.horasContratadas}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-black text-gray-800 underline">
+                  DOMINGOS TRABAJADOS
+                </span>
+                <span className="text-2xl font-black text-gray-900 underline">
+                  {summary?.sundaysWorked ?? 0}
+                </span>
+              </div>
+            </div>
+            {(() => {
+              const weekHours = summary?.weeklyHours || [];
+              const totalWeeks = Math.max(weekHours.length, monthCalendarWeeks.length);
+              const colsClass =
+                totalWeeks === 6 ? 'grid-cols-6' : totalWeeks === 4 ? 'grid-cols-4' : 'grid-cols-5';
+              return (
+                <div className={`grid ${colsClass} gap-3`}>
+                  {Array.from({ length: totalWeeks }).map((_, wi) => (
+                    <div key={`week-sum2-${wi}`} className="text-center">
+                      <p className="text-xs font-bold text-gray-700 mb-1">Semana {wi + 1}</p>
+                      <p className="text-xl font-black text-gray-900">{weekHours[wi] ?? 0}</p>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* Signature section */}
+        <div className="border-2 border-gray-400 rounded p-6">
+          <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-6 text-center">
+            Declaro haber recibido conforme la presente malla de turnos
+          </p>
+          <div className="flex gap-10 justify-around">
+            <div className="flex-1 text-center">
+              <div className="border-b-2 border-gray-700 mb-2 h-12" />
+              <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                Firma trabajador/a
+              </p>
+              <p className="text-xs text-gray-500 mt-1">{worker.name}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function computeSummary(
+  monthLabel: string,
+  sched: (string | null)[],
+  specialDaysMap: Record<number, string>,
+  shifts: Record<string, import('@/context/AppContext').Shift>
+) {
+  const daysInMonth = getDaysInMonth(monthLabel);
+  let workDays = 0;
+  let sundaysWorked = 0;
+  const daysOfWeek = getDaysOfWeekForMonth(monthLabel);
+
+  for (let i = 0; i < daysInMonth; i++) {
+    const code = sched[i];
+    const specialDay = specialDaysMap[i];
+    if (!specialDay && code && code !== 'DESC') {
+      workDays++;
+      if (daysOfWeek[i] === 'D') sundaysWorked++;
+    }
+  }
+
+  const clippedWeeks = buildMonthClippedWeeks(monthLabel, daysInMonth);
+  const weeklyHours = clippedWeeks.map((w) =>
+    calcClippedWeekHours(w.startDay, w.endDay, sched, specialDaysMap, shifts)
+  );
+
+  // Compute primary shift colación
+  const counts: Record<string, number> = {};
+  sched.forEach((code) => {
+    if (code && code !== 'DESC' && shifts[code]) {
+      counts[code] = (counts[code] || 0) + 1;
+    }
+  });
+  const topCode = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  const colacion = topCode && shifts[topCode] ? shifts[topCode].colacion || 0 : 0;
+
+  return { workDays, sundaysWorked, weeklyHours, colacion };
+}
+
 export default function VistaPreviaContent() {
   const {
     workers,
@@ -409,7 +905,6 @@ export default function VistaPreviaContent() {
   const [searchName, setSearchName] = useState('');
   // Trabajador/a: las 2 copias. Empresa: solo la copia para firmar.
   const [printVersion, setPrintVersion] = useState<'trabajador' | 'empresa'>('trabajador');
-  const printRef = useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     setSelectedSucursales(globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []);
@@ -459,51 +954,43 @@ export default function VistaPreviaContent() {
     return (specialDays[monthKey] || {})[selectedWorkerId] || {};
   }, [specialDays, selectedWorkerId, exportMes]);
 
-  const calendarWeeks = useMemo(() => buildCalendarWeeks(exportMes), [exportMes]);
-  const daysInMonth = useMemo(() => getDaysInMonth(exportMes), [exportMes]);
+  // Imprimir todas: se dibujan las mallas de todas las trabajadoras filtradas (solo en
+  // la impresión) y se manda a imprimir cuando cargan los logos
+  const [printingAll, setPrintingAll] = useState(false);
+  const bulkRef = useRef<HTMLDivElement>(null);
 
-  const monthCalendarWeeks = useMemo(
-    () => calendarWeeks.filter((week) => week.some((cell) => !cell.isOtherMonth && cell.date > 0)),
-    [calendarWeeks]
-  );
-
-  const summary = useMemo(() => {
-    if (!selectedWorker) return null;
-    const sched = workerSchedule;
-    let workDays = 0;
-    let sundaysWorked = 0;
-    const daysOfWeek = getDaysOfWeekForMonth(exportMes);
-
-    for (let i = 0; i < daysInMonth; i++) {
-      const code = sched[i];
-      const specialDay = workerSpecialDays[i];
-      if (!specialDay && code && code !== 'DESC') {
-        workDays++;
-        if (daysOfWeek[i] === 'D') sundaysWorked++;
-      }
-    }
-
-    const clippedWeeks = buildMonthClippedWeeks(exportMes, daysInMonth);
-    const weeklyHours = clippedWeeks.map((w) =>
-      calcClippedWeekHours(w.startDay, w.endDay, sched, workerSpecialDays, shifts)
-    );
-
-    // Compute primary shift colación
-    const counts: Record<string, number> = {};
-    sched.forEach((code) => {
-      if (code && code !== 'DESC' && shifts[code]) {
-        counts[code] = (counts[code] || 0) + 1;
-      }
+  React.useEffect(() => {
+    if (!printingAll) return;
+    let cancelled = false;
+    const imgs = Array.from(bulkRef.current?.querySelectorAll('img') ?? []);
+    Promise.all(
+      imgs.map((img) =>
+        img.complete
+          ? null
+          : new Promise((resolve) => {
+              img.addEventListener('load', resolve, { once: true });
+              img.addEventListener('error', resolve, { once: true });
+            })
+      )
+    ).then(() => {
+      if (cancelled) return;
+      window.addEventListener('afterprint', () => setPrintingAll(false), { once: true });
+      window.print();
     });
-    const topCode = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-    const colacion = topCode && shifts[topCode] ? shifts[topCode].colacion || 0 : 0;
+    return () => {
+      cancelled = true;
+    };
+  }, [printingAll]);
 
-    return { workDays, sundaysWorked, weeklyHours, colacion };
-  }, [selectedWorker, workerSchedule, workerSpecialDays, shifts, daysInMonth, exportMes]);
-
-  const monthParts = exportMes.split(' ');
-  const monthName = monthParts[0] || 'Julio';
-  const monthYear = monthParts[1] || '2026';
+  const handlePrintAll = () => {
+    const n = filteredWorkers.length;
+    if (n === 0) return;
+    const hojas = printVersion === 'trabajador' ? n * 2 : n;
+    const ok = window.confirm(
+      `Se van a imprimir las mallas de ${n} trabajador${n === 1 ? 'a' : 'as'} (${hojas} hoja${hojas === 1 ? '' : 's'}, ${printVersion === 'trabajador' ? 'versión trabajador/a: 2 copias cada una' : 'versión empresa: solo la copia para firmar'}). ¿Continuar?`
+    );
+    if (ok) setPrintingAll(true);
+  };
 
   const handlePrint = () => {
     window.print();
@@ -524,15 +1011,29 @@ export default function VistaPreviaContent() {
             Malla mensual individual por trabajador/a
           </p>
         </div>
-        {(activeTab === 'lista' || selectedWorker) && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
-            >
-              <Printer size={15} />
-              Imprimir
-            </button>
+        {(activeTab === 'lista' ||
+          selectedWorker ||
+          (activeTab === 'individual' && filteredWorkers.length > 0)) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {activeTab === 'individual' && filteredWorkers.length > 0 && (
+              <button
+                onClick={handlePrintAll}
+                disabled={printingAll}
+                className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                <Printer size={15} />
+                {printingAll ? 'Preparando…' : `Imprimir todas (${filteredWorkers.length})`}
+              </button>
+            )}
+            {(activeTab === 'lista' || selectedWorker) && (
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                <Printer size={15} />
+                Imprimir
+              </button>
+            )}
             {activeTab === 'individual' && selectedWorker && (
               <button
                 onClick={handleExportPDF}
@@ -749,464 +1250,48 @@ export default function VistaPreviaContent() {
               </div>
 
               {/* ── PRINTABLE DOCUMENT ── */}
-              <div ref={printRef} className="print-area">
-                {/* ── COPY 1: Worker's copy (solo en la versión trabajador/a) ── */}
-                {printVersion === 'trabajador' && (
-                  <div className="pdf-page bg-white p-3 lg:p-8 print:p-8 rounded-xl border border-border shadow-sm">
-                    {/* Copy label */}
-                    <div className="text-right mb-2">
-                      <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
-                        Copia trabajador/a
-                      </span>
-                    </div>
-
-                    {/* Logos */}
-                    <div className="flex justify-center items-center gap-3 lg:gap-6 print:gap-6 mb-6">
-                      <img
-                        src="/assets/images/descarga-1784608578238.png"
-                        alt="Mayorista DyL"
-                        className="h-14 lg:h-24 print:h-24 object-contain"
-                      />
-                      <img
-                        src="/assets/images/descarga__2_-1784608577889.png"
-                        alt="Envases DyL"
-                        className="h-14 lg:h-24 print:h-24 object-contain"
-                      />
-                      <img
-                        src="/assets/images/descarga__1_-1784608578251.png"
-                        alt="Distribuidora DyL"
-                        className="h-14 lg:h-24 print:h-24 object-contain"
-                      />
-                    </div>
-
-                    {/* Title */}
-                    <h1 className="text-center text-2xl font-black tracking-widest text-gray-900 mb-6 uppercase">
-                      MALLA MENSUAL
-                    </h1>
-
-                    {/* Worker name + Month boxes */}
-                    <div className="flex gap-3 lg:gap-6 print:gap-6 mb-6">
-                      <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
-                        <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
-                          {selectedWorker.name}
-                        </span>
-                      </div>
-                      <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
-                        <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
-                          {monthName} {monthYear}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Calendar grid */}
-                    <div className="border-2 border-gray-400 rounded overflow-hidden mb-6">
-                      {/* Header row */}
-                      <div className="grid grid-cols-7 border-b-2 border-gray-400">
-                        {[
-                          'LUNES',
-                          'MARTES',
-                          'MIÉRCOLES',
-                          'JUEVES',
-                          'VIERNES',
-                          'SÁBADO',
-                          'DOMINGO',
-                        ].map((day) => (
-                          <div
-                            key={day}
-                            className="text-center py-2 text-[11px] lg:text-xs print:text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
-                          >
-                            {/* Celular: día abreviado (LUN, MAR…) para que quepa */}
-                            <span className="lg:hidden print:hidden">{day.slice(0, 3)}</span>
-                            <span className="hidden lg:inline print:inline">{day}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Week rows */}
-                      {calendarWeeks.map((week, wi) => (
-                        <div
-                          key={`week-${wi}`}
-                          className="grid grid-cols-7 border-b border-gray-300 last:border-b-0"
-                        >
-                          {week.map((cell, ci) => {
-                            if (cell.isOtherMonth) {
-                              return (
-                                <div
-                                  key={`other-${wi}-${ci}`}
-                                  className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start bg-gray-50/70"
-                                >
-                                  <span className="text-xs font-bold text-gray-300 mb-1">
-                                    {cell.otherMonthDate}
-                                  </span>
-                                </div>
-                              );
-                            }
-                            if (!cell.date) {
-                              return (
-                                <div
-                                  key={`empty-${wi}-${ci}`}
-                                  className="border-r border-gray-300 last:border-r-0 min-h-[60px] bg-gray-50/50"
-                                />
-                              );
-                            }
-                            const idx = dayIndexFromDate(cell.date);
-                            const code = workerSchedule[idx] ?? null;
-                            const specialDayCode = workerSpecialDays[idx];
-                            const shiftInfo =
-                              code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
-                            const isSunday = ci === 6;
-
-                            let cellLabel: string | null = null;
-                            let cellColor = 'text-gray-500';
-
-                            if (specialDayCode) {
-                              const nwt = nonWorkingTypes.find((t) => t.code === specialDayCode);
-                              cellLabel = nwt ? nwt.label.toUpperCase() : specialDayCode;
-                              cellColor = 'text-yellow-700';
-                            } else if (code === 'DESC') {
-                              cellLabel = 'DESCANSO';
-                              cellColor = 'text-gray-500';
-                            } else if (!code) {
-                              cellLabel = 'DESCANSO';
-                              cellColor = 'text-gray-400';
-                            }
-
-                            return (
-                              <div
-                                key={`cell-${wi}-${ci}`}
-                                className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
-                              >
-                                <span className="text-xs font-bold text-gray-700 mb-1">
-                                  {cell.date}
-                                </span>
-                                {shiftInfo ? (
-                                  <>
-                                    <span className="hidden lg:block print:block text-[10px] font-bold text-blue-700 text-center leading-tight">
-                                      {shiftInfo.label.toUpperCase()}
-                                    </span>
-                                    <span className="text-[10px] lg:text-[9px] print:text-[9px] font-bold lg:font-semibold print:font-semibold text-blue-600 text-center leading-tight [overflow-wrap:anywhere]">
-                                      {shiftInfo.start} - {shiftInfo.end}
-                                    </span>
-                                    {shiftInfo.colacion > 0 && (
-                                      <span className="text-[8px] font-semibold text-amber-700 text-center leading-tight flex items-center gap-0.5 mt-0.5">
-                                        <Coffee size={7} className="text-amber-700 flex-shrink-0" />
-                                        {shiftInfo.colacion}m
-                                      </span>
-                                    )}
-                                  </>
-                                ) : (
-                                  <span
-                                    className={`text-[9px] lg:text-[10px] print:text-[10px] font-semibold text-center leading-tight [overflow-wrap:anywhere] ${cellColor}`}
-                                  >
-                                    {/* Celular: palabras largas abreviadas (DESCANSO → DESC.) */}
-                                    <span className="lg:hidden print:hidden">
-                                      {cellLabel && cellLabel.length > 7
-                                        ? `${cellLabel.slice(0, 4)}.`
-                                        : cellLabel}
-                                    </span>
-                                    <span className="hidden lg:inline print:inline">
-                                      {cellLabel}
-                                    </span>
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Resumen de turno */}
-                    <div className="border-2 border-gray-400 rounded overflow-hidden">
-                      <div className="bg-gray-100 border-b-2 border-gray-400 py-2 text-center">
-                        <span className="text-sm font-black text-gray-800 uppercase tracking-wider">
-                          RESUMEN DE TURNO
-                        </span>
-                      </div>
-                      <div className="p-4">
-                        <div className="flex items-center gap-8 mb-4">
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-black text-gray-800 underline">
-                              JORNADA
-                            </span>
-                            <span className="text-2xl font-black text-gray-900 underline">
-                              {selectedWorker.horasContratadas}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-black text-gray-800 underline">
-                              DOMINGOS TRABAJADOS
-                            </span>
-                            <span className="text-2xl font-black text-gray-900 underline">
-                              {summary?.sundaysWorked ?? 0}
-                            </span>
-                          </div>
-                        </div>
-
-                        {(() => {
-                          const weekHours = summary?.weeklyHours || [];
-                          const totalWeeks = Math.max(weekHours.length, monthCalendarWeeks.length);
-                          const colsClass =
-                            totalWeeks === 6
-                              ? 'grid-cols-6'
-                              : totalWeeks === 4
-                                ? 'grid-cols-4'
-                                : 'grid-cols-5';
-                          return (
-                            <div className={`grid ${colsClass} gap-3`}>
-                              {Array.from({ length: totalWeeks }).map((_, wi) => (
-                                <div key={`week-sum-${wi}`} className="text-center">
-                                  <p className="text-xs font-bold text-gray-700 mb-1">
-                                    Semana {wi + 1}
-                                  </p>
-                                  <p className="text-xl font-black text-gray-900">
-                                    {weekHours[wi] ?? 0}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── COPY 2: Signature copy ── */}
-                <div
-                  className={`pdf-page bg-white p-3 lg:p-8 print:p-8 rounded-xl border border-border shadow-sm ${printVersion === 'trabajador' ? 'pdf-page-break mt-8' : ''}`}
-                >
-                  {/* Copy label */}
-                  <div className="text-right mb-2">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
-                      Copia empresa — para firmar
-                    </span>
-                  </div>
-
-                  {/* Logos */}
-                  <div className="flex justify-center items-center gap-3 lg:gap-6 print:gap-6 mb-6">
-                    <img
-                      src="/assets/images/descarga-1784608578238.png"
-                      alt="Mayorista DyL"
-                      className="h-14 lg:h-24 print:h-24 object-contain"
-                    />
-                    <img
-                      src="/assets/images/descarga__2_-1784608577889.png"
-                      alt="Envases DyL"
-                      className="h-14 lg:h-24 print:h-24 object-contain"
-                    />
-                    <img
-                      src="/assets/images/descarga__1_-1784608578251.png"
-                      alt="Distribuidora DyL"
-                      className="h-14 lg:h-24 print:h-24 object-contain"
-                    />
-                  </div>
-
-                  <h1 className="text-center text-2xl font-black tracking-widest text-gray-900 mb-6 uppercase">
-                    MALLA MENSUAL
-                  </h1>
-
-                  <div className="flex gap-3 lg:gap-6 print:gap-6 mb-6">
-                    <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
-                      <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
-                        {selectedWorker.name}
-                      </span>
-                    </div>
-                    <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
-                      <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
-                        {monthName} {monthYear}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="border-2 border-gray-400 rounded overflow-hidden mb-6">
-                    <div className="grid grid-cols-7 border-b-2 border-gray-400">
-                      {[
-                        'LUNES',
-                        'MARTES',
-                        'MIÉRCOLES',
-                        'JUEVES',
-                        'VIERNES',
-                        'SÁBADO',
-                        'DOMINGO',
-                      ].map((day) => (
-                        <div
-                          key={day}
-                          className="text-center py-2 text-[11px] lg:text-xs print:text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
-                        >
-                          {/* Celular: día abreviado (LUN, MAR…) para que quepa */}
-                          <span className="lg:hidden print:hidden">{day.slice(0, 3)}</span>
-                          <span className="hidden lg:inline print:inline">{day}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {calendarWeeks.map((week, wi) => (
-                      <div
-                        key={`week2-${wi}`}
-                        className="grid grid-cols-7 border-b border-gray-300 last:border-b-0"
-                      >
-                        {week.map((cell, ci) => {
-                          if (cell.isOtherMonth) {
-                            return (
-                              <div
-                                key={`other2-${wi}-${ci}`}
-                                className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start bg-gray-50/70"
-                              >
-                                <span className="text-xs font-bold text-gray-300 mb-1">
-                                  {cell.otherMonthDate}
-                                </span>
-                              </div>
-                            );
-                          }
-                          if (!cell.date) {
-                            return (
-                              <div
-                                key={`empty2-${wi}-${ci}`}
-                                className="border-r border-gray-300 last:border-r-0 min-h-[60px] bg-gray-50/50"
-                              />
-                            );
-                          }
-                          const idx = dayIndexFromDate(cell.date);
-                          const code = workerSchedule[idx] ?? null;
-                          const specialDayCode = workerSpecialDays[idx];
-                          const shiftInfo =
-                            code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
-                          const isSunday = ci === 6;
-
-                          let cellLabel: string | null = null;
-                          let cellColor = 'text-gray-500';
-
-                          if (specialDayCode) {
-                            const nwt = nonWorkingTypes.find((t) => t.code === specialDayCode);
-                            cellLabel = nwt ? nwt.label.toUpperCase() : specialDayCode;
-                            cellColor = 'text-yellow-700';
-                          } else if (code === 'DESC') {
-                            cellLabel = 'DESCANSO';
-                            cellColor = 'text-gray-500';
-                          } else if (!code) {
-                            cellLabel = 'DESCANSO';
-                            cellColor = 'text-gray-400';
-                          }
-
-                          return (
-                            <div
-                              key={`cell2-${wi}-${ci}`}
-                              className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
-                            >
-                              <span className="text-xs font-bold text-gray-700 mb-1">
-                                {cell.date}
-                              </span>
-                              {shiftInfo ? (
-                                <>
-                                  <span className="hidden lg:block print:block text-[10px] font-bold text-blue-700 text-center leading-tight">
-                                    {shiftInfo.label.toUpperCase()}
-                                  </span>
-                                  <span className="text-[10px] lg:text-[9px] print:text-[9px] font-bold lg:font-semibold print:font-semibold text-blue-600 text-center leading-tight [overflow-wrap:anywhere]">
-                                    {shiftInfo.start} - {shiftInfo.end}
-                                  </span>
-                                  {shiftInfo.colacion > 0 && (
-                                    <span className="text-[8px] font-semibold text-amber-700 text-center leading-tight flex items-center gap-0.5 mt-0.5">
-                                      <Coffee size={7} className="text-amber-700 flex-shrink-0" />
-                                      {shiftInfo.colacion}m
-                                    </span>
-                                  )}
-                                </>
-                              ) : (
-                                <span
-                                  className={`text-[9px] lg:text-[10px] print:text-[10px] font-semibold text-center leading-tight [overflow-wrap:anywhere] ${cellColor}`}
-                                >
-                                  {/* Celular: palabras largas abreviadas (DESCANSO → DESC.) */}
-                                  <span className="lg:hidden print:hidden">
-                                    {cellLabel && cellLabel.length > 7
-                                      ? `${cellLabel.slice(0, 4)}.`
-                                      : cellLabel}
-                                  </span>
-                                  <span className="hidden lg:inline print:inline">{cellLabel}</span>
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="border-2 border-gray-400 rounded overflow-hidden mb-8">
-                    <div className="bg-gray-100 border-b-2 border-gray-400 py-2 text-center">
-                      <span className="text-sm font-black text-gray-800 uppercase tracking-wider">
-                        RESUMEN DE TURNO
-                      </span>
-                    </div>
-                    <div className="p-4">
-                      <div className="flex items-center gap-8 mb-4">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-gray-800 underline">
-                            JORNADA
-                          </span>
-                          <span className="text-2xl font-black text-gray-900 underline">
-                            {selectedWorker.horasContratadas}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-gray-800 underline">
-                            DOMINGOS TRABAJADOS
-                          </span>
-                          <span className="text-2xl font-black text-gray-900 underline">
-                            {summary?.sundaysWorked ?? 0}
-                          </span>
-                        </div>
-                      </div>
-                      {(() => {
-                        const weekHours = summary?.weeklyHours || [];
-                        const totalWeeks = Math.max(weekHours.length, monthCalendarWeeks.length);
-                        const colsClass =
-                          totalWeeks === 6
-                            ? 'grid-cols-6'
-                            : totalWeeks === 4
-                              ? 'grid-cols-4'
-                              : 'grid-cols-5';
-                        return (
-                          <div className={`grid ${colsClass} gap-3`}>
-                            {Array.from({ length: totalWeeks }).map((_, wi) => (
-                              <div key={`week-sum2-${wi}`} className="text-center">
-                                <p className="text-xs font-bold text-gray-700 mb-1">
-                                  Semana {wi + 1}
-                                </p>
-                                <p className="text-xl font-black text-gray-900">
-                                  {weekHours[wi] ?? 0}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Signature section */}
-                  <div className="border-2 border-gray-400 rounded p-6">
-                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-6 text-center">
-                      Declaro haber recibido conforme la presente malla de turnos
-                    </p>
-                    <div className="flex gap-10 justify-around">
-                      <div className="flex-1 text-center">
-                        <div className="border-b-2 border-gray-700 mb-2 h-12" />
-                        <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
-                          Firma trabajador/a
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">{selectedWorker.name}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div className={printingAll ? '' : 'print-area'}>
+                <MallaDocument
+                  worker={selectedWorker}
+                  monthLabel={exportMes}
+                  schedule={workerSchedule}
+                  specialDaysMap={workerSpecialDays}
+                  shifts={shifts}
+                  nonWorkingTypes={nonWorkingTypes}
+                  printVersion={printVersion}
+                  breakBefore={false}
+                />
               </div>
             </>
           )}
         </>
       )}
 
+      {/* ── IMPRIMIR TODAS: solo se ve al imprimir ── */}
+      {printingAll && (
+        <div ref={bulkRef} className="print-area print-only">
+          {filteredWorkers.map((w, i) => {
+            const monthKey = monthLabelToKey(exportMes);
+            return (
+              <MallaDocument
+                key={w.id}
+                worker={w}
+                monthLabel={exportMes}
+                schedule={(scheduleData[monthKey] || {})[w.id] || Array(31).fill(null)}
+                specialDaysMap={(specialDays[monthKey] || {})[w.id] || {}}
+                shifts={shifts}
+                nonWorkingTypes={nonWorkingTypes}
+                printVersion={printVersion}
+                breakBefore={i > 0}
+              />
+            );
+          })}
+        </div>
+      )}
+
       <style>{`
         @page { size: letter portrait; margin: 8mm 10mm; }
+        @media screen { .print-only { display: none !important; } }
         @media print {
           html, body { width: 215.9mm; height: 279.4mm; }
           body * { visibility: hidden; }
