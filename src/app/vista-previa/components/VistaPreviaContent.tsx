@@ -203,6 +203,7 @@ interface GroupedListPrintProps {
   monthLabel: string;
   sucursal: string;
   area: string;
+  cargo: string;
 }
 
 function GroupedListPrint({
@@ -212,6 +213,7 @@ function GroupedListPrint({
   monthLabel,
   sucursal,
   area,
+  cargo,
 }: GroupedListPrintProps) {
   const monthKey = monthLabelToKey(monthLabel);
   const monthParts = monthLabel.split(' ');
@@ -223,6 +225,7 @@ function GroupedListPrint({
     if (w.estado !== 'Activo') return false;
     if (sucursal !== 'Todas' && w.sucursal !== sucursal) return false;
     if (area !== 'Todas' && w.area !== area) return false;
+    if (cargo !== 'Todos' && w.cargo !== cargo) return false;
     return true;
   });
 
@@ -301,11 +304,15 @@ function GroupedListPrint({
       <h1 className="text-center text-xl font-black tracking-widest text-gray-900 mb-1 uppercase">
         LISTADO DE TURNOS — {monthName} {monthYear}
       </h1>
-      {(sucursal !== 'Todas' || area !== 'Todas') && (
+      {(sucursal !== 'Todas' || area !== 'Todas' || cargo !== 'Todos') && (
         <p className="text-center text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">
-          {sucursal !== 'Todas' ? `Sucursal: ${sucursal}` : ''}
-          {sucursal !== 'Todas' && area !== 'Todas' ? ' · ' : ''}
-          {area !== 'Todas' ? `Área: ${area}` : ''}
+          {[
+            sucursal !== 'Todas' ? `Sucursal: ${sucursal}` : '',
+            area !== 'Todas' ? `Área: ${area}` : '',
+            cargo !== 'Todos' ? `Cargo: ${cargo}` : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </p>
       )}
 
@@ -372,6 +379,7 @@ export default function VistaPreviaContent() {
     specialDays,
     sucursales,
     areas,
+    areaCargos,
     selectedMes,
     getAllNonWorkingTypes,
     globalSucursal,
@@ -382,6 +390,7 @@ export default function VistaPreviaContent() {
   const areaOptions = ['Todas', ...areas];
 
   const [selectedArea, setSelectedArea] = useState('Todas');
+  const [selectedCargo, setSelectedCargo] = useState('Todos');
   const [selectedSucursal, setSelectedSucursal] = useState(globalSucursal);
   const [selectedWorkerId, setSelectedWorkerId] = useState<string>('');
   const [exportMes, setExportMes] = useState(selectedMes);
@@ -401,16 +410,34 @@ export default function VistaPreviaContent() {
     ensureMonths([monthLabelToKey(exportMes)]);
   }, [exportMes, ensureMonths]);
 
+  // Cargos del área elegida (o de todas), según Ajustes y los que tienen las trabajadoras
+  const cargoOptions = useMemo(() => {
+    const areaList = selectedArea === 'Todas' ? areas : [selectedArea];
+    const set = new Set<string>();
+    areaList.forEach((a) => (areaCargos[a] || []).forEach((c) => set.add(c)));
+    workers.forEach((w) => {
+      if (w.cargo && (selectedArea === 'Todas' || w.area === selectedArea)) set.add(w.cargo);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+  }, [areas, areaCargos, selectedArea, workers]);
+
+  React.useEffect(() => {
+    if (selectedCargo !== 'Todos' && !cargoOptions.includes(selectedCargo)) {
+      setSelectedCargo('Todos');
+    }
+  }, [cargoOptions, selectedCargo]);
+
   const filteredWorkers = useMemo(() => {
     const query = normalizeText(searchName);
     return workers.filter((w) => {
       if (w.estado !== 'Activo') return false;
       if (selectedArea !== 'Todas' && w.area !== selectedArea) return false;
       if (selectedSucursal !== 'Todas' && w.sucursal !== selectedSucursal) return false;
+      if (selectedCargo !== 'Todos' && w.cargo !== selectedCargo) return false;
       if (query && !normalizeText(w.name).includes(query)) return false;
       return true;
     });
-  }, [workers, selectedArea, selectedSucursal, searchName]);
+  }, [workers, selectedArea, selectedSucursal, selectedCargo, searchName]);
 
   // Si la búsqueda deja una sola trabajadora, se elige sola
   React.useEffect(() => {
@@ -620,6 +647,31 @@ export default function VistaPreviaContent() {
               />
             </div>
           </div>
+          <div className="flex-1 min-w-[180px]">
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+              Cargo
+            </label>
+            <div className="relative">
+              <select
+                value={selectedCargo}
+                onChange={(e) => {
+                  setSelectedCargo(e.target.value);
+                  setSelectedWorkerId('');
+                }}
+                className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8"
+              >
+                {['Todos', ...cargoOptions].map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={14}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              />
+            </div>
+          </div>
           {activeTab === 'individual' && (
             <div className="flex-1 min-w-[200px]">
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
@@ -708,6 +760,7 @@ export default function VistaPreviaContent() {
             monthLabel={exportMes}
             sucursal={selectedSucursal}
             area={selectedArea}
+            cargo={selectedCargo}
           />
         </div>
       )}
