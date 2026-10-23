@@ -1,7 +1,20 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Send, X, CheckCircle2, AlertTriangle, KeyRound, UserX, Plus, Trash2 } from 'lucide-react';
+import {
+  Send,
+  X,
+  CheckCircle2,
+  AlertTriangle,
+  KeyRound,
+  EyeOff,
+  Plus,
+  Trash2,
+  Users,
+  Briefcase,
+  Search,
+  CalendarClock,
+} from 'lucide-react';
 import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
 import { useAppContext, getDaysInMonth, monthLabelToKey } from '@/context/AppContext';
@@ -14,11 +27,37 @@ import {
   type PublishedMonth,
 } from '@/lib/misTurnos';
 import { checkMalla } from '@/lib/mallaCheck';
+import MultiSelect from '@/components/ui/MultiSelect';
+import { useCargoOptions } from '@/hooks/useCargoOptions';
 
-/** Tramo de días sin contrato de una trabajadora: [desde, hasta], días desde 1, ambos incluidos */
+/** Hoy en Chile, "YYYY-MM-DD" */
+function hoyChile(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago' }).format(new Date());
+}
+
+/** "2026-11-25" → "25 de noviembre" */
+function fechaLarga(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'long' }).format(
+    new Date(y, m - 1, d)
+  );
+}
+
+// Sin tildes ni mayúsculas, para buscar por nombre
+const normalizar = (t: string) =>
+  t
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+/**
+ * Tramo de días ocultos de una trabajadora: [desde, hasta], días desde 1, ambos incluidos.
+ * Si cubre el mes completo, a esa trabajadora no se le publica el mes.
+ */
 export type Oculto = [number, number];
 
-/** Deja vacíos los días sin contrato (lo mismo que hace publish_schedule) */
+/** Deja vacíos los días ocultos (lo mismo que hace publish_schedule) */
 function ocultar(days: PublishedMonth, o: Oculto | undefined): PublishedMonth {
   if (!o) return days;
   return days.map((d, i) => (i + 1 >= o[0] && i + 1 <= o[1] ? null : d));
@@ -39,6 +78,8 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
   const { workers, scheduleData, specialDays, shifts } = useAppContext();
   const monthKey = monthLabelToKey(monthLabel);
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  // Desde qué día lo ven las trabajadoras ("YYYY-MM-DD"); null = regla de siempre
+  const [visibleDesde, setVisibleDesde] = useState<string | null>(null);
   const [snapshots, setSnapshots] = useState<Record<string, PublishedMonth>>({});
   const [ocultos, setOcultos] = useState<Record<string, Oculto>>({});
   const [loaded, setLoaded] = useState(false);
@@ -46,6 +87,7 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
   const refresh = useCallback(async () => {
     if (!sucursal) {
       setPublishedAt(null);
+      setVisibleDesde(null);
       setSnapshots({});
       setOcultos({});
       setLoaded(false);
@@ -56,7 +98,7 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
       const [{ data: pub, error }, rows] = await Promise.all([
         supabase
           .from('published_schedules')
-          .select('published_at')
+          .select('*')
           .eq('month_key', monthKey)
           .eq('sucursal', sucursal)
           .maybeSingle(),
@@ -76,13 +118,14 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
         .from('publish_ocultos')
         .select('worker_id, desde_dia, hasta_dia')
         .eq('month_key', monthKey);
-      if (ocError) console.warn('No se pudieron leer los días sin contrato:', ocError.message);
+      if (ocError) console.warn('No se pudieron leer los días ocultos:', ocError.message);
       const ocMap: Record<string, Oculto> = {};
       (oc || []).forEach((r) => {
         ocMap[r.worker_id as string] = [r.desde_dia as number, r.hasta_dia as number];
       });
       setOcultos(ocMap);
       setPublishedAt((pub?.published_at as string | undefined) ?? null);
+      setVisibleDesde((pub?.visible_desde as string | null | undefined) ?? null);
       const snap: Record<string, PublishedMonth> = {};
       rows.forEach((r) => {
         snap[r.worker_id as string] = (r.days as PublishedMonth) || [];
@@ -126,7 +169,7 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
       const snap = snapshots[w.id];
       const o = ocultos[w.id];
       if (o && o[0] <= 1 && o[1] >= n) {
-        // Sin contrato todo el mes: no se le publica
+        // Oculta todo el mes: no se le publica
         if (snap) list.push({ workerId: w.id, name: w.name, kind: 'sale', days: [] });
         return;
       }
@@ -152,6 +195,7 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
     sucursal,
     loaded,
     publishedAt,
+    visibleDesde,
     snapshots,
     ocultos,
     current,
@@ -190,6 +234,8 @@ function cargoPlural(cargo: string): string {
 interface PublishResult {
   firstTime: boolean;
   changedNames: string[];
+  /** Fecha desde la que la ven, si es más adelante que hoy */
+  programada: string | null;
 }
 
 export function PublishModal({
@@ -204,10 +250,53 @@ export function PublishModal({
   const { getAllNonWorkingTypes } = useAppContext();
   const { sucursal, monthKey, publishedAt, pending, snapshots, current, sucursalWorkers } = state;
   const nDias = getDaysInMonth(monthLabel);
-  // Días sin contrato que se van a publicar (se editan aquí antes de publicar)
+  // Días ocultos que se van a publicar (se editan aquí antes de publicar). El mes completo
+  // oculto = a esa trabajadora no se le publica (es lo que hace desmarcarla en la lista).
   const [ocultos, setOcultos] = useState<Record<string, Oculto>>(state.ocultos);
   useEffect(() => setOcultos(state.ocultos), [state.ocultos]);
   const [nuevoOculto, setNuevoOculto] = useState('');
+  const isMesCompleto = (o: Oculto | undefined) => !!o && o[0] <= 1 && o[1] >= nDias;
+  const seleccionadas = sucursalWorkers.filter((w) => !isMesCompleto(ocultos[w.id]));
+
+  // Filtros de la lista de a quién se le publica
+  const [filtroAreas, setFiltroAreas] = useState<string[]>([]);
+  const [filtroCargos, setFiltroCargos] = useState<string[]>([]);
+  const [busqueda, setBusqueda] = useState('');
+  const cargoOptions = useCargoOptions(filtroAreas, filtroCargos, setFiltroCargos);
+  const areaOptions = useMemo(
+    () => [...new Set(sucursalWorkers.map((w) => w.area).filter(Boolean))].sort(),
+    [sucursalWorkers]
+  );
+  const listaFiltrada = useMemo(() => {
+    const q = normalizar(busqueda);
+    return sucursalWorkers
+      .filter(
+        (w) =>
+          (filtroAreas.length === 0 || filtroAreas.includes(w.area)) &&
+          (filtroCargos.length === 0 || filtroCargos.includes(w.cargo)) &&
+          (!q || normalizar(w.name).includes(q))
+      )
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }, [sucursalWorkers, filtroAreas, filtroCargos, busqueda]);
+
+  const marcar = (ids: string[], publicar: boolean) =>
+    setOcultos((prev) => {
+      const next = { ...prev };
+      ids.forEach((id) => {
+        if (publicar) {
+          if (isMesCompleto(next[id])) delete next[id];
+        } else {
+          next[id] = [1, nDias];
+        }
+      });
+      return next;
+    });
+
+  // Desde qué día la ven las trabajadoras
+  const hoy = hoyChile();
+  const [visibleDesde, setVisibleDesde] = useState(state.visibleDesde ?? hoy);
+  useEffect(() => setVisibleDesde(state.visibleDesde ?? hoyChile()), [state.visibleDesde]);
+  const programada = visibleDesde > hoy;
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<PublishResult | null>(null);
   const [withoutPin, setWithoutPin] = useState<string[] | null>(null);
@@ -248,29 +337,44 @@ export function PublishModal({
     if (!sucursal) return;
     setPublishing(true);
     const firstTime = !publishedAt;
-    const { data, error } = await getSupabase().rpc('publish_schedule', {
+    const supabase = getSupabase();
+    let { data, error } = await supabase.rpc('publish_schedule', {
       p_month_key: monthKey,
       p_sucursal: sucursal,
       p_ocultos: ocultos,
+      p_visible_desde: visibleDesde || hoy,
     });
+    // Si en la base todavía no está la fecha de visibilidad (falta el SQL), se publica sin ella
+    if (error?.code === 'PGRST202' && !programada) {
+      ({ data, error } = await supabase.rpc('publish_schedule', {
+        p_month_key: monthKey,
+        p_sucursal: sucursal,
+        p_ocultos: ocultos,
+      }));
+    }
     setPublishing(false);
     if (error) {
       console.error('Error al publicar:', error);
-      toast.error('No se pudo publicar la malla. Revisa tu conexión e intenta de nuevo.');
+      toast.error(
+        error.code === 'PGRST202'
+          ? 'Para publicar con fecha falta actualizar la base de datos. Publica "Desde hoy" o pide que la actualicen.'
+          : 'No se pudo publicar la malla. Revisa tu conexión e intenta de nuevo.'
+      );
       return;
     }
     const rows = (data as { r_worker_id: string; r_changed: number; r_is_new: boolean }[]) || [];
     const changedIds = new Set(rows.filter((r) => r.r_changed > 0).map((r) => r.r_worker_id));
     const changedNames = sucursalWorkers.filter((w) => changedIds.has(w.id)).map((w) => w.name);
-    setResult({ firstTime, changedNames });
+    setResult({ firstTime, changedNames, programada: programada ? visibleDesde : null });
     toast.success(`Malla de ${sucursal} publicada`);
     await state.refresh();
   };
 
+  const desdeTexto = result?.programada ? ` desde el ${fechaLarga(result.programada)}` : '';
   const whatsappText = result
     ? result.firstTime || result.changedNames.length === 0
-      ? `Hola equipo, ya está publicada la malla de ${monthLabel} de ${sucursal}. Revísala en ${misTurnosUrl()} con tu RUT y tu clave. Ahí mismo puedes tocar «Instalar» para dejarla como app en tu celular.`
-      : `Hola, se actualizó la malla de ${monthLabel} de ${sucursal}. Cambió la de: ${result.changedNames.join(', ')}. Revísala en ${misTurnosUrl()}.`
+      ? `Hola equipo, la malla de ${monthLabel} de ${sucursal} ${result.programada ? `se podrá ver${desdeTexto}` : 'ya está publicada'}. Revísala en ${misTurnosUrl()} con tu RUT y tu clave. Ahí mismo puedes tocar «Instalar» para dejarla como app en tu celular.`
+      : `Hola, se actualizó la malla de ${monthLabel} de ${sucursal}${result.programada ? ` (se podrá ver${desdeTexto})` : ''}. Cambió la de: ${result.changedNames.join(', ')}. Revísala en ${misTurnosUrl()}.`
     : '';
 
   return (
@@ -282,7 +386,7 @@ export function PublishModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="publish-title"
-        className="bg-card w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-border shadow-xl"
+        className="bg-card w-full sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-border shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border">
@@ -310,7 +414,10 @@ export function PublishModal({
               <div className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-800 rounded-xl px-3 py-2.5">
                 <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
                 <span>
-                  Listo, la malla quedó publicada.
+                  Listo, la malla quedó publicada
+                  {result.programada
+                    ? `. Las trabajadoras la verán desde el ${fechaLarga(result.programada)}.`
+                    : '.'}
                   {!result.firstTime &&
                     (result.changedNames.length === 0
                       ? ' Nadie tuvo cambios de turno.'
@@ -336,13 +443,19 @@ export function PublishModal({
                 <p className="text-muted-foreground">Revisando lo publicado…</p>
               ) : !publishedAt ? (
                 <p className="text-foreground">
-                  Esta malla todavía no está publicada. Al publicarla, las {sucursalWorkers.length}{' '}
-                  trabajadoras activas de {sucursal} podrán verla en Mis turnos.
+                  Esta malla todavía no está publicada. Elige abajo a quiénes se les publica y desde
+                  qué día la ven en Mis turnos.
                 </p>
               ) : pending.length === 0 ? (
                 <div className="flex items-start gap-2 text-green-800">
                   <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
-                  <span>Publicada el {formatFecha(publishedAt)}. No hay cambios sin publicar.</span>
+                  <span>
+                    Publicada el {formatFecha(publishedAt)}.
+                    {state.visibleDesde && state.visibleDesde > hoy
+                      ? ` Se verá desde el ${fechaLarga(state.visibleDesde)}.`
+                      : ''}{' '}
+                    No hay cambios sin publicar.
+                  </span>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
@@ -446,16 +559,126 @@ export function PublishModal({
                 </div>
               )}
 
+              {/* ── A quién se le publica ── */}
               <div className="flex flex-col gap-2 border border-border rounded-xl px-3 py-2.5">
-                <div className="flex items-start gap-2 font-semibold text-foreground">
-                  <UserX size={16} className="shrink-0 mt-0.5" />
-                  <span>Días sin contrato</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-foreground">¿A quién se le publica?</span>
+                  <span className="text-xs text-muted-foreground">
+                    {seleccionadas.length} de {sucursalWorkers.length}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Esos días no se ven en Mis turnos. Si marcas el mes completo, a esa persona no se
-                  le publica este mes. Queda guardado para las próximas publicaciones.
+                  A las que desmarques no se les publica nada de este mes. Queda guardado para las
+                  próximas publicaciones.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <MultiSelect
+                    label="Área"
+                    icon={Users}
+                    options={areaOptions}
+                    selected={filtroAreas}
+                    onChange={setFiltroAreas}
+                    allLabel="Todas"
+                    className="flex flex-col gap-1 flex-1 min-w-[130px]"
+                  />
+                  <MultiSelect
+                    label="Cargo"
+                    icon={Briefcase}
+                    options={cargoOptions}
+                    selected={filtroCargos}
+                    onChange={setFiltroCargos}
+                    allLabel="Todos"
+                    className="flex flex-col gap-1 flex-1 min-w-[130px]"
+                  />
+                </div>
+                <div className="relative">
+                  <Search
+                    size={14}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                  />
+                  <input
+                    type="text"
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    placeholder="Buscar por nombre…"
+                    className="w-full h-10 pl-8 pr-3 rounded-lg border border-border bg-card text-sm"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      marcar(
+                        listaFiltrada.map((w) => w.id),
+                        true
+                      )
+                    }
+                    className="flex-1 h-9 rounded-lg border border-border text-xs font-semibold hover:bg-muted"
+                  >
+                    {listaFiltrada.length === sucursalWorkers.length
+                      ? 'Marcar todas'
+                      : `Marcar las ${listaFiltrada.length} de la lista`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      marcar(
+                        listaFiltrada.map((w) => w.id),
+                        false
+                      )
+                    }
+                    className="flex-1 h-9 rounded-lg border border-border text-xs font-semibold hover:bg-muted"
+                  >
+                    {listaFiltrada.length === sucursalWorkers.length
+                      ? 'Desmarcar todas'
+                      : `Desmarcar las ${listaFiltrada.length} de la lista`}
+                  </button>
+                </div>
+                <ul className="border border-border rounded-lg divide-y divide-border max-h-64 overflow-y-auto">
+                  {listaFiltrada.length === 0 ? (
+                    <li className="px-3 py-3 text-xs text-muted-foreground">
+                      Nadie coincide con los filtros.
+                    </li>
+                  ) : (
+                    listaFiltrada.map((w) => {
+                      const publicar = !isMesCompleto(ocultos[w.id]);
+                      return (
+                        <li key={w.id}>
+                          <label className="flex items-center gap-3 px-3 py-2 min-h-[44px] cursor-pointer hover:bg-muted/50">
+                            <input
+                              type="checkbox"
+                              checked={publicar}
+                              onChange={() => marcar([w.id], !publicar)}
+                              className="w-4 h-4 accent-blue-700"
+                            />
+                            <span
+                              className={`flex-1 min-w-0 truncate ${publicar ? 'text-foreground font-semibold' : 'text-muted-foreground line-through'}`}
+                            >
+                              {w.name}
+                            </span>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {w.cargo}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              </div>
+
+              {/* ── Ocultar algunos días ── */}
+              <div className="flex flex-col gap-2 border border-border rounded-xl px-3 py-2.5">
+                <div className="flex items-start gap-2 font-semibold text-foreground">
+                  <EyeOff size={16} className="shrink-0 mt-0.5" />
+                  <span>Ocultar días</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Esos días no se ven en Mis turnos (quedan en blanco). Queda guardado para las
+                  próximas publicaciones.
                 </p>
                 {Object.entries(ocultos)
+                  .filter(([, o]) => !isMesCompleto(o))
                   .map(([id, o]) => ({ id, o, w: sucursalWorkers.find((x) => x.id === id) }))
                   .filter((x) => x.w)
                   .sort((a, b) => a.w!.name.localeCompare(b.w!.name, 'es'))
@@ -501,9 +724,6 @@ export function PublishModal({
                             ))}
                           </select>
                         </label>
-                        {o[0] <= 1 && o[1] >= nDias && (
-                          <span className="text-amber-700 font-semibold">No se publica</span>
-                        )}
                         <button
                           type="button"
                           onClick={() =>
@@ -513,7 +733,7 @@ export function PublishModal({
                               return next;
                             })
                           }
-                          aria-label={`Quitar días sin contrato de ${w!.name}`}
+                          aria-label={`Quitar días ocultos de ${w!.name}`}
                           className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
                         >
                           <Trash2 size={14} />
@@ -528,7 +748,7 @@ export function PublishModal({
                     className="flex-1 h-9 rounded-lg border border-border bg-card px-2 text-xs"
                   >
                     <option value="">Elegir trabajadora…</option>
-                    {sucursalWorkers
+                    {seleccionadas
                       .filter((w) => !ocultos[w.id])
                       .sort((a, b) => a.name.localeCompare(b.name, 'es'))
                       .map((w) => (
@@ -541,7 +761,7 @@ export function PublishModal({
                     type="button"
                     disabled={!nuevoOculto}
                     onClick={() => {
-                      setOcultos((prev) => ({ ...prev, [nuevoOculto]: [1, nDias] }));
+                      setOcultos((prev) => ({ ...prev, [nuevoOculto]: [1, 1] }));
                       setNuevoOculto('');
                     }}
                     className="flex items-center gap-1 h-9 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-muted disabled:opacity-50"
@@ -550,6 +770,37 @@ export function PublishModal({
                     Agregar
                   </button>
                 </div>
+              </div>
+
+              {/* ── Desde cuándo la ven ── */}
+              <div className="flex flex-col gap-2 border border-border rounded-xl px-3 py-2.5">
+                <div className="flex items-start gap-2 font-semibold text-foreground">
+                  <CalendarClock size={16} className="shrink-0 mt-0.5" />
+                  <span>¿Desde qué día la pueden ver?</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="date"
+                    value={visibleDesde}
+                    min={hoy}
+                    onChange={(e) => setVisibleDesde(e.target.value || hoy)}
+                    className="h-10 px-3 rounded-lg border border-border bg-card text-sm"
+                  />
+                  {visibleDesde !== hoy && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleDesde(hoy)}
+                      className="h-10 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-muted"
+                    >
+                      Desde hoy
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {programada
+                    ? `Queda lista ahora, pero en Mis turnos aparece recién el ${fechaLarga(visibleDesde)}.`
+                    : 'Las trabajadoras la ven apenas publiques.'}
+                </p>
               </div>
 
               {withoutPin && withoutPin.length > 0 && (
@@ -564,11 +815,6 @@ export function PublishModal({
                 </div>
               )}
 
-              <p className="text-xs text-muted-foreground">
-                Las trabajadoras ven el mes actual, el siguiente desde 7 días antes de que empiece y
-                el anterior hasta 7 días después de que termine.
-              </p>
-
               <button
                 type="button"
                 onClick={handlePublish}
@@ -578,11 +824,7 @@ export function PublishModal({
                 <Send size={16} />
                 {publishing
                   ? 'Publicando…'
-                  : !publishedAt
-                    ? 'Publicar'
-                    : pending.length > 0
-                      ? 'Publicar cambios'
-                      : 'Publicar de nuevo'}
+                  : `${!publishedAt ? 'Publicar' : pending.length > 0 ? 'Publicar cambios' : 'Publicar de nuevo'} (${seleccionadas.length} de ${sucursalWorkers.length})`}
               </button>
             </>
           )}
