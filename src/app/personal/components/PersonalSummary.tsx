@@ -28,12 +28,13 @@ const CARGO_COLORS = [
 
 export default function PersonalSummary({
   summary,
-  selectedCargo,
-  onSelectCargo,
+  selectedCargos,
+  onToggleCargo,
 }: {
   summary: Summary;
-  selectedCargo: string;
-  onSelectCargo: (cargo: string) => void;
+  /** [] = todos */
+  selectedCargos: string[];
+  onToggleCargo: (cargo: string) => void;
 }) {
   const topCards = [
     {
@@ -106,16 +107,16 @@ export default function PersonalSummary({
           <div className="flex flex-wrap gap-2">
             {cargoEntries.map(([cargo, count], idx) => {
               const colors = CARGO_COLORS[idx % CARGO_COLORS.length];
-              const isSelected = selectedCargo === cargo;
-              const isDimmed = selectedCargo !== 'Todos' && !isSelected;
-              // Tocar un cargo filtra la lista; tocarlo de nuevo quita el filtro
+              const isSelected = selectedCargos.includes(cargo);
+              const isDimmed = selectedCargos.length > 0 && !isSelected;
+              // Tocar un cargo lo suma al filtro; tocarlo de nuevo lo quita
               return (
                 <button
                   type="button"
                   key={`cargo-${cargo}`}
-                  onClick={() => onSelectCargo(cargo)}
+                  onClick={() => onToggleCargo(cargo)}
                   aria-pressed={isSelected}
-                  title={isSelected ? 'Quitar filtro' : `Ver solo ${cargo}`}
+                  title={isSelected ? `Quitar ${cargo} del filtro` : `Ver ${cargo}`}
                   className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all ${colors.bg} ${colors.border} ${isSelected ? 'ring-2 ring-secondary' : ''} ${isDimmed ? 'opacity-50 hover:opacity-80' : 'hover:shadow-sm'}`}
                 >
                   <div className={`text-2xl font-extrabold ${colors.text}`}>{count}</div>
