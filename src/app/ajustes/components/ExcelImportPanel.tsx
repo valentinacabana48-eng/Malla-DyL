@@ -144,6 +144,21 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+// RUT sin puntos ni guion, para comparar (21.533.115-6 = 215331156)
+function normalizeRut(rut: string): string {
+  return (rut || '').replace(/[^0-9kK]/g, '').toUpperCase();
+}
+
+// Nombre sin tildes, mayúsculas ni espacios de más, para comparar
+function normalizeName(name: string): string {
+  return (name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 const AVATAR_COLORS = [
   'bg-blue-500',
   'bg-green-500',
@@ -360,7 +375,17 @@ function PreviewTable({ type, data }: { type: ImportType; data: ParseResult }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ExcelImportPanel() {
-  const { shifts, sucursales, areas, addWorker, addShift, addSucursal, addArea } = useAppContext();
+  const {
+    workers,
+    shifts,
+    sucursales,
+    areas,
+    addWorker,
+    updateWorker,
+    addShift,
+    addSucursal,
+    addArea,
+  } = useAppContext();
 
   const [activeType] = useState<ImportType>('workers');
   const [isDragging, setIsDragging] = useState(false);
@@ -431,9 +456,60 @@ export default function ExcelImportPanel() {
   function handleImport() {
     if (!parseResult) return;
     let count = 0;
+    const workerNotes: string[] = [];
 
     if (selectedTypes.has('workers')) {
+      // Si la trabajadora ya existe (por RUT o, si no hay RUT, por nombre) no se crea de
+      // nuevo: solo se completan los datos que tenga vacíos.
+      const known: Worker[] = [...workers];
+      let completed = 0;
+      let unchanged = 0;
+      let ambiguous = 0;
+
+      const findExisting = (rut: string, name: string): Worker | null | 'ambiguous' => {
+        const nRut = normalizeRut(rut);
+        if (nRut) {
+          const byRut = known.find((k) => normalizeRut(k.rut) === nRut);
+          if (byRut) return byRut;
+        }
+        // Por nombre: solo a quien no tiene RUT (o tiene el mismo); con RUT distinto es otra persona
+        const byName = known.filter(
+          (k) =>
+            normalizeName(k.name) === normalizeName(name) &&
+            (!nRut || !normalizeRut(k.rut) || normalizeRut(k.rut) === nRut)
+        );
+        if (byName.length > 1) return 'ambiguous';
+        return byName[0] || null;
+      };
+
       parseResult.workers.forEach((w, i) => {
+        const existing = findExisting(w.rut, w.name);
+        if (existing === 'ambiguous') {
+          ambiguous++;
+          return;
+        }
+        if (existing) {
+          const filled: Worker = {
+            ...existing,
+            rut: existing.rut || w.rut,
+            cargo: existing.cargo || w.cargo,
+            role: existing.role || w.role || w.cargo,
+            sucursal: existing.sucursal || w.sucursal,
+            area: existing.area || w.area,
+            birthday: existing.birthday || w.birthday,
+          };
+          const changed = (['rut', 'cargo', 'role', 'sucursal', 'area', 'birthday'] as const).some(
+            (k) => (filled[k] || '') !== (existing[k] || '')
+          );
+          if (changed) {
+            updateWorker(filled);
+            known[known.indexOf(existing)] = filled;
+            completed++;
+          } else {
+            unchanged++;
+          }
+          return;
+        }
         const worker: Worker = {
           id: generateId() + i,
           name: w.name,
@@ -449,8 +525,16 @@ export default function ExcelImportPanel() {
           birthday: w.birthday,
         };
         addWorker(worker);
+        known.push(worker);
         count++;
       });
+
+      if (completed > 0) workerNotes.push(`${completed} ya existían y se completaron sus datos`);
+      if (unchanged > 0) workerNotes.push(`${unchanged} ya existían y estaban completas`);
+      if (ambiguous > 0)
+        workerNotes.push(
+          `${ambiguous} se omitieron porque hay más de una con ese nombre (agrega el RUT para distinguirlas)`
+        );
     }
 
     if (selectedTypes.has('shifts')) {
@@ -490,7 +574,10 @@ export default function ExcelImportPanel() {
       });
     }
 
-    setImportSuccess(`✓ Se importaron ${count} registros correctamente.`);
+    setImportSuccess(
+      `✓ Se importaron ${count} registros nuevos.` +
+        (workerNotes.length > 0 ? ` Trabajadoras: ${workerNotes.join('; ')}.` : '')
+    );
     setParseResult(null);
     setFileName(null);
     setSelectedTypes(new Set());
