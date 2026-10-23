@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { MapPin, Users, Search } from 'lucide-react';
+import { MapPin, Users, Search, Briefcase } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 
 interface Props {
@@ -10,6 +10,9 @@ interface Props {
   setFilterArea: (v: string) => void;
   filterEstado: string;
   setFilterEstado: (v: string) => void;
+  filterCargo: string;
+  setFilterCargo: (v: string) => void;
+  cargoOptions: string[];
   searchQuery: string;
   setSearchQuery: (v: string) => void;
 }
@@ -21,6 +24,9 @@ export default function PersonalFilters({
   setFilterArea,
   filterEstado,
   setFilterEstado,
+  filterCargo,
+  setFilterCargo,
+  cargoOptions,
   searchQuery,
   setSearchQuery,
 }: Props) {
@@ -74,6 +80,32 @@ export default function PersonalFilters({
             {areaOptions.map((a) => (
               <option key={`fa-${a}`} value={a}>
                 {a}
+              </option>
+            ))}
+          </select>
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground text-xs">
+            ▾
+          </div>
+        </div>
+      </div>
+      {/* Cargo */}
+      <div className="flex flex-col gap-1 w-full lg:w-auto lg:min-w-[160px]">
+        <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+          Cargo
+        </span>
+        <div className="relative">
+          <Briefcase
+            size={14}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+          />
+          <select
+            value={filterCargo}
+            onChange={(e) => setFilterCargo(e.target.value)}
+            className="w-full pl-8 pr-6 py-3 lg:py-2 bg-card border border-border rounded-lg text-base lg:text-sm font-medium appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            {['Todos', ...cargoOptions].map((c) => (
+              <option key={`fc-${c}`} value={c}>
+                {c}
               </option>
             ))}
           </select>

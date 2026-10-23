@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Users, Download, Plus } from 'lucide-react';
 import { applyPrintSetup, createWorkbook, downloadWorkbook } from '@/lib/excel';
@@ -11,16 +11,27 @@ import PersonalTable from './PersonalTable';
 import AddWorkerPanel from './AddWorkerPanel';
 
 export default function PersonalContent() {
-  const { workers, addWorker, updateWorker, deleteWorker, sucursales, globalSucursal, globalArea } =
-    useAppContext();
+  const {
+    workers,
+    addWorker,
+    updateWorker,
+    deleteWorker,
+    sucursales,
+    areas,
+    areaCargos,
+    globalSucursal,
+    globalArea,
+  } = useAppContext();
   const isReadonly = useReadonly('personal');
   const [filterSucursal, setFilterSucursal] = useState('Todas');
   const [filterArea, setFilterArea] = useState('Todas');
   const [filterEstado, setFilterEstado] = useState('Activos');
+  const [filterCargo, setFilterCargo] = useState('Todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
 
-  const filteredWorkers = useMemo(() => {
+  // Todos los filtros menos el cargo (así la distribución por cargo muestra todos los cargos)
+  const workersBeforeCargo = useMemo(() => {
     return workers.filter((w) => {
       if (filterSucursal !== 'Todas' && w.sucursal !== filterSucursal) return false;
       if (filterArea !== 'Todas' && w.area !== filterArea) return false;
@@ -34,6 +45,29 @@ export default function PersonalContent() {
     });
   }, [workers, filterSucursal, filterArea, filterEstado, searchQuery]);
 
+  // Cargos del área elegida (o de todas), según Ajustes y los que tienen las trabajadoras
+  const cargoOptions = useMemo(() => {
+    const areaList = filterArea === 'Todas' ? areas : [filterArea];
+    const set = new Set<string>();
+    areaList.forEach((a) => (areaCargos[a] || []).forEach((c) => set.add(c)));
+    workers.forEach((w) => {
+      if (w.cargo && (filterArea === 'Todas' || w.area === filterArea)) set.add(w.cargo);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+  }, [areas, areaCargos, filterArea, workers]);
+
+  useEffect(() => {
+    if (filterCargo !== 'Todos' && !cargoOptions.includes(filterCargo)) setFilterCargo('Todos');
+  }, [cargoOptions, filterCargo]);
+
+  const filteredWorkers = useMemo(
+    () =>
+      filterCargo === 'Todos'
+        ? workersBeforeCargo
+        : workersBeforeCargo.filter((w) => w.cargo === filterCargo),
+    [workersBeforeCargo, filterCargo]
+  );
+
   const summary = useMemo(() => {
     const activeWorkers = filteredWorkers.filter((w) => w.estado === 'Activo');
     const total = filteredWorkers.length;
@@ -44,13 +78,15 @@ export default function PersonalContent() {
       horasBreakdown[w.horasContratadas] = (horasBreakdown[w.horasContratadas] || 0) + 1;
     });
     const cargoBreakdown: Record<string, number> = {};
-    activeWorkers.forEach((w) => {
-      if (w.cargo) {
-        cargoBreakdown[w.cargo] = (cargoBreakdown[w.cargo] || 0) + 1;
-      }
-    });
+    workersBeforeCargo
+      .filter((w) => w.estado === 'Activo')
+      .forEach((w) => {
+        if (w.cargo) {
+          cargoBreakdown[w.cargo] = (cargoBreakdown[w.cargo] || 0) + 1;
+        }
+      });
     return { total, activos, inactivos, horasBreakdown, cargoBreakdown };
-  }, [filteredWorkers]);
+  }, [filteredWorkers, workersBeforeCargo]);
 
   const handleAddWorker = (worker: Worker) => {
     addWorker(worker);
@@ -252,10 +288,17 @@ export default function PersonalContent() {
             setFilterArea={setFilterArea}
             filterEstado={filterEstado}
             setFilterEstado={setFilterEstado}
+            filterCargo={filterCargo}
+            setFilterCargo={setFilterCargo}
+            cargoOptions={cargoOptions}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
           />
-          <PersonalSummary summary={summary} />
+          <PersonalSummary
+            summary={summary}
+            selectedCargo={filterCargo}
+            onSelectCargo={(c) => setFilterCargo((prev) => (prev === c ? 'Todos' : c))}
+          />
           <PersonalTable
             workers={filteredWorkers}
             onEdit={handleEdit}
