@@ -218,6 +218,19 @@ function SmartDropdown({
 
 // ─── Individual ShiftCell (normal mode — no active shift selected) ─────────
 // ─── Marca de solicitud aprobada (⇄) ─────────────────────────────────────
+// En el celular la casilla muestra la hora de entrada y salida (más corto que el código);
+// en el computador, el código y la hora de entrada
+function ShiftCellText({ code, start, end }: { code?: string; start?: string; end?: string }) {
+  return (
+    <>
+      <span className={start ? 'hidden lg:inline' : undefined}>{code?.toUpperCase()}</span>
+      {start && <span className="hidden lg:inline font-normal opacity-70">{start}</span>}
+      {start && <span className="lg:hidden">{start}</span>}
+      {start && end && <span className="lg:hidden">{end}</span>}
+    </>
+  );
+}
+
 function MarkBadge() {
   return (
     <span
@@ -435,8 +448,7 @@ function ShiftCell({
             : `${shiftInfo.start}–${shiftInfo.end}`
         }
       >
-        <span>{shiftInfo.code?.toUpperCase()}</span>
-        {shiftInfo.start && <span className="font-normal opacity-70">{shiftInfo.start}</span>}
+        <ShiftCellText code={shiftInfo.code} start={shiftInfo.start} end={shiftInfo.end} />
       </button>
       {mark && <MarkBadge />}
       {!isReadonly && (
@@ -530,8 +542,7 @@ function BlockModeCell({
     baseClass = shiftInfo?.colorClass || '';
     content = (
       <>
-        <span>{shift?.toUpperCase()}</span>
-        {shiftInfo?.start && <span className="font-normal opacity-70">{shiftInfo.start}</span>}
+        <ShiftCellText code={shift} start={shiftInfo?.start} end={shiftInfo?.end} />
       </>
     );
   } else {
@@ -1174,14 +1185,14 @@ export default function MallaGrid({
             )}
           </p>
         ) : (
-          <p className="text-xs text-muted-foreground">
+          <p className="hidden lg:block text-xs text-muted-foreground">
             Haz clic en cada celda para asignar turnos, o usa el panel de asignación rápida.
           </p>
         )}
         {!panelOpen && (
           <button
             onClick={openPanel}
-            className="flex items-center gap-1.5 bg-secondary text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors shrink-0 ml-4"
+            className="flex items-center gap-1.5 bg-secondary text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors shrink-0 ml-auto pl-3"
           >
             <Zap size={13} />
             Asignación rápida
@@ -1200,14 +1211,15 @@ export default function MallaGrid({
           <thead className="sticky top-0 z-20">
             <tr className="bg-muted/30 border-b border-border">
               <th
-                className="text-left px-3 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] sticky left-0 w-[112px] min-w-[112px] max-w-[112px] lg:w-[140px] lg:min-w-[140px] lg:max-w-[140px] border-r border-border"
+                className="text-left px-3 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] sticky left-0 w-[96px] min-w-[96px] max-w-[96px] lg:w-[140px] lg:min-w-[140px] lg:max-w-[140px] border-r border-border"
                 style={{ zIndex: 13, backgroundColor: '#f1f5f9' }}
               >
-                COLABORADORAS
+                <span className="lg:hidden">Nombre</span>
+                <span className="hidden lg:inline">COLABORADORAS</span>
               </th>
               {/* Summary column header — sticky */}
               <th
-                className="text-center px-1 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] border-r border-border min-w-[90px] w-[90px] lg:sticky"
+                className="hidden lg:table-cell text-center px-1 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] border-r border-border min-w-[90px] w-[90px] lg:sticky"
                 style={{ left: 140, zIndex: 13, backgroundColor: '#f1f5f9' }}
               >
                 <div>Resumen</div>
@@ -1275,7 +1287,7 @@ export default function MallaGrid({
                 >
                   {/* Sticky worker name cell */}
                   <td
-                    className="px-2 py-0.5 sticky left-0 border-r border-border w-[112px] min-w-[112px] max-w-[112px] lg:w-[140px] lg:min-w-[140px] lg:max-w-[140px]"
+                    className="px-2 py-0.5 sticky left-0 border-r border-border w-[96px] min-w-[96px] max-w-[96px] lg:w-[140px] lg:min-w-[140px] lg:max-w-[140px]"
                     style={{ zIndex: 2, backgroundColor: stickyBgColor }}
                   >
                     <div className="flex items-center gap-1.5">
@@ -1348,7 +1360,7 @@ export default function MallaGrid({
 
                     return (
                       <td
-                        className="border-r border-border px-1 py-0.5 min-w-[90px] w-[90px] text-center align-middle lg:sticky"
+                        className="hidden lg:table-cell border-r border-border px-1 py-0.5 min-w-[90px] w-[90px] text-center align-middle lg:sticky"
                         style={{ left: 140, zIndex: 2, backgroundColor: stickyBgColor }}
                       >
                         {/* Monthly total hours */}
