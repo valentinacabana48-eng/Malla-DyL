@@ -219,12 +219,26 @@ function SmartDropdown({
 // ─── Individual ShiftCell (normal mode — no active shift selected) ─────────
 // ─── Marca de solicitud aprobada (⇄) ─────────────────────────────────────
 // En el celular la casilla muestra la hora de entrada y salida (más corto que el código);
-// en el computador, el código y la hora de entrada
-function ShiftCellText({ code, start, end }: { code?: string; start?: string; end?: string }) {
+// en el computador, el código y los minutos de colación (la hora de entrada ya va en el código)
+function ShiftCellText({
+  code,
+  start,
+  end,
+  colacion,
+}: {
+  code?: string;
+  start?: string;
+  end?: string;
+  colacion?: number;
+}) {
   return (
     <>
       <span className={start ? 'hidden lg:inline' : undefined}>{code?.toUpperCase()}</span>
-      {start && <span className="hidden lg:inline font-normal opacity-70">{start}</span>}
+      {start && (
+        <span className="hidden lg:inline font-semibold text-[9px] opacity-85">
+          {colacion && colacion > 0 ? `col ${colacion}'` : 'sin col'}
+        </span>
+      )}
       {start && <span className="lg:hidden">{start}</span>}
       {start && end && <span className="lg:hidden">{end}</span>}
     </>
@@ -448,7 +462,12 @@ function ShiftCell({
             : `${shiftInfo.start}–${shiftInfo.end}`
         }
       >
-        <ShiftCellText code={shiftInfo.code} start={shiftInfo.start} end={shiftInfo.end} />
+        <ShiftCellText
+          code={shiftInfo.code}
+          start={shiftInfo.start}
+          end={shiftInfo.end}
+          colacion={shiftInfo.colacion}
+        />
       </button>
       {mark && <MarkBadge />}
       {!isReadonly && (
@@ -542,7 +561,12 @@ function BlockModeCell({
     baseClass = shiftInfo?.colorClass || '';
     content = (
       <>
-        <ShiftCellText code={shift} start={shiftInfo?.start} end={shiftInfo?.end} />
+        <ShiftCellText
+          code={shift}
+          start={shiftInfo?.start}
+          end={shiftInfo?.end}
+          colacion={shiftInfo?.colacion}
+        />
       </>
     );
   } else {
