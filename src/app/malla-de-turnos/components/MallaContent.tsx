@@ -9,7 +9,6 @@ import {
   Grid3x3,
   PenLine,
   Send,
-  SlidersHorizontal,
   Stethoscope,
   Upload,
   Zap,
@@ -109,7 +108,6 @@ export default function MallaContent() {
   const [showExcelPanel, setShowExcelPanel] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   // Celular: filtros plegados y vista simple (por día / por persona) en vez de la grilla
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showFullGridMobile, setShowFullGridMobile] = useState(false);
   const [contractedHoursOverride, setContractedHoursOverride] = useState<Record<string, number>>(
     {}
@@ -461,15 +459,6 @@ export default function MallaContent() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setShowMobileFilters((v) => !v)}
-            aria-expanded={showMobileFilters}
-            className="lg:hidden flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground"
-          >
-            <SlidersHorizontal size={16} />
-            Filtros
-          </button>
           {can('malla_publicar') && (
             <button
               type="button"
@@ -583,7 +572,26 @@ export default function MallaContent() {
         </button>
       )}
 
-      <div className={showMobileFilters ? '' : 'hidden lg:block'}>
+      {/* Celular: cambiar entre la vista simple y la malla completa, siempre arriba */}
+      <div className="lg:hidden mb-3 flex p-1 rounded-xl bg-muted" role="tablist">
+        {[
+          { full: false, label: 'Vista simple' },
+          { full: true, label: 'Malla completa' },
+        ].map((opt) => (
+          <button
+            key={opt.label}
+            type="button"
+            role="tab"
+            aria-selected={showFullGridMobile === opt.full}
+            onClick={() => setShowFullGridMobile(opt.full)}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${showFullGridMobile === opt.full ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      <div>
         <MallaFilters
           selectedMes={selectedMes}
           setSelectedMes={setSelectedMes}
@@ -610,7 +618,7 @@ export default function MallaContent() {
         </div>
       ) : (
         <>
-          {/* Celular: vista simple; la grilla completa queda a un toque */}
+          {/* Celular: vista simple; la grilla completa se elige arriba */}
           <div className={showFullGridMobile ? 'hidden' : 'lg:hidden mt-4'}>
             <MallaMobile
               workers={filteredWorkers}
@@ -626,14 +634,6 @@ export default function MallaContent() {
               requestMarks={requestMarks}
             />
           </div>
-          <button
-            type="button"
-            onClick={() => setShowFullGridMobile((v) => !v)}
-            className="lg:hidden mt-4 w-full py-3 rounded-xl border border-border bg-card text-sm font-semibold text-foreground"
-          >
-            {showFullGridMobile ? 'Volver a la vista simple' : 'Ver la malla completa del mes'}
-          </button>
-
           <div className={showFullGridMobile ? '' : 'hidden lg:block'}>
             <div
               className="mt-4 bg-card rounded-2xl border border-border"
