@@ -1028,17 +1028,15 @@ export default function MallaGrid({
       workerDayMap.get(workerId)!.push(dayIndex);
     });
 
-    const workerIds = [...workerDayMap.keys()];
-    // Collect all unique day indices across all workers
-    const allDayIndices = [...new Set([...workerDayMap.values()].flat())];
-
-    if (activeSpecialDay !== undefined) {
-      // Use bulkAssignSpecialDay for atomic multi-worker, multi-day assignment
-      bulkAssignSpecialDay(workerIds, allDayIndices, activeSpecialDay);
-    } else {
-      // Use bulkAssign for atomic multi-worker, multi-day shift assignment
-      bulkAssign(workerIds, allDayIndices, activeShift ?? null);
-    }
+    // Cada trabajador recibe solo SUS días seleccionados. Antes se juntaban todos los días
+    // de todas las filas y se aplicaban a cada trabajador, marcando casillas que nadie eligió.
+    workerDayMap.forEach((dayIndices, workerId) => {
+      if (activeSpecialDay !== undefined) {
+        bulkAssignSpecialDay([workerId], dayIndices, activeSpecialDay);
+      } else {
+        bulkAssign([workerId], dayIndices, activeShift ?? null);
+      }
+    });
     setSelectedCells(new Set());
   }, [selectedCells, activeShift, activeSpecialDay, bulkAssign, bulkAssignSpecialDay]);
 
