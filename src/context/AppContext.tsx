@@ -493,6 +493,12 @@ interface AppContextValue {
   ) => Promise<{ scheduleData: ScheduleData; specialDays: SpecialDaysData }>;
   /** Si la malla de ese mes ya está completa */
   isMonthLoaded: (monthKey: string) => boolean;
+  /**
+   * Si esta persona puede ver ese mes de la malla de esa sucursal. Un mes que todavía no
+   * empieza está "en preparación" hasta que se publica y llega su fecha de visibilidad;
+   * mientras tanto solo lo ve quien puede publicar. Igual que malla_mes_abierto() en la base.
+   */
+  mesAbierto: (monthKey: string, sucursal: string) => boolean;
   sucursales: Sucursal[];
   areas: string[];
   areaCargos: AreaCargos;
@@ -686,6 +692,11 @@ function initialMonthKeys(): string[] {
 
 const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
 
+/** Hoy en Chile, "YYYY-MM-DD" */
+function hoyChile(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago' }).format(new Date());
+}
+
 /** Filas de la malla y de los días especiales de esos meses */
 async function fetchMonths(monthKeys: string[]) {
   const supabase = getSupabase();
@@ -840,6 +851,89 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (monthKey: string) => loadedMonths.has(monthKey),
     [loadedMonths]
   );
+
+  // ── Malla en preparación: qué meses ya se publicaron y desde qué día se ven ──
+  // null = todavía no se leen
+  const [publicaciones, setPublicaciones] = useState<
+    { monthKey: string; sucursal: string; visibleDesde: string | null }[] | null
+  >(null);
+  const reloadPublicaciones = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('published_schedules')
+      .select('month_key, sucursal, visible_desde');
+    if (error) {
+      console.warn('Publicaciones no disponibles:', error.message);
+      return;
+    }
+    setPublicaciones(
+      (data || []).map((r) => ({
+        monthKey: r.month_key as string,
+        sucursal: r.sucursal as string,
+        visibleDesde: (r.visible_desde as string | null) ?? null,
+      }))
+    );
+  }, [supabase]);
+  // El día cambia con la hora: se vuelve a calcular al leer las publicaciones
+  const [hoy, setHoy] = useState(hoyChile);
+  useEffect(() => {
+    const reload = () => {
+      setHoy(hoyChile());
+      reloadPublicaciones();
+    };
+    reload();
+    const channel = supabase
+      .channel('realtime-publicaciones')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'published_schedules' },
+        reload
+      )
+      .subscribe();
+    const timer = window.setInterval(reload, 60_000);
+    window.addEventListener('focus', reload);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', reload);
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, reloadPublicaciones]);
+
+  const canPublishMalla = can('malla_publicar');
+  const mesAbierto = useCallback(
+    (monthKey: string, sucursal: string) =>
+      monthKey <= hoy.slice(0, 7) ||
+      (canPublishMalla && (!allowedSucursales || allowedSucursales.includes(sucursal))) ||
+      (publicaciones ?? []).some(
+        (p) =>
+          p.monthKey === monthKey &&
+          p.sucursal === sucursal &&
+          (!p.visibleDesde || p.visibleDesde <= hoy)
+      ),
+    [hoy, canPublishMalla, allowedSucursales, publicaciones]
+  );
+
+  // Cuando un mes se abre (se publicó o llegó su fecha) se vuelve a leer, porque antes la
+  // base no lo entregaba y en pantalla quedó vacío
+  const abiertosRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!publicaciones) return;
+    const keys = new Set<string>();
+    publicaciones.forEach((p) => {
+      if (mesAbierto(p.monthKey, p.sucursal)) keys.add(`${p.monthKey}|${p.sucursal}`);
+    });
+    const prev = abiertosRef.current;
+    abiertosRef.current = keys;
+    if (!prev) return;
+    const reabrir = [
+      ...new Set([...keys].filter((k) => !prev.has(k)).map((k) => k.split('|')[0])),
+    ].filter((mk) => requestedMonthsRef.current.has(mk));
+    if (reabrir.length === 0) return;
+    reabrir.forEach((mk) => {
+      requestedMonthsRef.current.delete(mk);
+      loadedMonthsRef.current.delete(mk);
+    });
+    ensureMonths(reabrir);
+  }, [publicaciones, mesAbierto, ensureMonths]);
 
   // Sucursales que esta persona puede ver (null = todas)
   const visibleSucursales = useMemo(
@@ -1973,6 +2067,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ensureMonths,
         loadMonths,
         isMonthLoaded,
+        mesAbierto,
         sucursales: visibleSucursales,
         areas: visibleAreas,
         areaCargos,

@@ -10,6 +10,7 @@ import {
   List,
   Coffee,
   Search,
+  Clock,
 } from 'lucide-react';
 import {
   useAppContext,
@@ -890,6 +891,7 @@ export default function VistaPreviaContent() {
     getAllNonWorkingTypes,
     globalSucursal,
     ensureMonths,
+    mesAbierto,
   } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
 
@@ -918,9 +920,25 @@ export default function VistaPreviaContent() {
 
   const cargoOptions = useCargoOptions(selectedAreas, selectedCargos, setSelectedCargos);
 
+  // Una malla en preparación no se muestra ni se imprime
+  const exportMonthKey = monthLabelToKey(exportMes);
+  const workersAbiertos = useMemo(
+    () => workers.filter((w) => mesAbierto(exportMonthKey, w.sucursal)),
+    [workers, mesAbierto, exportMonthKey]
+  );
+  const sucursalesEnPreparacion = useMemo(() => {
+    const set = new Set<string>();
+    workers.forEach((w) => {
+      if (w.estado !== 'Activo') return;
+      if (selectedSucursales.length > 0 && !selectedSucursales.includes(w.sucursal)) return;
+      if (!mesAbierto(exportMonthKey, w.sucursal)) set.add(w.sucursal);
+    });
+    return [...set].sort();
+  }, [workers, selectedSucursales, mesAbierto, exportMonthKey]);
+
   const filteredWorkers = useMemo(() => {
     const query = normalizeText(searchName);
-    return workers.filter((w) => {
+    return workersAbiertos.filter((w) => {
       if (w.estado !== 'Activo') return false;
       if (selectedAreas.length > 0 && !selectedAreas.includes(w.area)) return false;
       if (selectedSucursales.length > 0 && !selectedSucursales.includes(w.sucursal)) return false;
@@ -928,7 +946,7 @@ export default function VistaPreviaContent() {
       if (query && !normalizeText(w.name).includes(query)) return false;
       return true;
     });
-  }, [workers, selectedAreas, selectedSucursales, selectedCargos, searchName]);
+  }, [workersAbiertos, selectedAreas, selectedSucursales, selectedCargos, searchName]);
 
   // Si la búsqueda deja una sola trabajadora, se elige sola
   React.useEffect(() => {
@@ -938,8 +956,8 @@ export default function VistaPreviaContent() {
   }, [searchName, filteredWorkers]);
 
   const selectedWorker = useMemo(
-    () => workers.find((w) => w.id === selectedWorkerId) || null,
-    [workers, selectedWorkerId]
+    () => workersAbiertos.find((w) => w.id === selectedWorkerId) || null,
+    [workersAbiertos, selectedWorkerId]
   );
 
   const workerSchedule = useMemo(() => {
@@ -1064,6 +1082,16 @@ export default function VistaPreviaContent() {
           Lista de Turnos
         </button>
       </div>
+
+      {sucursalesEnPreparacion.length > 0 && (
+        <div className="flex items-start gap-3 px-4 py-3 mb-5 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
+          <Clock size={16} className="mt-0.5 shrink-0" />
+          <span>
+            La malla de {exportMes} de {sucursalesEnPreparacion.join(', ')} está en preparación. Se
+            podrá ver e imprimir cuando se publique.
+          </span>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-card rounded-xl border border-border p-5 mb-6 shadow-sm">
@@ -1215,7 +1243,7 @@ export default function VistaPreviaContent() {
       {activeTab === 'lista' && (
         <div className="print-area">
           <GroupedListPrint
-            workers={workers}
+            workers={workersAbiertos}
             shifts={shifts}
             scheduleData={scheduleData}
             monthLabel={exportMes}
