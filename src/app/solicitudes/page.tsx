@@ -5,7 +5,7 @@ import SolicitudesContent from './components/SolicitudesContent';
 export default function SolicitudesPage() {
   return (
     <AppLayout>
-      <AdminOnly perm="malla_editar">
+      <AdminOnly perm="solicitudes">
         <SolicitudesContent />
       </AdminOnly>
     </AppLayout>
