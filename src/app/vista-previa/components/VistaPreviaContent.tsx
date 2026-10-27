@@ -20,6 +20,7 @@ import {
   monthLabelToKey,
 } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
+import { useAuth } from '@/context/AuthContext';
 import { useCargoOptions } from '@/hooks/useCargoOptions';
 
 const MULTI_WRAPPER = 'flex-1 min-w-[180px] max-w-[300px]';
@@ -892,6 +893,8 @@ export default function VistaPreviaContent() {
     ensureMonths,
   } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
+  // Sin la casilla "Imprimir y descargar" la malla se ve, pero sin botones para sacarla
+  const canImprimir = useAuth().can('vista_previa_imprimir');
 
   // [] = todas / todos
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
@@ -1011,40 +1014,41 @@ export default function VistaPreviaContent() {
             Malla mensual individual por trabajador/a
           </p>
         </div>
-        {(activeTab === 'lista' ||
-          selectedWorker ||
-          (activeTab === 'individual' && filteredWorkers.length > 0)) && (
-          <div className="flex items-center gap-2 flex-wrap">
-            {activeTab === 'individual' && filteredWorkers.length > 0 && (
-              <button
-                onClick={handlePrintAll}
-                disabled={printingAll}
-                className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-              >
-                <Printer size={15} />
-                {printingAll ? 'Preparando…' : `Imprimir todas (${filteredWorkers.length})`}
-              </button>
-            )}
-            {(activeTab === 'lista' || selectedWorker) && (
-              <button
-                onClick={handlePrint}
-                className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
-              >
-                <Printer size={15} />
-                Imprimir
-              </button>
-            )}
-            {activeTab === 'individual' && selectedWorker && (
-              <button
-                onClick={handleExportPDF}
-                className="flex items-center gap-2 bg-secondary text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all duration-150 shadow-sm"
-              >
-                <Download size={15} />
-                Exportar PDF por Cajera
-              </button>
-            )}
-          </div>
-        )}
+        {canImprimir &&
+          (activeTab === 'lista' ||
+            selectedWorker ||
+            (activeTab === 'individual' && filteredWorkers.length > 0)) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {activeTab === 'individual' && filteredWorkers.length > 0 && (
+                <button
+                  onClick={handlePrintAll}
+                  disabled={printingAll}
+                  className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  <Printer size={15} />
+                  {printingAll ? 'Preparando…' : `Imprimir todas (${filteredWorkers.length})`}
+                </button>
+              )}
+              {(activeTab === 'lista' || selectedWorker) && (
+                <button
+                  onClick={handlePrint}
+                  className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                  <Printer size={15} />
+                  Imprimir
+                </button>
+              )}
+              {activeTab === 'individual' && selectedWorker && (
+                <button
+                  onClick={handleExportPDF}
+                  className="flex items-center gap-2 bg-secondary text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all duration-150 shadow-sm"
+                >
+                  <Download size={15} />
+                  Exportar PDF por Cajera
+                </button>
+              )}
+            </div>
+          )}
       </div>
 
       {/* Tabs */}

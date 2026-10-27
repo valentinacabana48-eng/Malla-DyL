@@ -16,7 +16,9 @@ export type Perm =
   | 'horas_extra_aprobar'
   | 'rrhh'
   | 'solicitudes'
-  | 'vista_previa';
+  | 'solicitudes_responder'
+  | 'vista_previa'
+  | 'vista_previa_imprimir';
 
 export type UserRole = 'admin' | 'lector' | 'asistencia' | 'personalizado' | 'pendiente';
 
@@ -55,8 +57,20 @@ export const PERM_GROUPS: { modulo: string; perms: { perm: Perm; label: string }
     ],
   },
   { modulo: 'RRHH', perms: [{ perm: 'rrhh', label: 'Ver y editar' }] },
-  { modulo: 'Solicitudes', perms: [{ perm: 'solicitudes', label: 'Ver y responder' }] },
-  { modulo: 'Vista previa', perms: [{ perm: 'vista_previa', label: 'Ver e imprimir' }] },
+  {
+    modulo: 'Solicitudes',
+    perms: [
+      { perm: 'solicitudes', label: 'Ver' },
+      { perm: 'solicitudes_responder', label: 'Responder' },
+    ],
+  },
+  {
+    modulo: 'Vista previa',
+    perms: [
+      { perm: 'vista_previa', label: 'Ver' },
+      { perm: 'vista_previa_imprimir', label: 'Imprimir y descargar' },
+    ],
+  },
 ];
 
 export const ALL_PERMS: Perm[] = PERM_GROUPS.flatMap((g) => g.perms.map((p) => p.perm));
@@ -74,9 +88,16 @@ export function permsFor(role: UserRole | null, permisos: string[] | null): Set<
         'personal_ver',
         'asistencia_ver',
         'vista_previa',
+        'vista_previa_imprimir',
       ]);
     case 'asistencia':
-      return new Set<Perm>(['malla_ver', 'asistencia_ver', 'asistencia_marcar', 'vista_previa']);
+      return new Set<Perm>([
+        'malla_ver',
+        'asistencia_ver',
+        'asistencia_marcar',
+        'vista_previa',
+        'vista_previa_imprimir',
+      ]);
     case 'personalizado':
       return new Set((permisos ?? []).filter((p): p is Perm => ALL_PERMS.includes(p as Perm)));
     default:
