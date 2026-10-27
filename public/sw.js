@@ -2,7 +2,7 @@
 // - Archivos estáticos (JS/CSS/imágenes): se guardan en caché para que la app abra rápido.
 // - Páginas: siempre se piden a la red; sin conexión se muestra /offline.html.
 // - Datos (Supabase): nunca se guardan en caché, siempre van directo a la red.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const STATIC_CACHE = `dyl-static-${VERSION}`;
 const OFFLINE_URL = '/offline.html';
 const PRECACHE = [OFFLINE_URL, '/icons/icon-192.png', '/icons/icon-512.png'];
