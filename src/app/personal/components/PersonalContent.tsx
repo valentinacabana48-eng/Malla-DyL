@@ -20,11 +20,12 @@ export default function PersonalContent() {
   const [filterAreas, setFilterAreas] = useState<string[]>([]);
   const [filterEstado, setFilterEstado] = useState('Activos');
   const [filterCargos, setFilterCargos] = useState<string[]>([]);
+  const [filterHoras, setFilterHoras] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
 
-  // Todos los filtros menos el cargo (así la distribución por cargo muestra todos los cargos)
-  const workersBeforeCargo = useMemo(() => {
+  // Todos los filtros menos cargo y horas (así cada distribución muestra todas sus tarjetas)
+  const workersBase = useMemo(() => {
     return workers.filter((w) => {
       if (filterSucursales.length > 0 && !filterSucursales.includes(w.sucursal)) return false;
       if (filterAreas.length > 0 && !filterAreas.includes(w.area)) return false;
@@ -40,12 +41,27 @@ export default function PersonalContent() {
 
   const cargoOptions = useCargoOptions(filterAreas, filterCargos, setFilterCargos);
 
-  const filteredWorkers = useMemo(
+  const workersWithCargo = useMemo(
     () =>
       filterCargos.length === 0
-        ? workersBeforeCargo
-        : workersBeforeCargo.filter((w) => filterCargos.includes(w.cargo)),
-    [workersBeforeCargo, filterCargos]
+        ? workersBase
+        : workersBase.filter((w) => filterCargos.includes(w.cargo)),
+    [workersBase, filterCargos]
+  );
+  const workersWithHoras = useMemo(
+    () =>
+      filterHoras.length === 0
+        ? workersBase
+        : workersBase.filter((w) => filterHoras.includes(w.horasContratadas)),
+    [workersBase, filterHoras]
+  );
+
+  const filteredWorkers = useMemo(
+    () =>
+      filterHoras.length === 0
+        ? workersWithCargo
+        : workersWithCargo.filter((w) => filterHoras.includes(w.horasContratadas)),
+    [workersWithCargo, filterHoras]
   );
 
   const summary = useMemo(() => {
@@ -53,20 +69,30 @@ export default function PersonalContent() {
     const total = filteredWorkers.length;
     const activos = activeWorkers.length;
     const inactivos = filteredWorkers.filter((w) => w.estado === 'Inactivo').length;
+    // Las horas se cuentan con el filtro de cargo y el cargo con el de horas, cada uno sin el suyo
     const horasBreakdown: Record<number, number> = {};
-    activeWorkers.forEach((w) => {
-      horasBreakdown[w.horasContratadas] = (horasBreakdown[w.horasContratadas] || 0) + 1;
-    });
+    workersWithCargo
+      .filter((w) => w.estado === 'Activo')
+      .forEach((w) => {
+        horasBreakdown[w.horasContratadas] = (horasBreakdown[w.horasContratadas] || 0) + 1;
+      });
     const cargoBreakdown: Record<string, number> = {};
-    workersBeforeCargo
+    workersWithHoras
       .filter((w) => w.estado === 'Activo')
       .forEach((w) => {
         if (w.cargo) {
           cargoBreakdown[w.cargo] = (cargoBreakdown[w.cargo] || 0) + 1;
         }
       });
+    // Lo elegido sigue como tarjeta aunque quede en 0, para poder quitarlo
+    filterHoras.forEach((h) => {
+      horasBreakdown[h] = horasBreakdown[h] || 0;
+    });
+    filterCargos.forEach((c) => {
+      cargoBreakdown[c] = cargoBreakdown[c] || 0;
+    });
     return { total, activos, inactivos, horasBreakdown, cargoBreakdown };
-  }, [filteredWorkers, workersBeforeCargo]);
+  }, [filteredWorkers, workersWithCargo, workersWithHoras, filterHoras, filterCargos]);
 
   const handleAddWorker = (worker: Worker) => {
     addWorker(worker);
@@ -280,6 +306,12 @@ export default function PersonalContent() {
             onToggleCargo={(c) =>
               setFilterCargos((prev) =>
                 prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
+              )
+            }
+            selectedHoras={filterHoras}
+            onToggleHoras={(h) =>
+              setFilterHoras((prev) =>
+                prev.includes(h) ? prev.filter((x) => x !== h) : [...prev, h]
               )
             }
           />
