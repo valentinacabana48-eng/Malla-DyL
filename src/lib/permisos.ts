@@ -2,9 +2,11 @@
 // cargos ve. La base de datos impone lo mismo (has_perm() en Supabase).
 
 export type Perm =
+  | 'dashboard'
   | 'malla_ver'
   | 'malla_editar'
   | 'malla_publicar'
+  | 'cumplimiento'
   | 'personal_ver'
   | 'personal_editar'
   | 'asistencia_ver'
@@ -12,12 +14,15 @@ export type Perm =
   | 'asistencia_aprobar'
   | 'horas_extra'
   | 'horas_extra_aprobar'
-  | 'rrhh';
+  | 'rrhh'
+  | 'solicitudes'
+  | 'vista_previa';
 
 export type UserRole = 'admin' | 'lector' | 'asistencia' | 'personalizado' | 'pendiente';
 
 /** Casillas de permisos, agrupadas por módulo, como se muestran en Ajustes */
 export const PERM_GROUPS: { modulo: string; perms: { perm: Perm; label: string }[] }[] = [
+  { modulo: 'Dashboard', perms: [{ perm: 'dashboard', label: 'Ver' }] },
   {
     modulo: 'Malla',
     perms: [
@@ -26,6 +31,7 @@ export const PERM_GROUPS: { modulo: string; perms: { perm: Perm; label: string }
       { perm: 'malla_publicar', label: 'Publicar' },
     ],
   },
+  { modulo: 'Cumplimiento', perms: [{ perm: 'cumplimiento', label: 'Ver' }] },
   {
     modulo: 'Personal',
     perms: [
@@ -49,6 +55,8 @@ export const PERM_GROUPS: { modulo: string; perms: { perm: Perm; label: string }
     ],
   },
   { modulo: 'RRHH', perms: [{ perm: 'rrhh', label: 'Ver y editar' }] },
+  { modulo: 'Solicitudes', perms: [{ perm: 'solicitudes', label: 'Ver y responder' }] },
+  { modulo: 'Vista previa', perms: [{ perm: 'vista_previa', label: 'Ver e imprimir' }] },
 ];
 
 export const ALL_PERMS: Perm[] = PERM_GROUPS.flatMap((g) => g.perms.map((p) => p.perm));
@@ -59,9 +67,16 @@ export function permsFor(role: UserRole | null, permisos: string[] | null): Set<
     case 'admin':
       return new Set(ALL_PERMS);
     case 'lector':
-      return new Set<Perm>(['malla_ver', 'personal_ver', 'asistencia_ver']);
+      return new Set<Perm>([
+        'dashboard',
+        'malla_ver',
+        'cumplimiento',
+        'personal_ver',
+        'asistencia_ver',
+        'vista_previa',
+      ]);
     case 'asistencia':
-      return new Set<Perm>(['malla_ver', 'asistencia_ver', 'asistencia_marcar']);
+      return new Set<Perm>(['malla_ver', 'asistencia_ver', 'asistencia_marcar', 'vista_previa']);
     case 'personalizado':
       return new Set((permisos ?? []).filter((p): p is Perm => ALL_PERMS.includes(p as Perm)));
     default:
@@ -69,16 +84,16 @@ export function permsFor(role: UserRole | null, permisos: string[] | null): Set<
   }
 }
 
-/** Permiso que pide cada sección del menú (Ajustes además pide ser administradora) */
+/** Permiso que pide cada sección del menú (Ajustes pide ser administradora) */
 export const ROUTE_PERMS: { href: string; perm: Perm }[] = [
   { href: '/malla-de-turnos', perm: 'malla_ver' },
-  { href: '/cumplimiento', perm: 'personal_ver' },
+  { href: '/cumplimiento', perm: 'cumplimiento' },
   { href: '/personal', perm: 'personal_ver' },
   { href: '/asistencia', perm: 'asistencia_ver' },
   { href: '/rrhh', perm: 'rrhh' },
-  { href: '/solicitudes', perm: 'malla_editar' },
-  { href: '/vista-previa', perm: 'malla_ver' },
-  { href: '/', perm: 'personal_ver' },
+  { href: '/solicitudes', perm: 'solicitudes' },
+  { href: '/vista-previa', perm: 'vista_previa' },
+  { href: '/', perm: 'dashboard' },
 ];
 
 export function routePerm(pathname: string): Perm | null {

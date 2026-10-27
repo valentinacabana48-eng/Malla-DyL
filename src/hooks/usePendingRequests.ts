@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 /** Cuántas solicitudes de Mis turnos esperan respuesta (se revisa cada minuto). */
 export function usePendingRequests(): number {
   const { can } = useAuth();
-  const enabled = can('malla_editar');
+  const enabled = can('solicitudes');
   const [count, setCount] = useState(0);
 
   useEffect(() => {
