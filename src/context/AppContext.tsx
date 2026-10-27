@@ -1101,6 +1101,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // trabajadores que esta persona puede editar, así no pisa a nadie.
       if (!canEditMalla || prevMonthKey === newMonthKey) return;
       const [prevYear, prevMonth] = prevMonthKey.split('-').map(Number);
+      // Solo al avanzar al mes siguiente. Si se salta de mes (octubre → diciembre) o se
+      // retrocede, el "último día del mes anterior" sería de otro mes y se copiaría mal.
+      const nextOfPrev = new Date(prevYear, prevMonth, 1);
+      const expectedNewKey = `${nextOfPrev.getFullYear()}-${String(nextOfPrev.getMonth() + 1).padStart(2, '0')}`;
+      if (newMonthKey !== expectedNewKey) return;
       const lastDayIdx = new Date(prevYear, prevMonth, 0).getDate() - 1;
       const { data, error } = await supabase.rpc('carry_over_month', {
         p_prev_month: prevMonthKey,
