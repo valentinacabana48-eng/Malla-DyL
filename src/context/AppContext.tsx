@@ -2026,32 +2026,61 @@ export function useAppContext(): AppContextValue {
   return ctx;
 }
 
+// Feriados nacionales de Chile. Devuelve índices de día (0 = día 1) del mes indicado.
 export function getChileanHolidays(monthIdx: number, year: number): number[] {
-  const holidays: number[] = [];
+  const dates: Date[] = [];
+  const add = (m: number, d: number) => dates.push(new Date(year, m, d));
+  const dow = (m: number, d: number) => new Date(year, m, d).getDay();
 
+  // Feriados de fecha fija
   const fixed: [number, number][] = [
-    [0, 1],
-    [4, 1],
-    [4, 21],
-    [5, 7],
-    [5, 29],
-    [7, 15],
-    [8, 18],
-    [8, 19],
-    [9, 12],
-    [9, 31],
-    [10, 1],
-    [10, 2],
-    [11, 8],
-    [11, 25],
+    [0, 1], // Año Nuevo
+    [4, 1], // Día del Trabajo
+    [4, 21], // Glorias Navales
+    [6, 16], // Virgen del Carmen
+    [7, 15], // Asunción de la Virgen
+    [8, 18], // Independencia Nacional
+    [8, 19], // Glorias del Ejército
+    [10, 1], // Todos los Santos
+    [11, 8], // Inmaculada Concepción
+    [11, 25], // Navidad
   ];
+  fixed.forEach(([m, d]) => add(m, d));
 
-  fixed.forEach(([m, d]) => {
-    if (m === monthIdx) {
-      holidays.push(d - 1);
-    }
-  });
+  // Ley 19.668: San Pedro y San Pablo y Encuentro de Dos Mundos se corren al lunes.
+  // Mar/Mié/Jue -> lunes de esa semana; Vie -> lunes siguiente.
+  const movable = (m: number, d: number) => {
+    const w = dow(m, d);
+    if (w >= 2 && w <= 4) add(m, d - (w - 1));
+    else if (w === 5) add(m, d + 3);
+    else add(m, d);
+  };
+  movable(5, 29);
+  movable(9, 12);
 
+  // Ley 20.299: Iglesias Evangélicas. Si el 31/10 cae martes -> viernes 27/10;
+  // si cae miércoles -> viernes 2/11.
+  const evang = dow(9, 31);
+  if (evang === 2) add(9, 27);
+  else if (evang === 3) add(10, 2);
+  else add(9, 31);
+
+  // Ley 20.215: si el 18/9 cae martes, el 17/9 es feriado; si cae miércoles, el 20/9.
+  const sept18 = dow(8, 18);
+  if (sept18 === 2) add(8, 17);
+  else if (sept18 === 3) add(8, 20);
+
+  // Ley 21.357: Día Nacional de los Pueblos Indígenas, día del solsticio de invierno (hora de Chile).
+  if (year >= 2021) {
+    const y = (year - 2000) / 1000;
+    const jde =
+      2451716.56767 + 365241.62603 * y + 0.00325 * y * y + 0.00888 * y ** 3 - 0.0003 * y ** 4;
+    const utcMs = (jde - 2440587.5) * 86400000;
+    const chile = new Date(utcMs - 4 * 3600000);
+    add(5, chile.getUTCDate());
+  }
+
+  // Semana Santa
   const a = year % 19;
   const b = Math.floor(year / 100);
   const c = year % 100;
@@ -2066,15 +2095,14 @@ export function getChileanHolidays(monthIdx: number, year: number): number[] {
   const m2 = Math.floor((a + 11 * h + 22 * l) / 451);
   const easterMonth = Math.floor((h + l - 7 * m2 + 114) / 31) - 1;
   const easterDay = ((h + l - 7 * m2 + 114) % 31) + 1;
+  add(easterMonth, easterDay - 2); // Viernes Santo
+  add(easterMonth, easterDay - 1); // Sábado Santo
 
-  const goodFriday = new Date(year, easterMonth, easterDay - 2);
-  if (goodFriday.getMonth() === monthIdx) {
-    holidays.push(goodFriday.getDate() - 1);
-  }
-  const holySaturday = new Date(year, easterMonth, easterDay - 1);
-  if (holySaturday.getMonth() === monthIdx) {
-    holidays.push(holySaturday.getDate() - 1);
-  }
-
+  const holidays: number[] = [];
+  dates.forEach((dt) => {
+    if (dt.getMonth() === monthIdx && !holidays.includes(dt.getDate() - 1)) {
+      holidays.push(dt.getDate() - 1);
+    }
+  });
   return holidays;
 }
