@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Inbox, Printer, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 import {
   calcNetHours,
   shiftsForSucursales,
@@ -62,6 +63,8 @@ export default function SolicitudesContent() {
     licencias,
     registrarLicencia,
   } = useAppContext();
+  // Sin la casilla "Responder" se ven las solicitudes, pero no se aprueban ni rechazan
+  const canResponder = useAuth().can('solicitudes_responder');
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [missingTable, setMissingTable] = useState(false);
@@ -527,45 +530,45 @@ export default function SolicitudesContent() {
                   </div>
                 )}
 
-                {r.status === 'pendiente' ? (
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <input
-                      value={notes[r.id] ?? ''}
-                      onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
-                      placeholder="Respuesta (opcional)"
-                      maxLength={300}
-                      className="flex-1 px-3 py-2 rounded-xl border border-border bg-background text-sm"
-                    />
-                    <div className="grid grid-cols-2 gap-2 sm:flex">
-                      <button
-                        type="button"
-                        disabled={busy === r.id}
-                        onClick={() => resolve(r, false)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-red-200 text-red-700 bg-red-50 text-sm font-semibold disabled:opacity-50"
-                      >
-                        <X size={15} />
-                        Rechazar
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy === r.id || waiting}
-                        title={waiting ? 'Falta que la compañera acepte' : undefined}
-                        onClick={() => resolve(r, true)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
-                      >
-                        <Check size={15} />
-                        Aprobar
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  (r.respuesta || r.resolved_by_email) && (
-                    <p className="text-xs text-muted-foreground">
-                      {r.respuesta && <>Respuesta: «{r.respuesta}» </>}
-                      {r.resolved_by_email && <>· {r.resolved_by_email}</>}
-                    </p>
-                  )
-                )}
+                {r.status === 'pendiente'
+                  ? canResponder && (
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <input
+                          value={notes[r.id] ?? ''}
+                          onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
+                          placeholder="Respuesta (opcional)"
+                          maxLength={300}
+                          className="flex-1 px-3 py-2 rounded-xl border border-border bg-background text-sm"
+                        />
+                        <div className="grid grid-cols-2 gap-2 sm:flex">
+                          <button
+                            type="button"
+                            disabled={busy === r.id}
+                            onClick={() => resolve(r, false)}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-red-200 text-red-700 bg-red-50 text-sm font-semibold disabled:opacity-50"
+                          >
+                            <X size={15} />
+                            Rechazar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy === r.id || waiting}
+                            title={waiting ? 'Falta que la compañera acepte' : undefined}
+                            onClick={() => resolve(r, true)}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
+                          >
+                            <Check size={15} />
+                            Aprobar
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  : (r.respuesta || r.resolved_by_email) && (
+                      <p className="text-xs text-muted-foreground">
+                        {r.respuesta && <>Respuesta: «{r.respuesta}» </>}
+                        {r.resolved_by_email && <>· {r.resolved_by_email}</>}
+                      </p>
+                    )}
                 {r.status === 'aprobada' && r.tipo === 'libre' && permisoDe(r) && (
                   <button
                     type="button"
