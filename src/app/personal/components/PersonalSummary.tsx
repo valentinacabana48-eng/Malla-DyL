@@ -30,11 +30,16 @@ export default function PersonalSummary({
   summary,
   selectedCargos,
   onToggleCargo,
+  selectedHoras,
+  onToggleHoras,
 }: {
   summary: Summary;
   /** [] = todos */
   selectedCargos: string[];
   onToggleCargo: (cargo: string) => void;
+  /** [] = todas */
+  selectedHoras: number[];
+  onToggleHoras: (horas: number) => void;
 }) {
   const topCards = [
     {
@@ -145,17 +150,24 @@ export default function PersonalSummary({
                 text: 'text-slate-700',
                 border: 'border-slate-200',
               };
+              const isSelected = selectedHoras.includes(h);
+              const isDimmed = selectedHoras.length > 0 && !isSelected;
+              // Tocar unas horas las suma al filtro; tocarlas de nuevo las quita
               return (
-                <div
+                <button
+                  type="button"
                   key={`horas-${horas}`}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${colors.bg} ${colors.border}`}
+                  onClick={() => onToggleHoras(h)}
+                  aria-pressed={isSelected}
+                  title={isSelected ? `Quitar ${horas}h del filtro` : `Ver ${horas}h`}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${colors.bg} ${colors.border} ${isSelected ? 'ring-2 ring-secondary' : ''} ${isDimmed ? 'opacity-50 hover:opacity-80' : 'hover:shadow-sm'}`}
                 >
                   <div className={`text-3xl font-extrabold ${colors.text}`}>{count}</div>
                   <div>
                     <p className={`text-sm font-bold ${colors.text}`}>{horas}h</p>
                     <p className="text-xs text-muted-foreground">contratadas</p>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
