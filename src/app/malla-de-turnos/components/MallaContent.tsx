@@ -4,7 +4,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   CalendarDays,
-  Clock,
   Download,
   FileSpreadsheet,
   Grid3x3,
@@ -82,7 +81,6 @@ export default function MallaContent() {
     globalSucursal,
     globalArea,
     isMonthLoaded,
-    mesAbierto,
   } = useAppContext();
   // Mientras llega la malla de un mes no se muestra (para no editar sobre algo vacío)
   const monthReady = isMonthLoaded(monthLabelToKey(selectedMes));
@@ -201,8 +199,6 @@ export default function MallaContent() {
 
     workers.forEach((worker) => {
       if (!worker.birthday) return;
-      // Un mes en preparación no se toca (la base tampoco deja)
-      if (!mesAbierto(monthKey, worker.sucursal)) return;
       // birthday stored as YYYY-MM-DD
       const bDate = new Date(worker.birthday + 'T00:00:00');
       if (isNaN(bDate.getTime())) return;
@@ -265,23 +261,9 @@ export default function MallaContent() {
     currentMonthSpecialDays
   );
 
-  // Sucursales elegidas cuya malla de este mes todavía está en preparación para esta persona
-  const sucursalesEnPreparacion = useMemo(() => {
-    const monthKey = monthLabelToKey(selectedMes);
-    const set = new Set<string>();
-    workers.forEach((w) => {
-      if (w.estado !== 'Activo') return;
-      if (selectedSucursales.length > 0 && !selectedSucursales.includes(w.sucursal)) return;
-      if (!mesAbierto(monthKey, w.sucursal)) set.add(w.sucursal);
-    });
-    return [...set].sort();
-  }, [workers, selectedSucursales, selectedMes, mesAbierto]);
-
   const filteredWorkers = useMemo(() => {
-    const monthKey = monthLabelToKey(selectedMes);
     return workers.filter((w) => {
       if (w.estado !== 'Activo') return false;
-      if (!mesAbierto(monthKey, w.sucursal)) return false;
       if (selectedAreas.length > 0 && !selectedAreas.includes(w.area)) return false;
       if (selectedSucursales.length > 0 && !selectedSucursales.includes(w.sucursal)) return false;
       if (selectedCargos.length > 0 && !selectedCargos.includes(w.cargo)) return false;
@@ -297,6 +279,7 @@ export default function MallaContent() {
         if (!w.name.toLowerCase().includes(q)) return false;
       }
       if (selectedTurno !== 'Todos') {
+        const monthKey = monthLabelToKey(selectedMes);
         const sched = (scheduleData[monthKey] || {})[w.id] || [];
         const hasShift = sched.some((s) => {
           if (!s || s === 'DESC') return false;
@@ -321,11 +304,7 @@ export default function MallaContent() {
     scheduleData,
     shifts,
     selectedMes,
-    mesAbierto,
   ]);
-
-  // Toda la malla elegida está en preparación: se muestra el aviso en vez de la grilla
-  const todoEnPreparacion = sucursalesEnPreparacion.length > 0 && filteredWorkers.length === 0;
 
   // ── Reglas de cumplimiento (una sola fuente: src/lib/compliance.ts) ──
   const complianceByWorker = useMemo(() => {
@@ -632,28 +611,7 @@ export default function MallaContent() {
         />
       </div>
 
-      {sucursalesEnPreparacion.length > 0 && !todoEnPreparacion && (
-        <div className="mt-4 flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
-          <Clock size={16} className="mt-0.5 shrink-0" />
-          <span>
-            La malla de {selectedMes} de {sucursalesEnPreparacion.join(', ')} está en preparación.
-            Se verá aquí cuando se publique.
-          </span>
-        </div>
-      )}
-
-      {todoEnPreparacion ? (
-        <div className="mt-4 flex flex-col items-center justify-center gap-3 py-16 px-6 bg-card rounded-2xl border border-border text-center">
-          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center">
-            <Clock size={22} className="text-amber-600" />
-          </div>
-          <h2 className="text-lg font-bold text-foreground">Malla en preparación</h2>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            La malla de {selectedMes} todavía no se publica. La verás aquí cuando esté publicada y
-            llegue su fecha de visibilidad.
-          </p>
-        </div>
-      ) : !monthReady ? (
+      {!monthReady ? (
         <div className="mt-4 flex items-center justify-center gap-3 py-16 bg-card rounded-2xl border border-border text-sm text-muted-foreground">
           <div className="w-6 h-6 rounded-full border-[3px] border-secondary/20 border-t-secondary animate-spin" />
           Cargando la malla de {selectedMes}…
