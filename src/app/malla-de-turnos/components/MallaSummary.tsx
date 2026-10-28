@@ -20,6 +20,14 @@ interface Props {
   daysInMonth: number;
   monthLabel: string;
   selectedCargo?: string;
+  // Meses vecinos: para ver la semana completa cuando cruza de mes
+  prevMonth?: NeighborMonth;
+  nextMonth?: NeighborMonth;
+}
+
+interface NeighborMonth {
+  scheduleData: Record<string, ShiftCode[]>;
+  specialDaysData: Record<string, Record<number, string>>;
 }
 
 // Casillas para marcar a mano en la hoja impresa del día
@@ -139,32 +147,59 @@ function buildWeekOptions(
   const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 0;
   const year = parseInt(parts[1] || '2026', 10);
 
+  // Cada semana va de lunes a domingo completa: startDay puede ser < 1 (días del mes anterior)
+  // y endDay > daysInMonth (días del mes siguiente)
   const weeks: { label: string; startDay: number; endDay: number }[] = [];
   let weekNum = 1;
   let d = 1;
   while (d <= daysInMonth) {
     const date = new Date(year, monthIdx, d);
     const dow = (date.getDay() + 6) % 7;
-    const weekMonday = d - dow;
-    const weekSunday = weekMonday + 6;
-    const startDay = Math.max(1, weekMonday);
-    const endDay = Math.min(daysInMonth, weekSunday);
-    weeks.push({
-      label: `Semana ${weekNum} (${startDay}–${endDay} ${parts[0]})`,
-      startDay,
-      endDay,
-    });
+    const startDay = d - dow;
+    const endDay = startDay + 6;
+    const label =
+      startDay < 1 || endDay > daysInMonth
+        ? `${formatShortDate(year, monthIdx, startDay)} – ${formatShortDate(year, monthIdx, endDay)}`
+        : `${startDay}–${endDay} ${parts[0]}`;
+    weeks.push({ label: `Semana ${weekNum} (${label})`, startDay, endDay });
     weekNum++;
     d = endDay + 1;
   }
   return weeks;
 }
 
+const MONTH_SHORT = [
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
+];
+
+// "30 nov": día real aunque `day` se salga del mes (0 = último día del mes anterior, etc.)
+function formatShortDate(year: number, monthIdx: number, day: number): string {
+  const date = new Date(year, monthIdx, day);
+  return `${date.getDate()} ${MONTH_SHORT[date.getMonth()]}`;
+}
+
+// Datos del día `day` de la semana, que puede caer en el mes anterior o el siguiente
+type DaySource = {
+  scheduleData: Record<string, ShiftCode[]>;
+  specialDaysData: Record<string, Record<number, string>>;
+  dayIdx: number;
+};
+
 // Returns per-day, per-hour entry counts for a week range
 function buildWeeklySummary(
   workers: Worker[],
-  scheduleData: Record<string, ShiftCode[]>,
-  specialDaysData: Record<string, Record<number, string>>,
+  resolveDay: (day: number) => DaySource,
   shifts: Record<string, Shift>,
   startDay: number,
   endDay: number
@@ -172,7 +207,7 @@ function buildWeeklySummary(
   const slotHour = (time: string) => parseInt(time.split(':')[0], 10);
   const result = [];
   for (let d = startDay; d <= endDay; d++) {
-    const dayIdx = d - 1;
+    const { scheduleData, specialDaysData, dayIdx } = resolveDay(d);
     const hourMap: Record<string, number> = {};
     HOUR_SLOTS.forEach((h) => {
       hourMap[h] = 0;
@@ -205,7 +240,8 @@ function buildWeeklySummary(
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-function getDayName(day: number, monthLabel: string): string {
+// "Noviembre 2026" → [2026, 10]
+function monthYear(monthLabel: string): [number, number] {
   const MONTH_NAMES_MAP: Record<string, number> = {
     Enero: 0,
     Febrero: 1,
@@ -221,8 +257,11 @@ function getDayName(day: number, monthLabel: string): string {
     Diciembre: 11,
   };
   const parts = (monthLabel || '').split(' ');
-  const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 0;
-  const year = parseInt(parts[1] || '2026', 10);
+  return [parseInt(parts[1] || '2026', 10), MONTH_NAMES_MAP[parts[0]] ?? 0];
+}
+
+function getDayName(day: number, monthLabel: string): string {
+  const [year, monthIdx] = monthYear(monthLabel);
   const date = new Date(year, monthIdx, day);
   return DAY_NAMES[(date.getDay() + 6) % 7];
 }
@@ -483,6 +522,8 @@ export default function MallaSummary({
   daysInMonth,
   monthLabel,
   selectedCargo = 'Todos',
+  prevMonth,
+  nextMonth,
 }: Props) {
   const [selectedDay, setSelectedDay] = useState<number>(-1);
   const [printMode, setPrintMode] = useState<'day' | 'week'>('week');
@@ -498,6 +539,39 @@ export default function MallaSummary({
   );
 
   const cajasOnlyCargo = selectedCargo === 'Cajera';
+
+  // Días de la semana fuera del mes: se leen del mes anterior o siguiente
+  const resolveDay = (day: number): DaySource => {
+    if (day < 1) {
+      const [year, monthIdx] = monthYear(monthLabel);
+      const prevDays = new Date(year, monthIdx, 0).getDate();
+      return {
+        scheduleData: prevMonth?.scheduleData ?? {},
+        specialDaysData: prevMonth?.specialDaysData ?? {},
+        dayIdx: prevDays + day - 1,
+      };
+    }
+    if (day > daysInMonth) {
+      return {
+        scheduleData: nextMonth?.scheduleData ?? {},
+        specialDaysData: nextMonth?.specialDaysData ?? {},
+        dayIdx: day - daysInMonth - 1,
+      };
+    }
+    return { scheduleData, specialDaysData, dayIdx: day - 1 };
+  };
+  const isOtherMonth = (day: number) => day < 1 || day > daysInMonth;
+  // Columnas de otro mes: en gris y más tenues, para que se note que no son de este mes
+  const otherMonthCell = (day: number): React.CSSProperties | undefined =>
+    isOtherMonth(day) ? { background: '#f1f5f9', opacity: 0.7 } : undefined;
+  const realDayNum = (day: number) => {
+    const [year, monthIdx] = monthYear(monthLabel);
+    return new Date(year, monthIdx, day).getDate();
+  };
+  const otherMonthShort = (day: number) => {
+    const [year, monthIdx] = monthYear(monthLabel);
+    return MONTH_SHORT[new Date(year, monthIdx, day).getMonth()];
+  };
 
   const summary = useMemo((): HourRow[] => {
     const targetWorkers = workers;
@@ -673,7 +747,7 @@ export default function MallaSummary({
     if (!wk) return [];
     const result: { day: number; workers: WorkerShiftDetail[] }[] = [];
     for (let d = wk.startDay; d <= wk.endDay; d++) {
-      const dayIdx = d - 1;
+      const { scheduleData, specialDaysData, dayIdx } = resolveDay(d);
       const dayWorkers: WorkerShiftDetail[] = [];
       workers.forEach((w) => {
         const sched = scheduleData[w.id] || [];
@@ -705,20 +779,33 @@ export default function MallaSummary({
       result.push({ day: d, workers: dayWorkers });
     }
     return result;
-  }, [workers, scheduleData, specialDaysData, shifts, weekOptions, selectedWeekIdx]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    workers,
+    scheduleData,
+    specialDaysData,
+    prevMonth,
+    nextMonth,
+    shifts,
+    weekOptions,
+    selectedWeekIdx,
+  ]);
 
   const weeklySummary = useMemo(() => {
     const wk = weekOptions[selectedWeekIdx];
     if (!wk) return [];
-    return buildWeeklySummary(
-      workers,
-      scheduleData,
-      specialDaysData,
-      shifts,
-      wk.startDay,
-      wk.endDay
-    );
-  }, [workers, scheduleData, specialDaysData, shifts, weekOptions, selectedWeekIdx]);
+    return buildWeeklySummary(workers, resolveDay, shifts, wk.startDay, wk.endDay);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    workers,
+    scheduleData,
+    specialDaysData,
+    prevMonth,
+    nextMonth,
+    shifts,
+    weekOptions,
+    selectedWeekIdx,
+  ]);
 
   // Se imprime solo la hoja (del día o de la semana), armada aparte: así no salen hojas de
   // más (ni en blanco) por el resto de la página de Malla
@@ -844,7 +931,8 @@ export default function MallaSummary({
                     }}
                   >
                     <h2 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '2px' }}>
-                      Horario — {getDayName(day, monthLabel)} {day}
+                      Horario — {getDayName(day, monthLabel)} {realDayNum(day)}
+                      {isOtherMonth(day) && ` ${otherMonthShort(day)}`}
                     </h2>
                     <p style={{ fontSize: '11px', color: '#555', marginBottom: '12px' }}>
                       {monthLabel} · {weekOptions[selectedWeekIdx]?.label || ''}
@@ -961,16 +1049,31 @@ export default function MallaSummary({
                     >
                       Hora
                     </th>
-                    {weekDays.map((day) => (
-                      <th
-                        key={`hd-${day}`}
-                        className="text-center px-2 py-1 font-bold text-blue-800 border-r border-blue-200"
-                        style={{ minWidth: '52px' }}
-                      >
-                        <div className="text-[11px] font-bold">{getDayName(day, monthLabel)}</div>
-                        <div className="text-[10px] font-normal text-blue-600">{day}</div>
-                      </th>
-                    ))}
+                    {weekDays.map((day) =>
+                      isOtherMonth(day) ? (
+                        <th
+                          key={`hd-${day}`}
+                          className="text-center px-2 py-1 font-bold text-slate-500 border-r border-blue-200"
+                          style={{ minWidth: '52px', background: '#e2e8f0' }}
+                          title="Día de otro mes"
+                        >
+                          <div className="text-[11px] font-bold">{getDayName(day, monthLabel)}</div>
+                          <div className="text-[10px] font-normal">
+                            {realDayNum(day)}{' '}
+                            <span className="uppercase font-semibold">{otherMonthShort(day)}</span>
+                          </div>
+                        </th>
+                      ) : (
+                        <th
+                          key={`hd-${day}`}
+                          className="text-center px-2 py-1 font-bold text-blue-800 border-r border-blue-200"
+                          style={{ minWidth: '52px' }}
+                        >
+                          <div className="text-[11px] font-bold">{getDayName(day, monthLabel)}</div>
+                          <div className="text-[10px] font-normal text-blue-600">{day}</div>
+                        </th>
+                      )
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -1011,6 +1114,7 @@ export default function MallaSummary({
                         return (
                           <td
                             key={`mc-${day}-${hour}`}
+                            style={otherMonthCell(day)}
                             className="text-center px-2 py-2 border-r border-blue-100"
                           >
                             {val > 0 ? (
@@ -1034,6 +1138,7 @@ export default function MallaSummary({
                     {weekDays.map((day) => (
                       <td
                         key={`mst-${day}`}
+                        style={otherMonthCell(day)}
                         className="text-center px-2 py-2 border-r border-blue-200"
                       >
                         <span className="font-bold text-blue-900 text-[13px]">
@@ -1077,6 +1182,7 @@ export default function MallaSummary({
                         return (
                           <td
                             key={`tc-${day}-${hour}`}
+                            style={otherMonthCell(day)}
                             className="text-center px-2 py-2 border-r border-orange-100"
                           >
                             {val > 0 ? (
@@ -1100,6 +1206,7 @@ export default function MallaSummary({
                     {weekDays.map((day) => (
                       <td
                         key={`tst-${day}`}
+                        style={otherMonthCell(day)}
                         className="text-center px-2 py-2 border-r border-orange-200"
                       >
                         <span className="font-bold text-orange-900 text-[13px]">
@@ -1122,6 +1229,7 @@ export default function MallaSummary({
                       return (
                         <td
                           key={`desc-${day}`}
+                          style={otherMonthCell(day)}
                           className="text-center px-2 py-2 border-r border-slate-200"
                         >
                           {val > 0 ? (
@@ -1145,6 +1253,7 @@ export default function MallaSummary({
                     {weekDays.map((day) => (
                       <td
                         key={`gt-${day}`}
+                        style={otherMonthCell(day)}
                         className="text-center px-2 py-2.5 border-r border-yellow-200"
                       >
                         <span className="font-bold text-yellow-900 text-[14px]">
@@ -1155,6 +1264,11 @@ export default function MallaSummary({
                   </tr>
                 </tbody>
               </table>
+            )}
+            {weekDays.some(isOtherMonth) && (
+              <p className="px-5 py-2 text-[11px] text-muted-foreground">
+                Las columnas en gris son días de otro mes.
+              </p>
             )}
           </div>
         ) : summary.length === 0 ? (
