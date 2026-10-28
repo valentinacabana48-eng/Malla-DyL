@@ -20,6 +20,7 @@ import {
 import { useAppContext, SHIFT_COLOR_OPTIONS } from '@/context/AppContext';
 import type { Worker, Shift } from '@/context/AppContext';
 import { readFirstSheetRows, downloadSimpleWorkbook } from '@/lib/excel';
+import { normalizeRut, formatRut } from '@/lib/rut';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,11 +144,6 @@ function getInitials(name: string): string {
     .join('')
     .toUpperCase()
     .slice(0, 2);
-}
-
-// RUT sin puntos ni guion, para comparar (21.533.115-6 = 215331156)
-function normalizeRut(rut: string): string {
-  return (rut || '').replace(/[^0-9kK]/g, '').toUpperCase();
 }
 
 // Nombre sin tildes, mayúsculas ni espacios de más, para comparar
@@ -319,7 +315,7 @@ function parseSheetData(data: unknown[][]): ParseResult {
         .find((idx) => idx >= 0);
       result.workers.push({
         name,
-        rut: get('rut'),
+        rut: formatRut(get('rut')),
         cargo: get('cargo'),
         role: get('rol') || get('role'),
         sucursal: get('sucursal'),
