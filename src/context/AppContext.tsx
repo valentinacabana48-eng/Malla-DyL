@@ -210,6 +210,8 @@ export interface Worker {
   birthday: string;
   /** Trabaja todos los domingos (p. ej. contratos de fin de semana): sin alerta de domingos libres */
   exentoDomingos?: boolean;
+  /** Pasillo fijo (p. ej. reponedoras); '' o undefined = sin pasillo */
+  pasillo?: string;
 }
 
 export type MonthSchedule = Record<string, ShiftCode[]>;
@@ -267,13 +269,25 @@ function rowToLicencia(r: Record<string, unknown>): Licencia {
 export interface Sucursal {
   name: string;
   cajas: number;
+  /** Pasillos de la sucursal, para asignárselos a las trabajadoras que trabajan por pasillo */
+  pasillos: string[];
+}
+
+/** "3" → "Pasillo 3"; si ya dice "Pasillo…" lo deja igual */
+export function pasilloLabel(p: string): string {
+  return /^pasillo/i.test(p) ? p : `Pasillo ${p}`;
+}
+
+/** Ordena pasillos con los números en orden natural: 2 antes que 10 */
+export function sortPasillos(list: string[]): string[] {
+  return [...list].sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
 }
 
 const DEFAULT_SUCURSALES_DATA: Sucursal[] = [
-  { name: 'Mayorista Talca', cajas: 20 },
-  { name: 'Mayorista Curicó', cajas: 20 },
-  { name: 'Mayorista Linares', cajas: 20 },
-  { name: 'Mayorista Rancagua', cajas: 20 },
+  { name: 'Mayorista Talca', cajas: 20, pasillos: [] },
+  { name: 'Mayorista Curicó', cajas: 20, pasillos: [] },
+  { name: 'Mayorista Linares', cajas: 20, pasillos: [] },
+  { name: 'Mayorista Rancagua', cajas: 20, pasillos: [] },
 ];
 const DEFAULT_AREAS = ['Cajas', 'Tesorería', 'Supermercado', 'Bodega'];
 
@@ -536,8 +550,8 @@ interface AppContextValue {
     overrideMonthKey?: string
   ) => void;
   getSpecialDaysForWorker: (workerId: string) => Record<number, string>;
-  addSucursal: (name: string, cajas?: number) => void;
-  updateSucursal: (oldName: string, newName: string, cajas?: number) => void;
+  addSucursal: (name: string, cajas?: number, pasillos?: string[]) => void;
+  updateSucursal: (oldName: string, newName: string, cajas?: number, pasillos?: string[]) => void;
   deleteSucursal: (name: string) => void;
   getSucursalCajas: (name: string) => number;
   addArea: (name: string) => void;
@@ -586,6 +600,7 @@ function rowToWorker(row: Record<string, unknown>): Worker {
     avatarColor: (row.avatar_color as string) || '',
     birthday: (row.birthday as string) || '',
     exentoDomingos: row.exento_domingos === true,
+    pasillo: (row.pasillo as string) || '',
   };
 }
 
@@ -604,6 +619,7 @@ function workerToRow(w: Worker) {
     avatar_color: w.avatarColor,
     birthday: w.birthday,
     exento_domingos: !!w.exentoDomingos,
+    pasillo: w.pasillo || '',
   };
 }
 
@@ -895,7 +911,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         if (sucursalesData && sucursalesData.length > 0) {
           setSucursales(
-            sucursalesData.map((r) => ({ name: r.name as string, cajas: r.cajas as number }))
+            sucursalesData.map((r) => ({
+              name: r.name as string,
+              cajas: r.cajas as number,
+              pasillos: Array.isArray(r.pasillos) ? (r.pasillos as string[]) : [],
+            }))
           );
         }
         if (areasData && areasData.length > 0) {
@@ -1543,12 +1563,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Sucursales ──
   const addSucursal = useCallback(
-    async (name: string, cajas: number = 20) => {
+    async (name: string, cajas: number = 20, pasillos: string[] = []) => {
       setSucursales((prev) =>
-        prev.some((s) => s.name === name) ? prev : [...prev, { name, cajas }]
+        prev.some((s) => s.name === name) ? prev : [...prev, { name, cajas, pasillos }]
       );
       await dbWrite(
-        supabase.from('sucursales').upsert({ name, cajas }, { onConflict: 'name' }),
+        supabase.from('sucursales').upsert({ name, cajas, pasillos }, { onConflict: 'name' }),
         'la sucursal'
       );
     },
@@ -1556,10 +1576,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateSucursal = useCallback(
-    async (oldName: string, newName: string, cajas?: number) => {
+    async (oldName: string, newName: string, cajas?: number, pasillos?: string[]) => {
+      const current = sucursales.find((s) => s.name === oldName);
+      const newPasillos = pasillos ?? current?.pasillos ?? [];
       setSucursales((prev) =>
         prev.map((s) =>
-          s.name === oldName ? { name: newName, cajas: cajas !== undefined ? cajas : s.cajas } : s
+          s.name === oldName
+            ? {
+                name: newName,
+                cajas: cajas !== undefined ? cajas : s.cajas,
+                pasillos: newPasillos,
+              }
+            : s
         )
       );
       setWorkers((prev) =>
@@ -1572,7 +1600,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           (await dbWrite(
             supabase
               .from('sucursales')
-              .upsert({ name: newName, cajas: newCajas }, { onConflict: 'name' }),
+              .upsert(
+                { name: newName, cajas: newCajas, pasillos: newPasillos },
+                { onConflict: 'name' }
+              ),
             'la sucursal'
           )) &&
           (await dbWrite(
@@ -1587,14 +1618,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           toast.error(
             'El cambio de nombre quedó incompleto. Recarga la página y revisa la sucursal.'
           );
-      } else if (cajas !== undefined) {
+      } else if (cajas !== undefined || pasillos !== undefined) {
         await dbWrite(
-          supabase.from('sucursales').update({ cajas }).eq('name', oldName),
+          supabase
+            .from('sucursales')
+            .update({
+              ...(cajas !== undefined ? { cajas } : {}),
+              ...(pasillos !== undefined ? { pasillos } : {}),
+            })
+            .eq('name', oldName),
           'la sucursal'
         );
       }
     },
-    [supabase]
+    [supabase, sucursales]
   );
 
   const deleteSucursal = useCallback(

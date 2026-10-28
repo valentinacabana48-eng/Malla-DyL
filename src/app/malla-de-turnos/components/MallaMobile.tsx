@@ -6,6 +6,7 @@ import {
   useAppContext,
   monthLabelToKey,
   shiftsForSucursales,
+  pasilloLabel,
   type Shift,
   type ShiftCode,
   type Worker,
@@ -300,7 +301,10 @@ export default function MallaMobile({
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-semibold text-foreground truncate">{w.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">{w.cargo || w.role}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {w.cargo || w.role}
+                        {w.pasillo ? ` · ${pasilloLabel(w.pasillo)}` : ''}
+                      </p>
                       {requestMarks[`${w.id}-${dayIndex}`] && (
                         <p className="text-xs font-medium text-blue-700">
                           ⇄ {requestMarks[`${w.id}-${dayIndex}`].text}
@@ -346,6 +350,7 @@ export default function MallaMobile({
                         <p className="text-base font-semibold text-foreground truncate">{w.name}</p>
                         <p className="text-sm text-muted-foreground truncate">
                           {w.cargo || w.role}
+                          {w.pasillo ? ` · ${pasilloLabel(w.pasillo)}` : ''}
                         </p>
                         {requestMarks[`${w.id}-${dayIndex}`] && (
                           <p className="text-xs font-medium text-blue-700">

@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Save } from 'lucide-react';
 import { HORAS_OPTIONS, useAppContext, type Worker } from '@/context/AppContext';
@@ -23,6 +23,7 @@ interface FormData {
   estado: Worker['estado'];
   birthday: string;
   exentoDomingos: boolean;
+  pasillo: string;
 }
 
 const AVATAR_COLORS = [
@@ -60,6 +61,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
       estado: worker.estado,
       birthday: worker.birthday || '',
       exentoDomingos: !!worker.exentoDomingos,
+      pasillo: worker.pasillo || '',
     },
   });
 
@@ -74,10 +76,19 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
       estado: worker.estado,
       birthday: worker.birthday || '',
       exentoDomingos: !!worker.exentoDomingos,
+      pasillo: worker.pasillo || '',
     });
   }, [worker.id, reset]);
 
   const selectedArea = watch('area');
+  const selectedSucursal = watch('sucursal');
+  const selectedPasillo = watch('pasillo');
+
+  // Pasillos de la sucursal (Ajustes). Se conserva el que ya tenía aunque ya no esté en la lista.
+  const pasilloOptions = useMemo(() => {
+    const list = sucursales.find((s) => s.name === selectedSucursal)?.pasillos || [];
+    return selectedPasillo && !list.includes(selectedPasillo) ? [...list, selectedPasillo] : list;
+  }, [sucursales, selectedSucursal, selectedPasillo]);
 
   // Get cargos for the selected area; if none configured, show a free text input
   const cargosForArea =
@@ -98,6 +109,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
       avatarColor: worker.avatarColor || AVATAR_COLORS[colorIdx],
       birthday: data.birthday || '',
       exentoDomingos: !!data.exentoDomingos,
+      pasillo: data.pasillo || '',
     };
     onSave(saved);
   };
@@ -227,6 +239,29 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
             <p className="text-xs text-red-500 mt-1">{String(errors.cargo.message)}</p>
           )}
         </div>
+
+        {/* Pasillo — opcional, solo si la sucursal tiene pasillos */}
+        {pasilloOptions.length > 0 && (
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1">
+              Pasillo
+              <span className="ml-1 text-[10px] text-muted-foreground font-normal">
+                (opcional, p. ej. reponedores)
+              </span>
+            </label>
+            <select
+              {...register('pasillo')}
+              className="w-full px-3 py-3 lg:py-2 bg-input border border-border rounded-lg text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+            >
+              <option value="">Sin pasillo</option>
+              {pasilloOptions.map((p) => (
+                <option key={`pasillo-${p}`} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Horas */}
         <div>
