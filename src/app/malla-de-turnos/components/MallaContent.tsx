@@ -255,6 +255,19 @@ export default function MallaContent() {
     const monthKey = monthLabelToKey(selectedMes);
     return specialDays[monthKey] || {};
   }, [specialDays, selectedMes]);
+  // Meses vecinos para el Resumen por horario: la semana que cruza de mes se ve completa
+  const neighborMonths = useMemo(() => {
+    const [year, month] = monthLabelToKey(selectedMes).split('-').map(Number);
+    const keyOf = (offset: number) => {
+      const date = new Date(year, month - 1 + offset, 1);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    };
+    const monthOf = (key: string) => ({
+      scheduleData: scheduleData[key] || {},
+      specialDaysData: specialDays[key] || {},
+    });
+    return { prev: monthOf(keyOf(-1)), next: monthOf(keyOf(1)) };
+  }, [scheduleData, specialDays, selectedMes]);
   const requestMarks = useRequestMarks(
     monthLabelToKey(selectedMes),
     currentMonthSchedule,
@@ -684,6 +697,8 @@ export default function MallaContent() {
                 daysInMonth={daysInMonth}
                 monthLabel={selectedMes}
                 selectedCargo={selectedCargos.length === 1 ? selectedCargos[0] : 'Todos'}
+                prevMonth={neighborMonths.prev}
+                nextMonth={neighborMonths.next}
               />
             </div>
           </div>
