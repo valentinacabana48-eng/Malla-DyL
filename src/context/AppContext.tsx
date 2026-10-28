@@ -516,7 +516,12 @@ interface AppContextValue {
     shift: ShiftCode,
     overrideMonthKey?: string
   ) => Promise<boolean>;
-  bulkAssign: (workerIds: string[], dayIndices: number[], shift: ShiftCode) => Promise<boolean>;
+  bulkAssign: (
+    workerIds: string[],
+    dayIndices: number[],
+    shift: ShiftCode,
+    overrideMonthKey?: string
+  ) => Promise<boolean>;
   getScheduleForWorker: (workerId: string) => ShiftCode[];
   setSpecialDay: (
     workerId: string,
@@ -527,7 +532,8 @@ interface AppContextValue {
   bulkAssignSpecialDay: (
     workerIds: string[],
     dayIndices: number[],
-    typeCode: string | null
+    typeCode: string | null,
+    overrideMonthKey?: string
   ) => void;
   getSpecialDaysForWorker: (workerId: string) => Record<number, string>;
   addSucursal: (name: string, cajas?: number) => void;
@@ -1322,8 +1328,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const bulkAssign = useCallback(
-    async (workerIds: string[], dayIndices: number[], shift: ShiftCode): Promise<boolean> => {
-      const monthKey = monthLabelToKey(selectedMes);
+    async (
+      workerIds: string[],
+      dayIndices: number[],
+      shift: ShiftCode,
+      overrideMonthKey?: string
+    ): Promise<boolean> => {
+      const monthKey = overrideMonthKey ?? monthLabelToKey(selectedMes);
       // Compute updated arrays from current ref snapshot, skipping cells that have special days
       const currentMonthSched = scheduleDataRef.current[monthKey] || {};
       const currentSpecialDays = specialDaysRef.current[monthKey] || {};
@@ -1457,8 +1468,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const bulkAssignSpecialDay = useCallback(
-    async (workerIds: string[], dayIndices: number[], typeCode: string | null) => {
-      const monthKey = monthLabelToKey(selectedMes);
+    async (
+      workerIds: string[],
+      dayIndices: number[],
+      typeCode: string | null,
+      overrideMonthKey?: string
+    ) => {
+      const monthKey = overrideMonthKey ?? monthLabelToKey(selectedMes);
 
       // Optimistically update React state
       setSpecialDaysState((prev) => {

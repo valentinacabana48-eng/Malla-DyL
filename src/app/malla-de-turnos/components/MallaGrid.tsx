@@ -989,7 +989,8 @@ export default function MallaGrid({
   const [activeShift, setActiveShift] = useState<ShiftCode | undefined>(undefined);
   const [activeSpecialDay, setActiveSpecialDay] = useState<string | undefined>(undefined);
 
-  // Block mode: set of "workerId-dayIndex" keys
+  // Block mode: set of "monthKey|workerId|dayIndex" keys (monthKey vacío = mes que se está viendo;
+  // los días del mes anterior/siguiente que se ven en los bordes llevan su propio mes)
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
 
   const handleSelectShift = useCallback((code: ShiftCode) => {
@@ -1004,8 +1005,8 @@ export default function MallaGrid({
     // Do NOT reset selectedCells here — user may have already selected cells before choosing a special day
   }, []);
 
-  const handleToggleCell = useCallback((workerId: string, dayIndex: number) => {
-    const key = `${workerId}-${dayIndex}`;
+  const handleToggleCell = useCallback((workerId: string, dayIndex: number, monthKey = '') => {
+    const key = `${monthKey}|${workerId}|${dayIndex}`;
     setSelectedCells((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
@@ -1018,27 +1019,30 @@ export default function MallaGrid({
   }, []);
 
   const handleApply = useCallback(() => {
-    // Group selected cells by workerId → list of dayIndices
-    const workerDayMap = new Map<string, number[]>();
+    // Agrupar por mes y trabajador: cada trabajador recibe solo SUS días seleccionados
+    const groups = new Map<string, { monthKey: string; workerId: string; dayIndices: number[] }>();
     selectedCells.forEach((key) => {
-      const lastDash = key.lastIndexOf('-');
-      const workerId = key.substring(0, lastDash);
-      const dayIndex = parseInt(key.substring(lastDash + 1), 10);
-      if (!workerDayMap.has(workerId)) workerDayMap.set(workerId, []);
-      workerDayMap.get(workerId)!.push(dayIndex);
+      const [monthKey, workerId, di] = key.split('|');
+      const groupKey = `${monthKey}|${workerId}`;
+      if (!groups.has(groupKey)) groups.set(groupKey, { monthKey, workerId, dayIndices: [] });
+      groups.get(groupKey)!.dayIndices.push(parseInt(di, 10));
     });
 
-    // Cada trabajador recibe solo SUS días seleccionados. Antes se juntaban todos los días
-    // de todas las filas y se aplicaban a cada trabajador, marcando casillas que nadie eligió.
-    workerDayMap.forEach((dayIndices, workerId) => {
+    groups.forEach(({ monthKey, workerId, dayIndices }) => {
+      const overrideMonthKey = monthKey || undefined;
       if (activeSpecialDay !== undefined) {
-        bulkAssignSpecialDay([workerId], dayIndices, activeSpecialDay);
+        bulkAssignSpecialDay([workerId], dayIndices, activeSpecialDay, overrideMonthKey);
       } else {
-        bulkAssign([workerId], dayIndices, activeShift ?? null);
+        bulkAssign([workerId], dayIndices, activeShift ?? null, overrideMonthKey);
       }
     });
     setSelectedCells(new Set());
   }, [selectedCells, activeShift, activeSpecialDay, bulkAssign, bulkAssignSpecialDay]);
+
+  // Al cambiar de mes, la selección ya no corresponde a las casillas que se ven
+  useEffect(() => {
+    setSelectedCells(new Set());
+  }, [monthLabel]);
 
   const handleClearSelection = useCallback(() => {
     setSelectedCells(new Set());
@@ -1606,6 +1610,23 @@ export default function MallaGrid({
                   {leadingDays.map((ld) => {
                     const prevSched = (fullScheduleData[prevMonthKey] || {})[worker.id] || [];
                     const prevSpecial = (fullSpecialDays[prevMonthKey] || {})[worker.id] || {};
+                    if (isBlockMode) {
+                      return (
+                        <BlockModeCell
+                          key={`lead-cell-${worker.id}-${ld.day}`}
+                          workerId={worker.id}
+                          dayIndex={ld.dayIndex}
+                          shift={prevSched[ld.dayIndex] ?? null}
+                          specialDay={prevSpecial[ld.dayIndex]}
+                          shifts={shifts}
+                          nonWorkingTypes={nonWorkingTypes}
+                          isSelected={selectedCells.has(
+                            `${prevMonthKey}|${worker.id}|${ld.dayIndex}`
+                          )}
+                          onToggle={(wid, di) => handleToggleCell(wid, di, prevMonthKey)}
+                        />
+                      );
+                    }
                     return (
                       <ShiftCell
                         key={`lead-cell-${worker.id}-${ld.day}`}
@@ -1638,7 +1659,7 @@ export default function MallaGrid({
                       const isUnderHoursWeek = underHoursWeeks.has(weekKey);
 
                       if (isBlockMode) {
-                        const cellKey = `${worker.id}-${i}`;
+                        const cellKey = `|${worker.id}|${i}`;
                         return (
                           <BlockModeCell
                             key={`${worker.id}-day-${i}`}
@@ -1685,6 +1706,23 @@ export default function MallaGrid({
                   {trailingDays.map((trd) => {
                     const nextSched = (fullScheduleData[nextMonthKey] || {})[worker.id] || [];
                     const nextSpecial = (fullSpecialDays[nextMonthKey] || {})[worker.id] || {};
+                    if (isBlockMode) {
+                      return (
+                        <BlockModeCell
+                          key={`trail-cell-${worker.id}-${trd.day}`}
+                          workerId={worker.id}
+                          dayIndex={trd.dayIndex}
+                          shift={nextSched[trd.dayIndex] ?? null}
+                          specialDay={nextSpecial[trd.dayIndex]}
+                          shifts={shifts}
+                          nonWorkingTypes={nonWorkingTypes}
+                          isSelected={selectedCells.has(
+                            `${nextMonthKey}|${worker.id}|${trd.dayIndex}`
+                          )}
+                          onToggle={(wid, di) => handleToggleCell(wid, di, nextMonthKey)}
+                        />
+                      );
+                    }
                     return (
                       <ShiftCell
                         key={`trail-cell-${worker.id}-${trd.day}`}
