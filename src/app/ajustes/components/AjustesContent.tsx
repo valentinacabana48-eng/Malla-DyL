@@ -30,6 +30,7 @@ import {
   type Shift,
   type NonWorkingType,
   type Sucursal,
+  sortPasillos,
   timeToMinutes,
 } from '@/context/AppContext';
 import { useAuth, type UserRole } from '@/context/AuthContext';
@@ -599,10 +600,39 @@ function DeleteConfirm({
 
 // ─── Sucursal Manager (with Cajas) ───────────────────────────────────────────
 
+/** "1, 2, 3, Bebidas" → ['1', '2', '3', 'Bebidas'] (sin vacíos ni repetidos, en orden natural) */
+function parsePasillos(text: string): string[] {
+  return sortPasillos([
+    ...new Set(
+      text
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean)
+    ),
+  ]);
+}
+
+function PasillosInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="w-full flex flex-col gap-1">
+      <label className="text-xs text-muted-foreground">
+        Pasillos (opcional, separados por coma; p. ej. 1, 2, 3, Bebidas):
+      </label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Sin pasillos"
+        className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+      />
+    </div>
+  );
+}
+
 interface SucursalManagerProps {
   sucursales: Sucursal[];
-  onAdd: (name: string, cajas: number) => void;
-  onUpdate: (oldName: string, newName: string, cajas: number) => void;
+  onAdd: (name: string, cajas: number, pasillos: string[]) => void;
+  onUpdate: (oldName: string, newName: string, cajas: number, pasillos: string[]) => void;
   onDelete: (name: string) => void;
 }
 
@@ -610,9 +640,11 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newCajas, setNewCajas] = useState(20);
+  const [newPasillos, setNewPasillos] = useState('');
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editCajas, setEditCajas] = useState(20);
+  const [editPasillos, setEditPasillos] = useState('');
   const [deletingItem, setDeletingItem] = useState<string | null>(null);
   const [error, setError] = useState('');
 
@@ -631,9 +663,10 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
       setError('El número de cajas debe ser al menos 1.');
       return;
     }
-    onAdd(trimmed, newCajas);
+    onAdd(trimmed, newCajas, parsePasillos(newPasillos));
     setNewName('');
     setNewCajas(20);
+    setNewPasillos('');
     setShowForm(false);
     setError('');
   }
@@ -653,7 +686,7 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
       setError('El número de cajas debe ser al menos 1.');
       return;
     }
-    onUpdate(editingItem!, trimmed, editCajas);
+    onUpdate(editingItem!, trimmed, editCajas, parsePasillos(editPasillos));
     setEditingItem(null);
     setError('');
   }
@@ -713,6 +746,7 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
                 className="w-20 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-center"
               />
             </div>
+            <PasillosInput value={newPasillos} onChange={setNewPasillos} />
             <button
               type="submit"
               className="flex items-center gap-1.5 bg-secondary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all"
@@ -726,6 +760,7 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
                 setShowForm(false);
                 setNewName('');
                 setNewCajas(20);
+                setNewPasillos('');
                 setError('');
               }}
               className="px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted transition-colors"
@@ -784,6 +819,7 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
                       className="w-20 px-2 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-center"
                     />
                   </div>
+                  <PasillosInput value={editPasillos} onChange={setEditPasillos} />
                   <button
                     type="submit"
                     className="flex items-center gap-1 bg-secondary text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition-all"
@@ -810,6 +846,14 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
                     <span className="text-xs bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-semibold">
                       {suc.cajas} caja{suc.cajas !== 1 ? 's' : ''}
                     </span>
+                    {suc.pasillos.length > 0 && (
+                      <span
+                        className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-semibold"
+                        title={suc.pasillos.join(', ')}
+                      >
+                        {suc.pasillos.length} pasillo{suc.pasillos.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -817,6 +861,7 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
                         setEditingItem(suc.name);
                         setEditName(suc.name);
                         setEditCajas(suc.cajas);
+                        setEditPasillos(suc.pasillos.join(', '));
                         setShowForm(false);
                         setError('');
                       }}

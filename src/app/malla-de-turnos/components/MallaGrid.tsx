@@ -10,6 +10,7 @@ import {
   type NonWorkingType,
   useAppContext,
   shiftsForSucursales,
+  pasilloLabel,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import type { MonthCompliance } from '@/lib/compliance';
@@ -1332,6 +1333,7 @@ export default function MallaGrid({
                         <div className="flex items-center gap-1">
                           <p className="text-[10px] text-muted-foreground truncate">
                             {worker.role || worker.cargo}
+                            {worker.pasillo ? ` · ${pasilloLabel(worker.pasillo)}` : ''}
                           </p>
                           {(() => {
                             const effectiveHoras =

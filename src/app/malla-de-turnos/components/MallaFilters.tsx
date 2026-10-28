@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Calendar,
   MapPin,
@@ -9,8 +9,9 @@ import {
   Search,
   Hash,
   SlidersHorizontal,
+  Rows3,
 } from 'lucide-react';
-import { MESES, useAppContext } from '@/context/AppContext';
+import { MESES, sortPasillos, useAppContext } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
 import { useCargoOptions } from '@/hooks/useCargoOptions';
 
@@ -29,6 +30,9 @@ interface Props {
   /** [] = todos */
   selectedCargos: string[];
   setSelectedCargos: (v: string[]) => void;
+  /** [] = todos */
+  selectedPasillos: string[];
+  setSelectedPasillos: (v: string[]) => void;
   selectedHoras: string[];
   setSelectedHoras: (v: string[]) => void;
   nameSearch: string;
@@ -94,12 +98,29 @@ export default function MallaFilters({
   turnoOptions,
   selectedCargos,
   setSelectedCargos,
+  selectedPasillos,
+  setSelectedPasillos,
   selectedHoras,
   setSelectedHoras,
   nameSearch,
   setNameSearch,
 }: Props) {
-  const { sucursales, areas } = useAppContext();
+  const { sucursales, areas, workers } = useAppContext();
+
+  // Pasillos de las sucursales elegidas (Ajustes) y los que tienen las trabajadoras
+  const pasilloOptions = useMemo(() => {
+    const inSucursal = (name: string) =>
+      selectedSucursales.length === 0 || selectedSucursales.includes(name);
+    const set = new Set<string>();
+    sucursales.forEach((s) => inSucursal(s.name) && s.pasillos.forEach((p) => set.add(p)));
+    workers.forEach((w) => w.pasillo && inSucursal(w.sucursal) && set.add(w.pasillo));
+    return sortPasillos([...set]);
+  }, [sucursales, workers, selectedSucursales]);
+
+  useEffect(() => {
+    const kept = selectedPasillos.filter((p) => pasilloOptions.includes(p));
+    if (kept.length !== selectedPasillos.length) setSelectedPasillos(kept);
+  }, [pasilloOptions, selectedPasillos, setSelectedPasillos]);
 
   const [clientSucursales, setClientSucursales] = useState<string[]>([]);
   const [clientAreas, setClientAreas] = useState<string[]>([]);
@@ -122,6 +143,7 @@ export default function MallaFilters({
     (selectedAreas.length > 0 ? 1 : 0) +
     (selectedSucursales.length > 0 ? 1 : 0) +
     (selectedCargos.length > 0 ? 1 : 0) +
+    (selectedPasillos.length > 0 ? 1 : 0) +
     (selectedTurno !== 'Todos' ? 1 : 0) +
     (selectedHoras.length > 0 ? 1 : 0);
   const multiClass = 'flex flex-col gap-1 min-w-[160px] lg:max-w-[260px]';
@@ -183,6 +205,17 @@ export default function MallaFilters({
           allLabel="Todos"
           className={multiClass}
         />
+        {pasilloOptions.length > 0 && (
+          <MultiSelect
+            label="Pasillo"
+            icon={Rows3}
+            options={mounted ? pasilloOptions : []}
+            selected={selectedPasillos}
+            onChange={setSelectedPasillos}
+            allLabel="Todos"
+            className={multiClass}
+          />
+        )}
         <FilterSelect
           label="Turnos disponibles"
           icon={Clock}
