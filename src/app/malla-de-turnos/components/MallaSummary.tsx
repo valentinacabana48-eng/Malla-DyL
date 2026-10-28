@@ -858,10 +858,6 @@ export default function MallaSummary({
     return dayData ? dayData.descanso : 0;
   };
 
-  // Suma de los 7 días de la semana (incluye los días de otro mes)
-  const weekSum = (perDay: (day: number) => number): number =>
-    weekDays.reduce((sum, day) => sum + perDay(day), 0);
-
   // Filter hours that have at least one entry across the week
   const activeMananaHours = MANANA_HOURS.filter((h) => getHourTotal(h) > 0);
   const activeTardeHours = TARDE_HOURS.filter((h) => getHourTotal(h) > 0);
@@ -1078,13 +1074,6 @@ export default function MallaSummary({
                         </th>
                       )
                     )}
-                    <th
-                      className="text-center px-2 py-1 font-bold text-blue-900 border-l-2 border-blue-300"
-                      style={{ minWidth: '60px', background: '#bfdbfe' }}
-                    >
-                      <div className="text-[11px] font-bold">Total</div>
-                      <div className="text-[10px] font-normal text-blue-700">semana</div>
-                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1136,12 +1125,6 @@ export default function MallaSummary({
                           </td>
                         );
                       })}
-                      <td
-                        className="text-center px-2 py-2 font-bold border-l-2 border-blue-300"
-                        style={{ background: '#dbeafe' }}
-                      >
-                        <span className="text-blue-900 text-[13px]">{getHourTotal(hour)}</span>
-                      </td>
                     </tr>
                   ))}
                   {/* Mañana subtotal row */}
@@ -1163,14 +1146,6 @@ export default function MallaSummary({
                         </span>
                       </td>
                     ))}
-                    <td
-                      className="text-center px-2 py-2 font-bold border-l-2 border-blue-300"
-                      style={{ background: '#93c5fd' }}
-                    >
-                      <span className="text-blue-950 text-[13px]">
-                        {weekSum((day) => getBlockDayTotal(day, MANANA_HOURS))}
-                      </span>
-                    </td>
                   </tr>
 
                   {/* ── TARDE BLOCK ── */}
@@ -1218,12 +1193,6 @@ export default function MallaSummary({
                           </td>
                         );
                       })}
-                      <td
-                        className="text-center px-2 py-2 font-bold border-l-2 border-orange-300"
-                        style={{ background: '#ffedd5' }}
-                      >
-                        <span className="text-orange-900 text-[13px]">{getHourTotal(hour)}</span>
-                      </td>
                     </tr>
                   ))}
                   {/* Tarde subtotal row */}
@@ -1245,14 +1214,6 @@ export default function MallaSummary({
                         </span>
                       </td>
                     ))}
-                    <td
-                      className="text-center px-2 py-2 font-bold border-l-2 border-orange-300"
-                      style={{ background: '#fdba74' }}
-                    >
-                      <span className="text-orange-950 text-[13px]">
-                        {weekSum((day) => getBlockDayTotal(day, TARDE_HOURS))}
-                      </span>
-                    </td>
                   </tr>
 
                   {/* ── DESCANSO ROW ── */}
@@ -1279,12 +1240,6 @@ export default function MallaSummary({
                         </td>
                       );
                     })}
-                    <td
-                      className="text-center px-2 py-2 font-bold border-l-2 border-slate-300"
-                      style={{ background: '#e2e8f0' }}
-                    >
-                      <span className="text-slate-700 text-[13px]">{weekSum(getDescanso)}</span>
-                    </td>
                   </tr>
 
                   {/* ── GRAND TOTAL ROW ── */}
@@ -1306,14 +1261,6 @@ export default function MallaSummary({
                         </span>
                       </td>
                     ))}
-                    <td
-                      className="text-center px-2 py-2 font-bold border-l-2 border-yellow-300"
-                      style={{ background: '#fde047' }}
-                    >
-                      <span className="text-yellow-900 text-[13px]">
-                        {weekSum(getDayGrandTotal)}
-                      </span>
-                    </td>
                   </tr>
                 </tbody>
               </table>
