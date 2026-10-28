@@ -21,6 +21,7 @@ import {
   Search,
   ChevronDown,
   DatabaseBackup,
+  Smartphone,
 } from 'lucide-react';
 import {
   useAppContext,
@@ -897,6 +898,8 @@ interface AreaManagerProps {
   onUpdateArea: (oldName: string, newName: string) => void;
   onDeleteArea: (name: string) => void;
   onSetAreaCargos: (area: string, cargos: string[]) => void;
+  areasSinMisTurnos: string[];
+  onSetMisTurnos: (area: string, acceso: boolean) => void;
 }
 
 function AreaManager({
@@ -906,6 +909,8 @@ function AreaManager({
   onUpdateArea,
   onDeleteArea,
   onSetAreaCargos,
+  areasSinMisTurnos,
+  onSetMisTurnos,
 }: AreaManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState('');
@@ -1032,6 +1037,13 @@ function AreaManager({
         </form>
       )}
 
+      {areas.length > 0 && (
+        <p className="text-xs text-muted-foreground mb-3">
+          «Mis turnos: no» = las trabajadoras de esa área no pueden entrar a Mis turnos, aunque
+          tengan clave. En Personal se le puede dar acceso a una trabajadora puntual.
+        </p>
+      )}
+
       {areas.length === 0 && !showForm ? (
         <div className="text-center py-10 text-muted-foreground text-sm">
           No hay áreas configuradas. Agrega la primera.
@@ -1041,6 +1053,7 @@ function AreaManager({
           {areas.map((area) => {
             const cargos = areaCargos[area] || [];
             const isExpanded = expandedArea === area;
+            const misTurnos = !areasSinMisTurnos.includes(area);
             return (
               <div
                 key={`area-${area}`}
@@ -1101,6 +1114,23 @@ function AreaManager({
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => onSetMisTurnos(area, !misTurnos)}
+                          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                            misTurnos
+                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                              : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                          }`}
+                          title={
+                            misTurnos
+                              ? 'Sus trabajadoras entran a Mis turnos. Clic para quitar el acceso.'
+                              : 'Sus trabajadoras no entran a Mis turnos. Clic para dar acceso.'
+                          }
+                          aria-pressed={misTurnos}
+                        >
+                          <Smartphone size={13} />
+                          {misTurnos ? 'Mis turnos: sí' : 'Mis turnos: no'}
+                        </button>
                         <button
                           onClick={() => setExpandedArea(isExpanded ? null : area)}
                           className="flex items-center gap-1 p-1.5 rounded-lg text-xs text-muted-foreground hover:text-secondary hover:bg-secondary/10 transition-colors"
@@ -2062,6 +2092,8 @@ export default function AjustesContent() {
     updateArea,
     deleteArea,
     setAreaCargos,
+    areasSinMisTurnos,
+    setAreaMisTurnos,
   } = useAppContext();
 
   const { isGlobalAdmin, allowedSucursales } = useAuth();
@@ -2297,6 +2329,8 @@ export default function AjustesContent() {
             onUpdateArea={updateArea}
             onDeleteArea={deleteArea}
             onSetAreaCargos={setAreaCargos}
+            areasSinMisTurnos={areasSinMisTurnos}
+            onSetMisTurnos={setAreaMisTurnos}
           />
         </div>
       )}

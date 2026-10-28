@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { KeyRound, Send, Shuffle } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase/client';
 import { misTurnosUrl, whatsappLink } from '@/lib/misTurnos';
-import type { Worker } from '@/context/AppContext';
+import { useAppContext, type Worker } from '@/context/AppContext';
 
 /** 4 números al azar, sin claves fáciles de adivinar (1111, 1234, 4321) */
 function inventarClave(): string {
@@ -28,6 +28,17 @@ export default function WorkerPinSection({ worker }: { worker: Worker }) {
   const [pin, setPin] = useState('');
   const [savedPin, setSavedPin] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const { workers, areasSinMisTurnos, setWorkerMisTurnosExcepcion } = useAppContext();
+  const areaSinAcceso = areasSinMisTurnos.includes(worker.area);
+  const excepcion = !!(workers.find((w) => w.id === worker.id) ?? worker).misTurnosExcepcion;
+  const [savingExcepcion, setSavingExcepcion] = useState(false);
+
+  const toggleExcepcion = async () => {
+    setSavingExcepcion(true);
+    const ok = await setWorkerMisTurnosExcepcion(worker.id, !excepcion);
+    setSavingExcepcion(false);
+    if (ok) toast.success(excepcion ? 'Acceso quitado' : 'Acceso dado');
+  };
 
   useEffect(() => {
     let cancel = false;
@@ -125,6 +136,32 @@ export default function WorkerPinSection({ worker }: { worker: Worker }) {
           </span>
         </div>
       </div>
+
+      {areaSinAcceso && (
+        <div
+          className={`rounded-lg border px-3 py-2 flex flex-col gap-2 ${
+            excepcion ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'
+          }`}
+        >
+          <span
+            className={`text-xs font-semibold ${excepcion ? 'text-green-800' : 'text-amber-800'}`}
+          >
+            {excepcion
+              ? `El área ${worker.area} no tiene Mis turnos, pero ella sí puede entrar (excepción).`
+              : `El área ${worker.area} no tiene acceso a Mis turnos: aunque tenga clave, no puede entrar.`}
+          </span>
+          <label className="flex items-center gap-2 text-xs font-semibold text-foreground">
+            <input
+              type="checkbox"
+              checked={excepcion}
+              disabled={savingExcepcion}
+              onChange={toggleExcepcion}
+              className="w-4 h-4"
+            />
+            Darle acceso igual
+          </label>
+        </div>
+      )}
 
       <label className="flex flex-col gap-1">
         <span className="text-xs font-semibold text-foreground">
