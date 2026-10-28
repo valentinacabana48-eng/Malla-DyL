@@ -186,7 +186,9 @@ function LoginScreen({
       setError(
         res.error === 'bloqueada'
           ? 'Demasiados intentos. Espera 15 minutos e intenta de nuevo.'
-          : 'RUT o clave incorrectos.'
+          : res.error === 'sin_acceso'
+            ? 'Tu área no tiene acceso a Mis turnos. Consulta tus turnos con tu jefatura.'
+            : 'RUT o clave incorrectos.'
       );
     } catch (err) {
       console.error('Mis turnos login:', err);
