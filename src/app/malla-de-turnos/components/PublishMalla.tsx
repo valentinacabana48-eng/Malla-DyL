@@ -14,6 +14,7 @@ import {
   Briefcase,
   Search,
   CalendarClock,
+  BadgeCheck,
 } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
@@ -81,6 +82,8 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
   // Desde qué día lo ven las trabajadoras ("YYYY-MM-DD"); null = regla de siempre
   const [visibleDesde, setVisibleDesde] = useState<string | null>(null);
+  // Definitiva: desde ahí, los cambios que se publiquen llevan el aviso «Cambió»
+  const [definitiva, setDefinitiva] = useState(false);
   const [snapshots, setSnapshots] = useState<Record<string, PublishedMonth>>({});
   const [ocultos, setOcultos] = useState<Record<string, Oculto>>({});
   const [loaded, setLoaded] = useState(false);
@@ -89,6 +92,7 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
     if (!sucursal) {
       setPublishedAt(null);
       setVisibleDesde(null);
+      setDefinitiva(false);
       setSnapshots({});
       setOcultos({});
       setLoaded(false);
@@ -130,6 +134,7 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
       setOcultos(ocMap);
       setPublishedAt((pub?.published_at as string | undefined) ?? null);
       setVisibleDesde((pub?.visible_desde as string | null | undefined) ?? null);
+      setDefinitiva(pub?.definitiva === true);
       const snap: Record<string, PublishedMonth> = {};
       rows.forEach((r) => {
         snap[r.worker_id as string] = (r.days as PublishedMonth) || [];
@@ -200,6 +205,7 @@ export function usePublishState(monthLabel: string, sucursal: string | null) {
     loaded,
     publishedAt,
     visibleDesde,
+    definitiva,
     snapshots,
     ocultos,
     current,
@@ -238,6 +244,8 @@ function cargoPlural(cargo: string): string {
 interface PublishResult {
   firstTime: boolean;
   changedNames: string[];
+  /** Había cambios, pero entraron sin aviso porque la malla todavía no era definitiva */
+  sinAviso: boolean;
   /** Fecha desde la que la ven, si es más adelante que hoy */
   programada: string | null;
 }
@@ -301,6 +309,8 @@ export function PublishModal({
   const [visibleDesde, setVisibleDesde] = useState(state.visibleDesde ?? hoy);
   useEffect(() => setVisibleDesde(state.visibleDesde ?? hoyChile()), [state.visibleDesde]);
   const programada = visibleDesde > hoy;
+  const [definitiva, setDefinitiva] = useState(state.definitiva);
+  useEffect(() => setDefinitiva(state.definitiva), [state.definitiva]);
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<PublishResult | null>(null);
   const [withoutPin, setWithoutPin] = useState<string[] | null>(null);
@@ -347,7 +357,17 @@ export function PublishModal({
       p_sucursal: sucursal,
       p_ocultos: ocultos,
       p_visible_desde: visibleDesde || hoy,
+      p_definitiva: definitiva,
     });
+    // Si en la base todavía no está "Definitiva" (falta el SQL), se publica como antes
+    if (error?.code === 'PGRST202') {
+      ({ data, error } = await supabase.rpc('publish_schedule', {
+        p_month_key: monthKey,
+        p_sucursal: sucursal,
+        p_ocultos: ocultos,
+        p_visible_desde: visibleDesde || hoy,
+      }));
+    }
     // Si en la base todavía no está la fecha de visibilidad (falta el SQL), se publica sin ella
     if (error?.code === 'PGRST202' && !programada) {
       ({ data, error } = await supabase.rpc('publish_schedule', {
@@ -369,7 +389,12 @@ export function PublishModal({
     const rows = (data as { r_worker_id: string; r_changed: number; r_is_new: boolean }[]) || [];
     const changedIds = new Set(rows.filter((r) => r.r_changed > 0).map((r) => r.r_worker_id));
     const changedNames = sucursalWorkers.filter((w) => changedIds.has(w.id)).map((w) => w.name);
-    setResult({ firstTime, changedNames, programada: programada ? visibleDesde : null });
+    setResult({
+      firstTime,
+      changedNames,
+      sinAviso: !firstTime && !state.definitiva && pending.some((p) => p.kind === 'cambio'),
+      programada: programada ? visibleDesde : null,
+    });
     toast.success(`Malla de ${sucursal} publicada`);
     await state.refresh();
   };
@@ -423,9 +448,11 @@ export function PublishModal({
                     ? `. Las trabajadoras la verán desde el ${fechaLarga(result.programada)}.`
                     : '.'}
                   {!result.firstTime &&
-                    (result.changedNames.length === 0
-                      ? ' Nadie tuvo cambios de turno.'
-                      : ` ${result.changedNames.length} trabajadora(s) verán el aviso de que su malla cambió.`)}
+                    (result.sinAviso
+                      ? ' Como todavía no era definitiva, los cambios entraron sin el aviso «Cambió».'
+                      : result.changedNames.length === 0
+                        ? ' Nadie tuvo cambios de turno.'
+                        : ` ${result.changedNames.length} trabajadora(s) verán el aviso de que su malla cambió.`)}
                 </span>
               </div>
               <a
@@ -467,7 +494,10 @@ export function PublishModal({
                     <AlertTriangle size={18} className="shrink-0 mt-0.5" />
                     <span>
                       Publicada el {formatFecha(publishedAt)}. Hay cambios sin publicar para{' '}
-                      {pending.length} trabajadora(s):
+                      {pending.length} trabajadora(s).
+                      {state.definitiva
+                        ? ' Es definitiva, así que verán el aviso «Cambió» en esos días.'
+                        : ' Todavía no es definitiva, así que se corrige sin el aviso «Cambió».'}
                     </span>
                   </div>
                   <ul className="border border-border rounded-xl divide-y divide-border max-h-72 overflow-y-auto">
@@ -827,6 +857,27 @@ export function PublishModal({
                     : 'Las trabajadoras la ven apenas publiques.'}
                 </p>
               </div>
+
+              {/* ── Definitiva ── */}
+              <label className="flex items-start gap-3 border border-border rounded-xl px-3 py-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={definitiva}
+                  onChange={(e) => setDefinitiva(e.target.checked)}
+                  className="mt-0.5 w-5 h-5 shrink-0 accent-green-600"
+                />
+                <span className="flex flex-col gap-1">
+                  <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                    <BadgeCheck size={16} className="shrink-0" />
+                    Malla definitiva
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {definitiva
+                      ? 'Desde ahora, cada cambio que publiques les aparecerá marcado con «Cambió» en Mis turnos.'
+                      : 'Borrador: puedes corregir y volver a publicar sin que les aparezca el aviso «Cambió». Márcala cuando ya no la vayas a corregir.'}
+                  </span>
+                </span>
+              </label>
 
               {withoutPin && withoutPin.length > 0 && (
                 <div className="flex items-start gap-2 text-muted-foreground bg-muted/40 rounded-xl px-3 py-2.5">
