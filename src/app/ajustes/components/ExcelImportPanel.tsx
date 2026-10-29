@@ -18,6 +18,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useAppContext, SHIFT_COLOR_OPTIONS } from '@/context/AppContext';
+import { getInitials } from '@/lib/initials';
 import type { Worker, Shift } from '@/context/AppContext';
 import { readFirstSheetRows, downloadSimpleWorkbook } from '@/lib/excel';
 import { normalizeRut, formatRut } from '@/lib/rut';
@@ -135,15 +136,6 @@ function generateCode(label: string): string {
       .replace(/[^a-z0-9-]/g, '')
       .slice(0, 20) || `turno-${Date.now()}`
   );
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((p) => p[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
 }
 
 // Nombre sin tildes, mayúsculas ni espacios de más, para comparar

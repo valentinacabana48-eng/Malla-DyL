@@ -1319,7 +1319,7 @@ export default function MallaGrid({
                       <span className="hidden lg:inline text-[9px] font-bold text-muted-foreground shrink-0 w-4 text-right">
                         {rowIdx + 1}.
                       </span>
-                      <div className="hidden lg:flex w-6 h-6 rounded-full bg-secondary/15 text-secondary items-center justify-center text-[9px] font-bold shrink-0">
+                      <div className="hidden lg:flex w-6 h-6 rounded-full bg-secondary/15 text-secondary items-center justify-center text-[9px] font-bold shrink-0 overflow-hidden">
                         {worker.initials}
                       </div>
                       <div className="min-w-0 flex-1">

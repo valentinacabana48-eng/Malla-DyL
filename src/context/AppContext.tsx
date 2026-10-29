@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
 import { useAuth } from '@/context/AuthContext';
+import { safeInitials } from '@/lib/initials';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -607,7 +608,7 @@ function rowToWorker(row: Record<string, unknown>): Worker {
   return {
     id: row.id as string,
     name: row.name as string,
-    initials: row.initials as string,
+    initials: safeInitials(row.initials as string, row.name as string),
     rut: (row.rut as string) || '',
     cargo: (row.cargo as string) || '',
     role: (row.role as string) || '',
