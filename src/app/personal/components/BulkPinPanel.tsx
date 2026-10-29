@@ -15,7 +15,8 @@ interface Creada {
 
 /**
  * Crea de una vez la clave de «Mis turnos» de las trabajadoras de la lista que se ve
- * (activas, con RUT, con acceso y sin clave). Las claves se ven solo aquí, al crearlas.
+ * (activas, con RUT, con acceso y sin clave). Cada una viene con una clave al azar que se
+ * puede cambiar; en blanco no se le crea. Las claves se ven solo aquí, al crearlas.
  */
 export default function BulkPinPanel({
   workers,
@@ -33,11 +34,14 @@ export default function BulkPinPanel({
   const [creando, setCreando] = useState(false);
   const [avance, setAvance] = useState(0);
   const [creadas, setCreadas] = useState<Creada[]>([]);
+  const [claves, setClaves] = useState<Record<string, string>>({});
   const listaRef = useRef<HTMLDivElement>(null);
 
   const conAcceso = (w: Worker) => !motivoSinMisTurnos(w) || !!w.misTurnosExcepcion;
   const posibles = workers.filter((w) => w.estado === 'Activo' && w.rut.trim() && conAcceso(w));
   const pendientes = conClave ? posibles.filter((w) => !conClave.has(w.id)) : [];
+  const aCrear = pendientes.filter((w) => (claves[w.id] ?? '') !== '');
+  const malas = aCrear.filter((w) => !/^\d{4,6}$/.test(claves[w.id]));
 
   useEffect(() => {
     let cancel = false;
@@ -50,7 +54,14 @@ export default function BulkPinPanel({
           setError(true);
           return;
         }
-        setConClave(new Set(((data as { r_worker_id: string }[]) ?? []).map((r) => r.r_worker_id)));
+        const ya = new Set(((data as { r_worker_id: string }[]) ?? []).map((r) => r.r_worker_id));
+        setConClave(ya);
+        // Una clave al azar para cada una; se puede cambiar antes de crear
+        setClaves(
+          Object.fromEntries(
+            posibles.filter((w) => !ya.has(w.id)).map((w) => [w.id, inventarClave()])
+          )
+        );
       });
     return () => {
       cancel = true;
@@ -65,8 +76,8 @@ export default function BulkPinPanel({
     const hechas: Creada[] = [];
     let fallas = 0;
     // De a una: así una falla no deja a las demás sin clave
-    for (const w of pendientes) {
-      const pin = inventarClave();
+    for (const w of aCrear) {
+      const pin = claves[w.id];
       const { error: err } = await getSupabase().rpc('set_worker_pin', {
         p_worker_id: w.id,
         p_pin: pin,
@@ -123,8 +134,9 @@ export default function BulkPinPanel({
             <>
               <p className="text-sm text-muted-foreground">
                 Se crea una clave para cada trabajadora de la lista que estás viendo que todavía no
-                tiene. Para elegir una sucursal o un área, usa los filtros de Personal antes de
-                abrir esto.
+                tiene. Para elegir sucursal, área o cargo, usa los filtros de Personal antes de
+                abrir esto. Cada una trae una clave al azar: puedes escribir otra (4 a 6 números) o
+                dejarla en blanco para no crearle clave.
               </p>
               <p className="text-sm font-semibold text-foreground bg-muted rounded-xl px-3 py-2">
                 {alcance}
@@ -151,9 +163,63 @@ export default function BulkPinPanel({
                   )}
                 </ul>
               )}
+              {conClave && pendientes.length > 0 && (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b border-border">
+                      <th className="py-2 pr-3 font-semibold">Nombre</th>
+                      <th className="py-2 pr-3 font-semibold hidden sm:table-cell">Cargo</th>
+                      <th className="py-2 font-semibold w-28">Clave</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendientes.map((w) => {
+                      const valor = claves[w.id] ?? '';
+                      const mala = valor !== '' && !/^\d{4,6}$/.test(valor);
+                      return (
+                        <tr key={w.id} className="border-b border-border/60">
+                          <td className="py-1.5 pr-3 text-foreground">
+                            {w.name}
+                            <span className="block text-xs text-muted-foreground sm:hidden">
+                              {w.cargo}
+                            </span>
+                          </td>
+                          <td className="py-1.5 pr-3 text-muted-foreground hidden sm:table-cell">
+                            {w.cargo}
+                          </td>
+                          <td className="py-1.5">
+                            <input
+                              value={valor}
+                              onChange={(e) =>
+                                setClaves((prev) => ({
+                                  ...prev,
+                                  [w.id]: e.target.value.replace(/\D/g, '').slice(0, 6),
+                                }))
+                              }
+                              disabled={creando}
+                              inputMode="numeric"
+                              autoComplete="off"
+                              placeholder="sin clave"
+                              aria-label={`Clave de ${w.name}`}
+                              className={`w-28 min-h-[40px] rounded-lg border bg-background px-2 font-mono text-base tracking-widest ${
+                                mala ? 'border-red-400' : 'border-border'
+                              }`}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+              {malas.length > 0 && (
+                <p className="text-sm font-semibold text-red-600">
+                  {malas.length} clave(s) con menos de 4 números. Complétalas o déjalas en blanco.
+                </p>
+              )}
               {creando && (
                 <p className="text-sm font-semibold text-secondary">
-                  Creando {avance} de {pendientes.length}…
+                  Creando {avance} de {aCrear.length}…
                 </p>
               )}
             </>
@@ -208,11 +274,11 @@ export default function BulkPinPanel({
           {creadas.length === 0 ? (
             <button
               type="button"
-              disabled={!conClave || pendientes.length === 0 || creando}
+              disabled={!conClave || aCrear.length === 0 || malas.length > 0 || creando}
               onClick={crear}
               className="min-h-[44px] px-5 rounded-xl bg-secondary text-white text-sm font-semibold disabled:opacity-40"
             >
-              {creando ? 'Creando…' : `Crear ${pendientes.length} clave(s)`}
+              {creando ? 'Creando…' : `Crear ${aCrear.length} clave(s)`}
             </button>
           ) : (
             <button
