@@ -219,8 +219,8 @@ function SmartDropdown({
 
 // ─── Individual ShiftCell (normal mode — no active shift selected) ─────────
 // ─── Marca de solicitud aprobada (⇄) ─────────────────────────────────────
-// En el celular la casilla muestra la hora de entrada y salida (más corto que el código);
-// en el computador, el código y los minutos de colación (la hora de entrada ya va en el código)
+// La casilla muestra la hora de entrada y salida (el código puede no calzar con el horario);
+// en el computador, además, los minutos de colación
 function ShiftCellText({
   code,
   start,
@@ -232,16 +232,14 @@ function ShiftCellText({
   end?: string;
   colacion?: number;
 }) {
+  if (!start) return <span>{code?.toUpperCase()}</span>;
   return (
     <>
-      <span className={start ? 'hidden lg:inline' : undefined}>{code?.toUpperCase()}</span>
-      {start && (
-        <span className="hidden lg:inline font-semibold text-[9px] opacity-85">
-          {colacion && colacion > 0 ? `col ${colacion}'` : 'sin col'}
-        </span>
-      )}
-      {start && <span className="lg:hidden">{start}</span>}
-      {start && end && <span className="lg:hidden">{end}</span>}
+      <span>{start}</span>
+      {end && <span>{end}</span>}
+      <span className="hidden lg:inline font-semibold text-[9px] opacity-85">
+        {colacion && colacion > 0 ? `col ${colacion}'` : 'sin col'}
+      </span>
     </>
   );
 }
