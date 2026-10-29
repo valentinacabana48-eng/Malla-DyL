@@ -45,6 +45,14 @@ export default function WorkerPinSection({ worker }: { worker: Worker }) {
     setStatus('cargando');
     setPin('');
     setSavedPin(null);
+    // Clave legible (solo las creadas o cambiadas desde que se guardan visibles)
+    getSupabase()
+      .rpc('worker_pin_visible', { p_worker_ids: [worker.id] })
+      .then(({ data, error }) => {
+        if (cancel || error) return;
+        const row = (data as { r_pin: string | null }[] | null)?.[0];
+        if (row?.r_pin) setSavedPin(row.r_pin);
+      });
     getSupabase()
       .rpc('worker_pin_status', { p_worker_ids: [worker.id] })
       .then(({ data, error }) => {
@@ -198,6 +206,10 @@ export default function WorkerPinSection({ worker }: { worker: Worker }) {
 
       {savedPin && (
         <>
+          <p className="text-sm text-foreground">
+            Clave actual:{' '}
+            <span className="font-mono text-lg font-bold tracking-widest">{savedPin}</span>
+          </p>
           <a
             href={whatsappLink(mensaje)}
             target="_blank"
@@ -214,8 +226,9 @@ export default function WorkerPinSection({ worker }: { worker: Worker }) {
       )}
 
       <p className="text-[11px] text-muted-foreground leading-relaxed">
-        La clave se guarda cifrada: nadie puede leerla después, solo cambiarla. Tras 5 intentos
-        fallidos, la cuenta se bloquea 15 minutos.
+        Solo quien edita Personal puede ver la clave. Las claves puestas antes del 30-10 están solo
+        cifradas: no se pueden ver, solo cambiar. Tras 5 intentos fallidos, la cuenta se bloquea 15
+        minutos.
         {status === 'con-clave' && (
           <>
             {' '}

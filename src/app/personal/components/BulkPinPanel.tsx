@@ -15,8 +15,9 @@ interface Creada {
 
 /**
  * Crea de una vez la clave de «Mis turnos» de las trabajadoras de la lista que se ve
- * (activas, con RUT, con acceso y sin clave). Cada una viene con una clave al azar que se
- * puede cambiar; en blanco no se le crea. Las claves se ven solo aquí, al crearlas.
+ * (activas, con RUT y con acceso). Las que no tienen clave traen una al azar que se puede
+ * cambiar (en blanco no se le crea); las que ya tienen muestran la actual si se puede ver,
+ * y si se escribe otra se cambia.
  */
 export default function BulkPinPanel({
   workers,
@@ -35,16 +36,32 @@ export default function BulkPinPanel({
   const [avance, setAvance] = useState(0);
   const [creadas, setCreadas] = useState<Creada[]>([]);
   const [claves, setClaves] = useState<Record<string, string>>({});
+  const [actuales, setActuales] = useState<Record<string, string>>({});
   const listaRef = useRef<HTMLDivElement>(null);
 
   const conAcceso = (w: Worker) => !motivoSinMisTurnos(w) || !!w.misTurnosExcepcion;
   const posibles = workers.filter((w) => w.estado === 'Activo' && w.rut.trim() && conAcceso(w));
   const pendientes = conClave ? posibles.filter((w) => !conClave.has(w.id)) : [];
-  const aCrear = pendientes.filter((w) => (claves[w.id] ?? '') !== '');
+  const lista = conClave ? [...pendientes, ...posibles.filter((w) => conClave.has(w.id))] : [];
+  const aCrear = lista.filter((w) => (claves[w.id] ?? '') !== '');
   const malas = aCrear.filter((w) => !/^\d{4,6}$/.test(claves[w.id]));
 
   useEffect(() => {
     let cancel = false;
+    // Claves que se pueden ver (las creadas o cambiadas desde que se guardan visibles)
+    getSupabase()
+      .rpc('worker_pin_visible', { p_worker_ids: posibles.map((w) => w.id) })
+      .then(({ data, error: err }) => {
+        if (cancel || err) return;
+        setActuales(
+          Object.fromEntries(
+            ((data as { r_worker_id: string; r_pin: string }[]) ?? []).map((r) => [
+              r.r_worker_id,
+              r.r_pin,
+            ])
+          )
+        );
+      });
     getSupabase()
       .rpc('worker_pin_status', { p_worker_ids: posibles.map((w) => w.id) })
       .then(({ data, error: err }) => {
@@ -92,7 +109,7 @@ export default function BulkPinPanel({
     setCreadas(hechas);
     setConClave((prev) => new Set([...(prev ?? []), ...hechas.map((h) => h.worker.id)]));
     if (fallas) toast.error(`${fallas} clave(s) no se pudieron crear. Intenta de nuevo.`);
-    else toast.success(`${hechas.length} clave(s) creadas`);
+    else toast.success(`${hechas.length} clave(s) guardadas`);
   };
 
   const mensaje = ({ worker, pin }: Creada) => {
@@ -100,14 +117,7 @@ export default function BulkPinPanel({
     return `Hola ${nombre}, revisa tus turnos en ${misTurnosUrl()} con tu RUT (${worker.rut}) y la clave ${pin}.`;
   };
 
-  const cerrar = () => {
-    if (
-      creadas.length &&
-      !window.confirm('Las claves no se vuelven a ver. ¿Ya las imprimiste o enviaste?')
-    )
-      return;
-    onClose();
-  };
+  const cerrar = () => onClose();
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center bg-black/50 lg:p-4">
@@ -133,10 +143,10 @@ export default function BulkPinPanel({
           {creadas.length === 0 ? (
             <>
               <p className="text-sm text-muted-foreground">
-                Se crea una clave para cada trabajadora de la lista que estás viendo que todavía no
-                tiene. Para elegir sucursal, área o cargo, usa los filtros de Personal antes de
-                abrir esto. Cada una trae una clave al azar: puedes escribir otra (4 a 6 números) o
-                dejarla en blanco para no crearle clave.
+                Aquí están las trabajadoras de la lista que estás viendo. Para elegir sucursal, área
+                o cargo, usa los filtros de Personal antes de abrir esto. Las que no tienen clave
+                traen una al azar: puedes escribir otra (4 a 6 números) o dejarla en blanco. A las
+                que ya tienen, escríbeles una nueva solo si se la quieres cambiar.
               </p>
               <p className="text-sm font-semibold text-foreground bg-muted rounded-xl px-3 py-2">
                 {alcance}
@@ -153,7 +163,8 @@ export default function BulkPinPanel({
                     <strong>{pendientes.length}</strong> sin clave
                   </li>
                   <li className="text-muted-foreground">
-                    {posibles.length - pendientes.length} ya tienen clave (no se cambian)
+                    {posibles.length - pendientes.length} ya tienen clave (solo cambia si le
+                    escribes otra)
                   </li>
                   {workers.length > posibles.length && (
                     <li className="text-muted-foreground">
@@ -163,18 +174,20 @@ export default function BulkPinPanel({
                   )}
                 </ul>
               )}
-              {conClave && pendientes.length > 0 && (
+              {conClave && lista.length > 0 && (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-muted-foreground border-b border-border">
                       <th className="py-2 pr-3 font-semibold">Nombre</th>
                       <th className="py-2 pr-3 font-semibold hidden sm:table-cell">Cargo</th>
-                      <th className="py-2 font-semibold w-28">Clave</th>
+                      <th className="py-2 pr-3 font-semibold">Actual</th>
+                      <th className="py-2 font-semibold w-28">Nueva</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {pendientes.map((w) => {
+                    {lista.map((w) => {
                       const valor = claves[w.id] ?? '';
+                      const tiene = conClave.has(w.id);
                       const mala = valor !== '' && !/^\d{4,6}$/.test(valor);
                       return (
                         <tr key={w.id} className="border-b border-border/60">
@@ -186,6 +199,17 @@ export default function BulkPinPanel({
                           </td>
                           <td className="py-1.5 pr-3 text-muted-foreground hidden sm:table-cell">
                             {w.cargo}
+                          </td>
+                          <td className="py-1.5 pr-3 font-mono text-foreground whitespace-nowrap">
+                            {tiene ? (
+                              actuales[w.id] || (
+                                <span className="font-sans text-xs text-muted-foreground">
+                                  cifrada
+                                </span>
+                              )
+                            ) : (
+                              <span className="font-sans text-xs text-muted-foreground">—</span>
+                            )}
                           </td>
                           <td className="py-1.5">
                             <input
@@ -199,7 +223,7 @@ export default function BulkPinPanel({
                               disabled={creando}
                               inputMode="numeric"
                               autoComplete="off"
-                              placeholder="sin clave"
+                              placeholder={tiene ? 'igual' : 'sin clave'}
                               aria-label={`Clave de ${w.name}`}
                               className={`w-28 min-h-[40px] rounded-lg border bg-background px-2 font-mono text-base tracking-widest ${
                                 mala ? 'border-red-400' : 'border-border'
@@ -219,14 +243,15 @@ export default function BulkPinPanel({
               )}
               {creando && (
                 <p className="text-sm font-semibold text-secondary">
-                  Creando {avance} de {aCrear.length}…
+                  Guardando {avance} de {aCrear.length}…
                 </p>
               )}
             </>
           ) : (
             <>
               <p className="text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                Estas claves se ven solo ahora. Imprímelas o envíalas antes de cerrar.
+                Imprímelas o envíalas ahora. Después las puedes volver a ver aquí o en la ficha de
+                cada una.
               </p>
               <div ref={listaRef}>
                 <h3 className="text-base font-bold text-foreground mb-1">Claves de «Mis turnos»</h3>
@@ -278,7 +303,7 @@ export default function BulkPinPanel({
               onClick={crear}
               className="min-h-[44px] px-5 rounded-xl bg-secondary text-white text-sm font-semibold disabled:opacity-40"
             >
-              {creando ? 'Creando…' : `Crear ${aCrear.length} clave(s)`}
+              {creando ? 'Guardando…' : `Guardar ${aCrear.length} clave(s)`}
             </button>
           ) : (
             <button
