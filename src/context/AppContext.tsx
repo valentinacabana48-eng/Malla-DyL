@@ -1780,6 +1780,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateArea = useCallback(
     async (oldName: string, newName: string) => {
+      // Mismo nombre: no hay nada que mover (si se sigue, los cargos se borran de la pantalla)
+      if (oldName === newName) return;
       setAreas((prev) => prev.map((a) => (a === oldName ? newName : a)));
       setAreasSinMisTurnos((prev) => prev.map((a) => (a === oldName ? newName : a)));
       setAreaSucursalesState((prev) => {

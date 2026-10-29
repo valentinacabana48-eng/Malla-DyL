@@ -994,7 +994,7 @@ function AreaManager({
       setError('Ya existe un área con ese nombre.');
       return;
     }
-    onUpdateArea(editingItem!, trimmed);
+    if (trimmed !== editingItem) onUpdateArea(editingItem!, trimmed);
     setEditingItem(null);
     setEditValue('');
     setError('');
