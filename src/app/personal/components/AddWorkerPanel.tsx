@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { X, Save } from 'lucide-react';
 import { HORAS_OPTIONS, useAppContext, type Worker } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
+import { formatRut, normalizeRut } from '@/lib/rut';
 import WorkerPinSection from './WorkerPinSection';
 
 interface Props {
@@ -103,6 +104,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
     const saved: Worker = {
       ...worker,
       ...data,
+      rut: formatRut(data.rut),
       horasContratadas: Number(data.horasContratadas) as 10 | 20 | 30 | 42,
       initials,
       role: data.cargo,
@@ -154,10 +156,10 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
           <input
             {...register('rut', {
               required: 'El RUT es obligatorio',
-              pattern: {
-                value: /^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/,
-                message: 'Formato: 12.345.678-9',
-              },
+              // Se acepta con o sin puntos/guion; se guarda como 12.345.678-9
+              validate: (v) =>
+                /^\d{7,8}[\dK]$/.test(normalizeRut(v).replace(/^0+/, '')) ||
+                'Formato: 12.345.678-9',
             })}
             placeholder="Ej: 12.345.678-9"
             className="w-full px-3 py-3 lg:py-2 bg-input border border-border rounded-lg text-base lg:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
