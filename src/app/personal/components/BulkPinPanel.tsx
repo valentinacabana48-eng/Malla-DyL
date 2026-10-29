@@ -27,7 +27,7 @@ export default function BulkPinPanel({
   alcance: string;
   onClose: () => void;
 }) {
-  const { areasSinMisTurnos } = useAppContext();
+  const { motivoSinMisTurnos } = useAppContext();
   const [conClave, setConClave] = useState<Set<string> | null>(null);
   const [error, setError] = useState(false);
   const [creando, setCreando] = useState(false);
@@ -35,7 +35,7 @@ export default function BulkPinPanel({
   const [creadas, setCreadas] = useState<Creada[]>([]);
   const listaRef = useRef<HTMLDivElement>(null);
 
-  const conAcceso = (w: Worker) => !areasSinMisTurnos.includes(w.area) || !!w.misTurnosExcepcion;
+  const conAcceso = (w: Worker) => !motivoSinMisTurnos(w) || !!w.misTurnosExcepcion;
   const posibles = workers.filter((w) => w.estado === 'Activo' && w.rut.trim() && conAcceso(w));
   const pendientes = conClave ? posibles.filter((w) => !conClave.has(w.id)) : [];
 
@@ -145,8 +145,8 @@ export default function BulkPinPanel({
                   </li>
                   {workers.length > posibles.length && (
                     <li className="text-muted-foreground">
-                      {workers.length - posibles.length} quedan fuera: inactivas, sin RUT o de un
-                      área sin acceso a Mis turnos
+                      {workers.length - posibles.length} quedan fuera: inactivas, sin RUT o sin
+                      acceso a Mis turnos
                     </li>
                   )}
                 </ul>

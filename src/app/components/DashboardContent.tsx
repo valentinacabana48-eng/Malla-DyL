@@ -89,6 +89,8 @@ export default function DashboardContent() {
     scheduleData,
     sucursales,
     areas,
+    areasDeSucursales,
+    loading,
     getSucursalCajas,
     globalSucursal,
     globalArea,
@@ -134,6 +136,19 @@ export default function DashboardContent() {
   const cargoOptions = useCargoOptions(selectedAreas, selectedCargos, setSelectedCargos);
 
   // Sucursales que cuentan: las elegidas o, sin ninguna, todas las que se ven
+  // Solo las áreas que hay en las sucursales elegidas
+  const areaOptions = useMemo(
+    () => areasDeSucursales(selectedSucursales),
+    [areasDeSucursales, selectedSucursales]
+  );
+  useEffect(() => {
+    if (loading) return;
+    setSelectedAreas((prev) => {
+      const kept = prev.filter((a) => areaOptions.includes(a));
+      return kept.length === prev.length ? prev : kept;
+    });
+  }, [loading, areaOptions]);
+
   const sucursalList = useMemo(
     () => (selectedSucursales.length > 0 ? selectedSucursales : sucursales.map((s) => s.name)),
     [selectedSucursales, sucursales]
@@ -473,7 +488,7 @@ export default function DashboardContent() {
           />
           <MultiSelect
             label="Área"
-            options={areas}
+            options={areaOptions}
             selected={selectedAreas}
             onChange={setSelectedAreas}
             allLabel="Todas las áreas"

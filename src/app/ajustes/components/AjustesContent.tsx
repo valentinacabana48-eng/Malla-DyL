@@ -31,6 +31,7 @@ import {
   type Shift,
   type NonWorkingType,
   type Sucursal,
+  type MisTurnosLimites,
   sortPasillos,
   timeToMinutes,
 } from '@/context/AppContext';
@@ -900,6 +901,43 @@ interface AreaManagerProps {
   onSetAreaCargos: (area: string, cargos: string[]) => void;
   areasSinMisTurnos: string[];
   onSetMisTurnos: (area: string, acceso: boolean) => void;
+  sucursales: string[];
+  areaSucursales: Record<string, string[]>;
+  onSetAreaSucursales: (area: string, sucursales: string[] | null) => void;
+  misTurnosLimites: Record<string, MisTurnosLimites>;
+  onSetMisTurnosLimites: (area: string, limites: MisTurnosLimites) => void;
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+        active
+          ? 'bg-secondary text-white border-secondary'
+          : 'bg-card text-muted-foreground border-border hover:bg-muted'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Marca o desmarca un nombre de la lista; sin ninguno queda null (= todos) */
+function toggleName(list: string[] | null | undefined, name: string): string[] | null {
+  const current = list ?? [];
+  const next = current.includes(name) ? current.filter((x) => x !== name) : [...current, name];
+  return next.length > 0 ? next : null;
 }
 
 function AreaManager({
@@ -911,6 +949,11 @@ function AreaManager({
   onSetAreaCargos,
   areasSinMisTurnos,
   onSetMisTurnos,
+  sucursales,
+  areaSucursales,
+  onSetAreaSucursales,
+  misTurnosLimites,
+  onSetMisTurnosLimites,
 }: AreaManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState('');
@@ -918,6 +961,8 @@ function AreaManager({
   const [editValue, setEditValue] = useState('');
   const [deletingItem, setDeletingItem] = useState<string | null>(null);
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
+  const [sucursalesArea, setSucursalesArea] = useState<string | null>(null);
+  const [misTurnosArea, setMisTurnosArea] = useState<string | null>(null);
   const [newCargo, setNewCargo] = useState('');
   const [error, setError] = useState('');
 
@@ -1039,8 +1084,11 @@ function AreaManager({
 
       {areas.length > 0 && (
         <p className="text-xs text-muted-foreground mb-3">
-          «Mis turnos: no» = las trabajadoras de esa área no pueden entrar a Mis turnos, aunque
-          tengan clave. En Personal se le puede dar acceso a una trabajadora puntual.
+          «Mis turnos» = quiénes del área pueden entrar a Mis turnos: se puede apagar para toda el
+          área o dejarlo solo para algunas sucursales o cargos. Las demás no entran aunque tengan
+          clave. En Personal se le puede dar acceso a una trabajadora puntual.
+          <br />
+          «Sucursales» = en qué sucursales existe el área. Si es para todas, déjala en «Todas».
         </p>
       )}
 
@@ -1054,6 +1102,16 @@ function AreaManager({
             const cargos = areaCargos[area] || [];
             const isExpanded = expandedArea === area;
             const misTurnos = !areasSinMisTurnos.includes(area);
+            const propias = areaSucursales[area];
+            const showSucursales = sucursalesArea === area;
+            const limites = misTurnosLimites[area];
+            const limitado = misTurnos && !!(limites?.sucursales || limites?.cargos);
+            const showMisTurnos = misTurnosArea === area;
+            // Cargos para elegir: los del área y los que ya estaban marcados
+            const cargosMisTurnos = [
+              ...cargos,
+              ...(limites?.cargos ?? []).filter((c) => !cargos.includes(c)),
+            ];
             return (
               <div
                 key={`area-${area}`}
@@ -1112,24 +1170,43 @@ function AreaManager({
                         <span className="text-xs bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-semibold">
                           {cargos.length} cargo{cargos.length !== 1 ? 's' : ''}
                         </span>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                            propias
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {propias ? `Solo ${propias.join(', ')}` : 'Todas las sucursales'}
+                        </span>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => onSetMisTurnos(area, !misTurnos)}
+                          onClick={() => setMisTurnosArea(showMisTurnos ? null : area)}
                           className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                            misTurnos
-                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                              : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                            limitado
+                              ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                              : misTurnos
+                                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                : 'bg-muted text-muted-foreground hover:bg-muted/70'
                           }`}
-                          title={
-                            misTurnos
-                              ? 'Sus trabajadoras entran a Mis turnos. Clic para quitar el acceso.'
-                              : 'Sus trabajadoras no entran a Mis turnos. Clic para dar acceso.'
-                          }
-                          aria-pressed={misTurnos}
+                          title="Elegir quiénes del área entran a Mis turnos"
+                          aria-expanded={showMisTurnos}
                         >
                           <Smartphone size={13} />
-                          {misTurnos ? 'Mis turnos: sí' : 'Mis turnos: no'}
+                          {limitado
+                            ? 'Mis turnos: algunas'
+                            : misTurnos
+                              ? 'Mis turnos: sí'
+                              : 'Mis turnos: no'}
+                        </button>
+                        <button
+                          onClick={() => setSucursalesArea(showSucursales ? null : area)}
+                          className="flex items-center gap-1 p-1.5 rounded-lg text-xs text-muted-foreground hover:text-secondary hover:bg-secondary/10 transition-colors"
+                          title="Elegir en qué sucursales existe el área"
+                        >
+                          <MapPin size={13} />
+                          Sucursales
                         </button>
                         <button
                           onClick={() => setExpandedArea(isExpanded ? null : area)}
@@ -1160,6 +1237,131 @@ function AreaManager({
                         </button>
                       </div>
                     </div>
+
+                    {/* Sucursales del área */}
+                    {showSucursales && (
+                      <div className="border-t border-border bg-muted/20 px-4 py-3 space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          ¿En qué sucursales está &quot;{area}&quot;?
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Chip active={!propias} onClick={() => onSetAreaSucursales(area, null)}>
+                            Todas
+                          </Chip>
+                          {sucursales.map((s) => (
+                            <Chip
+                              key={`area-suc-${area}-${s}`}
+                              active={!!propias?.includes(s)}
+                              onClick={() => onSetAreaSucursales(area, toggleName(propias, s))}
+                            >
+                              {s}
+                            </Chip>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Al elegir una sucursal en Personal o en la malla, solo aparecen sus áreas.
+                          Las trabajadoras que ya están en el área no cambian.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Quiénes del área entran a Mis turnos */}
+                    {showMisTurnos && (
+                      <div className="border-t border-border bg-muted/20 px-4 py-3 space-y-3">
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Mis turnos en &quot;{area}&quot;
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Chip active={misTurnos} onClick={() => onSetMisTurnos(area, true)}>
+                              Con acceso
+                            </Chip>
+                            <Chip active={!misTurnos} onClick={() => onSetMisTurnos(area, false)}>
+                              Sin acceso
+                            </Chip>
+                          </div>
+                        </div>
+                        {misTurnos && (
+                          <>
+                            <div className="space-y-2">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Sucursales
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                <Chip
+                                  active={!limites?.sucursales}
+                                  onClick={() =>
+                                    onSetMisTurnosLimites(area, {
+                                      sucursales: null,
+                                      cargos: limites?.cargos ?? null,
+                                    })
+                                  }
+                                >
+                                  Todas
+                                </Chip>
+                                {sucursales
+                                  .filter((s) => !propias || propias.includes(s))
+                                  .map((s) => (
+                                    <Chip
+                                      key={`mt-suc-${area}-${s}`}
+                                      active={!!limites?.sucursales?.includes(s)}
+                                      onClick={() =>
+                                        onSetMisTurnosLimites(area, {
+                                          sucursales: toggleName(limites?.sucursales, s),
+                                          cargos: limites?.cargos ?? null,
+                                        })
+                                      }
+                                    >
+                                      {s}
+                                    </Chip>
+                                  ))}
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Cargos
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                <Chip
+                                  active={!limites?.cargos}
+                                  onClick={() =>
+                                    onSetMisTurnosLimites(area, {
+                                      sucursales: limites?.sucursales ?? null,
+                                      cargos: null,
+                                    })
+                                  }
+                                >
+                                  Todos
+                                </Chip>
+                                {cargosMisTurnos.map((c) => (
+                                  <Chip
+                                    key={`mt-cargo-${area}-${c}`}
+                                    active={!!limites?.cargos?.includes(c)}
+                                    onClick={() =>
+                                      onSetMisTurnosLimites(area, {
+                                        sucursales: limites?.sucursales ?? null,
+                                        cargos: toggleName(limites?.cargos, c),
+                                      })
+                                    }
+                                  >
+                                    {c}
+                                  </Chip>
+                                ))}
+                              </div>
+                              {cargosMisTurnos.length === 0 && (
+                                <p className="text-xs text-muted-foreground italic">
+                                  Para elegir cargos, primero agrégalos al área en «Cargos».
+                                </p>
+                              )}
+                            </div>
+                          </>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Entra quien tenga su sucursal y su cargo marcados. Las que queden fuera
+                          salen de Mis turnos al tiro, aunque tengan clave.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Cargos panel */}
                     {isExpanded && (
@@ -2094,6 +2296,10 @@ export default function AjustesContent() {
     setAreaCargos,
     areasSinMisTurnos,
     setAreaMisTurnos,
+    areaSucursales,
+    setAreaSucursales,
+    misTurnosLimites,
+    setAreaMisTurnosLimites,
   } = useAppContext();
 
   const { isGlobalAdmin, allowedSucursales } = useAuth();
@@ -2331,6 +2537,11 @@ export default function AjustesContent() {
             onSetAreaCargos={setAreaCargos}
             areasSinMisTurnos={areasSinMisTurnos}
             onSetMisTurnos={setAreaMisTurnos}
+            sucursales={sucursales.map((s) => s.name)}
+            areaSucursales={areaSucursales}
+            onSetAreaSucursales={setAreaSucursales}
+            misTurnosLimites={misTurnosLimites}
+            onSetMisTurnosLimites={setAreaMisTurnosLimites}
           />
         </div>
       )}

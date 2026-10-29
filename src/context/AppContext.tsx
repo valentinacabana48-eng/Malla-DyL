@@ -514,6 +514,14 @@ interface AppContextValue {
   areaCargos: AreaCargos;
   /** Áreas sin acceso a Mis turnos */
   areasSinMisTurnos: string[];
+  /** Sucursales de cada área (si el área no está, es para todas) */
+  areaSucursales: Record<string, string[]>;
+  /** Áreas que hay en esas sucursales ([] = todas las áreas) */
+  areasDeSucursales: (sucursales: string[]) => string[];
+  /** Con acceso a Mis turnos, solo en estas sucursales / para estos cargos (si no está, todas / todos) */
+  misTurnosLimites: Record<string, MisTurnosLimites>;
+  /** Por qué la trabajadora no entra a Mis turnos según su área (null = sí entra), sin contar la excepción */
+  motivoSinMisTurnos: (w: Pick<Worker, 'area' | 'sucursal' | 'cargo'>) => string | null;
   selectedMes: string;
   globalSucursal: string;
   setGlobalSucursal: (s: string) => void;
@@ -563,6 +571,10 @@ interface AppContextValue {
   deleteArea: (name: string) => void;
   setAreaCargos: (area: string, cargos: string[]) => void;
   setAreaMisTurnos: (area: string, acceso: boolean) => void;
+  /** null o [] = el área es para todas las sucursales */
+  setAreaSucursales: (area: string, sucursales: string[] | null) => void;
+  /** null o [] = todas las sucursales / todos los cargos */
+  setAreaMisTurnosLimites: (area: string, limites: MisTurnosLimites) => void;
   setWorkerMisTurnosExcepcion: (workerId: string, excepcion: boolean) => Promise<boolean>;
   addCustomNonWorkingType: (t: NonWorkingType) => void;
   updateCustomNonWorkingType: (t: NonWorkingType) => void;
@@ -802,6 +814,11 @@ function loadSelectedMes(): string {
   return currentMonthLabel();
 }
 
+export interface MisTurnosLimites {
+  sucursales: string[] | null;
+  cargos: string[] | null;
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const supabase = getSupabase();
   const { can, allowedSucursales, allowedAreas, allowedCargos } = useAuth();
@@ -813,6 +830,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [areas, setAreas] = useState<string[]>(DEFAULT_AREAS);
   const [areaCargos, setAreaCargosState] = useState<AreaCargos>({});
   const [areasSinMisTurnos, setAreasSinMisTurnos] = useState<string[]>([]);
+  const [areaSucursales, setAreaSucursalesState] = useState<Record<string, string[]>>({});
+  const [misTurnosLimites, setMisTurnosLimitesState] = useState<Record<string, MisTurnosLimites>>(
+    {}
+  );
   const [selectedMes, setSelectedMesState] = useState<string>(() =>
     typeof window === 'undefined' ? currentMonthLabel() : loadSelectedMes()
   );
@@ -891,6 +912,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return list;
   }, [areas, allowedAreas, allowedCargos, areaCargos]);
 
+  const areasDeSucursales = useCallback(
+    (sucs: string[]) =>
+      sucs.length === 0
+        ? visibleAreas
+        : visibleAreas.filter((a) => {
+            const propias = areaSucursales[a];
+            return !propias || propias.some((s) => sucs.includes(s));
+          }),
+    [visibleAreas, areaSucursales]
+  );
+
+  // Igual que mis_turnos_permitido en la base
+  const motivoSinMisTurnos = useCallback(
+    (w: Pick<Worker, 'area' | 'sucursal' | 'cargo'>) => {
+      if (areasSinMisTurnos.includes(w.area)) return `El área ${w.area} no tiene Mis turnos`;
+      const l = misTurnosLimites[w.area];
+      if (l?.sucursales && !l.sucursales.includes(w.sucursal))
+        return `En ${w.area}, Mis turnos no está habilitado para la sucursal ${w.sucursal}`;
+      if (l?.cargos && !l.cargos.includes(w.cargo))
+        return `En ${w.area}, Mis turnos no está habilitado para el cargo ${w.cargo || '(sin cargo)'}`;
+      return null;
+    },
+    [areasSinMisTurnos, misTurnosLimites]
+  );
+
   // ── Initial data load ──
   useEffect(() => {
     async function loadAll() {
@@ -931,6 +977,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setAreasSinMisTurnos(
             areasData.filter((r) => r.mis_turnos === false).map((r) => r.name as string)
           );
+          const porSucursal: Record<string, string[]> = {};
+          areasData.forEach((r) => {
+            if (Array.isArray(r.sucursales) && r.sucursales.length > 0)
+              porSucursal[r.name as string] = r.sucursales as string[];
+          });
+          setAreaSucursalesState(porSucursal);
+          const lista = (v: unknown) => (Array.isArray(v) && v.length > 0 ? (v as string[]) : null);
+          const limites: Record<string, MisTurnosLimites> = {};
+          areasData.forEach((r) => {
+            const l = {
+              sucursales: lista(r.mis_turnos_sucursales),
+              cargos: lista(r.mis_turnos_cargos),
+            };
+            if (l.sucursales || l.cargos) limites[r.name as string] = l;
+          });
+          setMisTurnosLimitesState(limites);
         }
         if (areaCargosData) {
           const ac: AreaCargos = {};
@@ -1604,6 +1666,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setWorkers((prev) =>
         prev.map((w) => (w.sucursal === oldName ? { ...w, sucursal: newName } : w))
       );
+      // Las áreas que eran solo de esa sucursal siguen con ella
+      const areasConSucursal = Object.entries(areaSucursales).filter(([, sucs]) =>
+        sucs.includes(oldName)
+      );
+      if (oldName !== newName && areasConSucursal.length > 0) {
+        const cambiadas = areasConSucursal.map(
+          ([area, sucs]) => [area, sucs.map((s) => (s === oldName ? newName : s))] as const
+        );
+        setAreaSucursalesState((prev) => ({ ...prev, ...Object.fromEntries(cambiadas) }));
+        await Promise.all(
+          cambiadas.map(([area, sucs]) =>
+            dbWrite(
+              supabase.from('areas').update({ sucursales: sucs }).eq('name', area),
+              'las sucursales del área'
+            )
+          )
+        );
+      }
+      const limitesConSucursal = Object.entries(misTurnosLimites).filter(([, l]) =>
+        l.sucursales?.includes(oldName)
+      );
+      if (oldName !== newName && limitesConSucursal.length > 0) {
+        const cambiados = limitesConSucursal.map(
+          ([area, l]) =>
+            [
+              area,
+              { ...l, sucursales: l.sucursales!.map((s) => (s === oldName ? newName : s)) },
+            ] as const
+        );
+        setMisTurnosLimitesState((prev) => ({ ...prev, ...Object.fromEntries(cambiados) }));
+        await Promise.all(
+          cambiados.map(([area, l]) =>
+            dbWrite(
+              supabase
+                .from('areas')
+                .update({ mis_turnos_sucursales: l.sucursales })
+                .eq('name', area),
+              'el acceso a Mis turnos del área'
+            )
+          )
+        );
+      }
       if (oldName !== newName) {
         // Crear la nueva primero y borrar la antigua al final: si algo falla no se pierde la sucursal
         const newCajas = cajas !== undefined ? cajas : 20;
@@ -1642,7 +1746,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         );
       }
     },
-    [supabase, sucursales]
+    [supabase, sucursales, areaSucursales, misTurnosLimites]
   );
 
   const deleteSucursal = useCallback(
@@ -1677,6 +1781,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async (oldName: string, newName: string) => {
       setAreas((prev) => prev.map((a) => (a === oldName ? newName : a)));
       setAreasSinMisTurnos((prev) => prev.map((a) => (a === oldName ? newName : a)));
+      setAreaSucursalesState((prev) => {
+        if (!prev[oldName]) return prev;
+        const next = { ...prev, [newName]: prev[oldName] };
+        delete next[oldName];
+        return next;
+      });
+      setMisTurnosLimitesState((prev) => {
+        if (!prev[oldName]) return prev;
+        const next = { ...prev, [newName]: prev[oldName] };
+        delete next[oldName];
+        return next;
+      });
       setWorkers((prev) => prev.map((w) => (w.area === oldName ? { ...w, area: newName } : w)));
       setAreaCargosState((prev) => {
         const next = { ...prev };
@@ -1691,10 +1807,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         let ok =
           (await dbWrite(
             supabase.from('areas').upsert(
-              // Sin acceso a Mis turnos: el área nueva tampoco lo tiene
-              areasSinMisTurnos.includes(oldName)
-                ? { name: newName, mis_turnos: false }
-                : { name: newName },
+              {
+                name: newName,
+                // Sin acceso a Mis turnos: el área nueva tampoco lo tiene
+                ...(areasSinMisTurnos.includes(oldName) ? { mis_turnos: false } : {}),
+                // Lo mismo con sus sucursales y los límites de Mis turnos
+                ...(areaSucursales[oldName] ? { sucursales: areaSucursales[oldName] } : {}),
+                ...(misTurnosLimites[oldName]
+                  ? {
+                      mis_turnos_sucursales: misTurnosLimites[oldName].sucursales,
+                      mis_turnos_cargos: misTurnosLimites[oldName].cargos,
+                    }
+                  : {}),
+              },
               { onConflict: 'name' }
             ),
             'el área'
@@ -1734,13 +1859,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           toast.error('El cambio de nombre quedó incompleto. Recarga la página y revisa el área.');
       }
     },
-    [supabase, areasSinMisTurnos]
+    [supabase, areasSinMisTurnos, areaSucursales, misTurnosLimites]
   );
 
   const deleteArea = useCallback(
     async (name: string) => {
       setAreas((prev) => prev.filter((a) => a !== name));
       setAreasSinMisTurnos((prev) => prev.filter((a) => a !== name));
+      setAreaSucursalesState((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+      setMisTurnosLimitesState((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
       setAreaCargosState((prev) => {
         const next = { ...prev };
         delete next[name];
@@ -1763,6 +1898,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
       await dbWrite(
         supabase.from('areas').upsert({ name: area, mis_turnos: acceso }, { onConflict: 'name' }),
+        'el acceso a Mis turnos del área'
+      );
+    },
+    [supabase]
+  );
+
+  // ── Sucursales de cada área ──
+  const setAreaSucursales = useCallback(
+    async (area: string, sucs: string[] | null) => {
+      const lista = sucs && sucs.length > 0 ? sucs : null;
+      setAreaSucursalesState((prev) => {
+        const next = { ...prev };
+        if (lista) next[area] = lista;
+        else delete next[area];
+        return next;
+      });
+      await dbWrite(
+        supabase.from('areas').upsert({ name: area, sucursales: lista }, { onConflict: 'name' }),
+        'las sucursales del área'
+      );
+    },
+    [supabase]
+  );
+
+  const setAreaMisTurnosLimites = useCallback(
+    async (area: string, limites: MisTurnosLimites) => {
+      const l = {
+        sucursales: limites.sucursales?.length ? limites.sucursales : null,
+        cargos: limites.cargos?.length ? limites.cargos : null,
+      };
+      setMisTurnosLimitesState((prev) => {
+        const next = { ...prev };
+        if (l.sucursales || l.cargos) next[area] = l;
+        else delete next[area];
+        return next;
+      });
+      await dbWrite(
+        supabase
+          .from('areas')
+          .upsert(
+            { name: area, mis_turnos_sucursales: l.sucursales, mis_turnos_cargos: l.cargos },
+            { onConflict: 'name' }
+          ),
         'el acceso a Mis turnos del área'
       );
     },
@@ -2083,6 +2261,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         areas: visibleAreas,
         areaCargos,
         areasSinMisTurnos,
+        areaSucursales,
+        areasDeSucursales,
+        misTurnosLimites,
+        motivoSinMisTurnos,
         selectedMes,
         setSelectedMes,
         globalSucursal,
@@ -2112,6 +2294,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteArea,
         setAreaCargos,
         setAreaMisTurnos,
+        setAreaSucursales,
+        setAreaMisTurnosLimites,
         setWorkerMisTurnosExcepcion,
         addCustomNonWorkingType,
         updateCustomNonWorkingType,

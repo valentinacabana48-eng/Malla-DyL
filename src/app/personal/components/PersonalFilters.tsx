@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { MapPin, Users, Search, Briefcase } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
@@ -38,7 +38,17 @@ export default function PersonalFilters({
   searchQuery,
   setSearchQuery,
 }: Props) {
-  const { sucursales, areas } = useAppContext();
+  const { sucursales, areasDeSucursales, loading } = useAppContext();
+  // Solo las áreas que hay en las sucursales elegidas
+  const areas = useMemo(
+    () => areasDeSucursales(filterSucursales),
+    [areasDeSucursales, filterSucursales]
+  );
+  useEffect(() => {
+    if (loading) return;
+    const kept = filterAreas.filter((a) => areas.includes(a));
+    if (kept.length !== filterAreas.length) setFilterAreas(kept);
+  }, [loading, areas, filterAreas, setFilterAreas]);
 
   return (
     <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-wrap gap-3 lg:gap-4 items-end">

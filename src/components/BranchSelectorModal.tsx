@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MapPin, Layers, ChevronDown, ArrowRight } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import AppImage from '@/components/ui/AppImage';
@@ -27,16 +27,25 @@ interface BranchSelectorModalProps {
 }
 
 export default function BranchSelectorModal({ onConfirm }: BranchSelectorModalProps) {
-  const { sucursales, areas } = useAppContext();
+  const { sucursales, areasDeSucursales } = useAppContext();
   const [selectedSucursal, setSelectedSucursal] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
   const [mounted, setMounted] = useState(false);
 
+  // Solo las áreas que hay en la sucursal elegida
+  const areas = useMemo(
+    () => areasDeSucursales(selectedSucursal ? [selectedSucursal] : []),
+    [areasDeSucursales, selectedSucursal]
+  );
+
   useEffect(() => {
     setMounted(true);
     if (sucursales.length > 0) setSelectedSucursal(sucursales[0].name);
-    if (areas.length > 0) setSelectedArea(areas[0]);
-  }, [sucursales, areas]);
+  }, [sucursales]);
+
+  useEffect(() => {
+    setSelectedArea((prev) => (areas.includes(prev) ? prev : (areas[0] ?? '')));
+  }, [areas]);
 
   const canConfirm = selectedSucursal !== '' && selectedArea !== '';
 
