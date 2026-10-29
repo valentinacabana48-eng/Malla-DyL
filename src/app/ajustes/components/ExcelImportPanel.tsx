@@ -20,6 +20,7 @@ import {
 import { useAppContext, SHIFT_COLOR_OPTIONS } from '@/context/AppContext';
 import type { Worker, Shift } from '@/context/AppContext';
 import { readFirstSheetRows, downloadSimpleWorkbook } from '@/lib/excel';
+import { normalizeRut, formatRut } from '@/lib/rut';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,8 +33,9 @@ interface ParsedWorker {
   role: string;
   sucursal: string;
   area: string;
-  horasContratadas: number;
-  estado: 'Activo' | 'Inactivo';
+  /** null = la celda venía vacía (no se cambia a quien ya existe) */
+  horasContratadas: number | null;
+  estado: 'Activo' | 'Inactivo' | null;
   birthday: string;
 }
 
@@ -144,11 +146,6 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-// RUT sin puntos ni guion, para comparar (21.533.115-6 = 215331156)
-function normalizeRut(rut: string): string {
-  return (rut || '').replace(/[^0-9kK]/g, '').toUpperCase();
-}
-
 // Nombre sin tildes, mayúsculas ni espacios de más, para comparar
 function normalizeName(name: string): string {
   return (name || '')
@@ -157,6 +154,108 @@ function normalizeName(name: string): string {
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// Cumpleaños a AAAA-MM-DD: acepta fecha de Excel, AAAA-MM-DD y DD-MM-AAAA / DD/MM/AAAA
+function normalizeBirthday(value: unknown): string {
+  if (typeof value === 'number' && value > 0) {
+    const d = new Date(Math.round((value - 25569) * 86400000));
+    return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+  }
+  const text = String(value ?? '').trim();
+  let m = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return '';
+}
+
+// ─── Plan de importación de trabajadoras ─────────────────────────────────────
+
+const WORKER_FIELD_LABELS = {
+  name: 'nombre',
+  rut: 'RUT',
+  cargo: 'cargo',
+  role: 'rol',
+  sucursal: 'sucursal',
+  area: 'área',
+  horasContratadas: 'horas',
+  estado: 'estado',
+  birthday: 'cumpleaños',
+} as const;
+type WorkerField = keyof typeof WORKER_FIELD_LABELS;
+
+type WorkerPlanItem =
+  | { kind: 'new'; parsed: ParsedWorker }
+  | { kind: 'update'; parsed: ParsedWorker; existing: Worker; updated: Worker; changes: string[] }
+  | { kind: 'same'; parsed: ParsedWorker }
+  | { kind: 'ambiguous'; parsed: ParsedWorker };
+
+/**
+ * Decide qué pasa con cada fila: si la trabajadora ya existe (por RUT o, si no hay RUT,
+ * por nombre) se actualizan los datos que vengan en el archivo; las celdas vacías no
+ * borran nada. Si no existe, se crea.
+ */
+function planWorkerImport(parsedWorkers: ParsedWorker[], workers: Worker[]): WorkerPlanItem[] {
+  const known: Worker[] = [...workers];
+  // Las que este mismo archivo ya va a crear (por si vienen repetidas)
+  const pending = new Set<Worker>();
+
+  const findExisting = (rut: string, name: string): Worker | null | 'ambiguous' => {
+    const nRut = normalizeRut(rut);
+    if (nRut) {
+      const byRut = known.find((k) => normalizeRut(k.rut) === nRut);
+      if (byRut) return byRut;
+    }
+    // Por nombre: solo a quien no tiene RUT (o tiene el mismo); con RUT distinto es otra persona
+    const byName = known.filter(
+      (k) =>
+        normalizeName(k.name) === normalizeName(name) &&
+        (!nRut || !normalizeRut(k.rut) || normalizeRut(k.rut) === nRut)
+    );
+    if (byName.length > 1) return 'ambiguous';
+    return byName[0] || null;
+  };
+
+  return parsedWorkers.map((w) => {
+    const existing = findExisting(w.rut, w.name);
+    if (existing === 'ambiguous') return { kind: 'ambiguous', parsed: w };
+    if (existing && pending.has(existing)) return { kind: 'same', parsed: w };
+    if (!existing) {
+      const marker = { name: w.name, rut: w.rut } as Worker;
+      pending.add(marker);
+      known.push(marker);
+      return { kind: 'new', parsed: w };
+    }
+
+    const name = w.name || existing.name;
+    const updated: Worker = {
+      ...existing,
+      name,
+      initials: name !== existing.name ? getInitials(name) : existing.initials,
+      rut: w.rut || existing.rut,
+      cargo: w.cargo || existing.cargo,
+      // Sin columna «Rol» (listado de Personal), el rol sigue al cargo si este cambió
+      role: w.role || (w.cargo && w.cargo !== existing.cargo ? w.cargo : existing.role),
+      sucursal: w.sucursal || existing.sucursal,
+      area: w.area || existing.area,
+      horasContratadas: w.horasContratadas ?? existing.horasContratadas,
+      estado: w.estado ?? existing.estado,
+      birthday: w.birthday || existing.birthday,
+    };
+    const changes = (Object.keys(WORKER_FIELD_LABELS) as WorkerField[])
+      .filter((k) =>
+        k === 'name'
+          ? normalizeName(updated.name) !== normalizeName(existing.name)
+          : k === 'rut'
+            ? normalizeRut(updated.rut) !== normalizeRut(existing.rut)
+            : String(updated[k] ?? '') !== String(existing[k] ?? '')
+      )
+      .map((k) => WORKER_FIELD_LABELS[k]);
+    known[known.indexOf(existing)] = updated;
+    if (changes.length === 0) return { kind: 'same', parsed: w };
+    return { kind: 'update', parsed: w, existing, updated, changes };
+  });
 }
 
 const AVATAR_COLORS = [
@@ -177,13 +276,19 @@ function parseSheetData(data: unknown[][]): ParseResult {
     return result;
   }
 
-  const headers = (data[0] as string[]).map((h) =>
-    String(h || '')
-      .trim()
-      .toLowerCase()
-  );
+  const normalizeHeaders = (row: unknown[]) =>
+    row.map((h) =>
+      String(h || '')
+        .trim()
+        .toLowerCase()
+    );
+  // El encabezado puede no estar en la primera fila (el listado de Personal trae un título
+  // arriba): se usa la primera fila que tenga la columna «Nombre».
+  const found = data.slice(0, 10).findIndex((row) => normalizeHeaders(row).includes('nombre'));
+  const headerIdx = found >= 0 ? found : 0;
+  const headers = normalizeHeaders(data[headerIdx]);
   const rows = data
-    .slice(1)
+    .slice(headerIdx + 1)
     .filter((row) => row.some((cell) => cell !== null && cell !== undefined && cell !== ''));
 
   // Detect type by headers
@@ -196,21 +301,28 @@ function parseSheetData(data: unknown[][]): ParseResult {
       };
       const name = get('nombre');
       if (!name) {
-        result.errors.push(`Fila ${i + 2}: Nombre vacío, se omite.`);
+        result.errors.push(`Fila ${i + headerIdx + 2}: Nombre vacío, se omite.`);
         return;
       }
-      const horas = parseInt(get('horascontratadas') || get('horas contratadas') || '42', 10);
+      // Fila «Total: N trabajadoras» al pie del listado de Personal
+      if (!get('rut') && /^total:/i.test(name)) return;
+      const horasRaw =
+        get('horascontratadas') || get('horas contratadas') || get('horas sem.') || get('horas');
+      const horas = parseInt(horasRaw, 10);
       const estadoRaw = get('estado').toLowerCase();
+      const birthdayIdx = ['cumpleaños', 'cumpleanos', 'birthday']
+        .map((k) => headers.indexOf(k))
+        .find((idx) => idx >= 0);
       result.workers.push({
         name,
-        rut: get('rut'),
+        rut: formatRut(get('rut')),
         cargo: get('cargo'),
-        role: get('rol') || get('role') || get('cargo'),
+        role: get('rol') || get('role'),
         sucursal: get('sucursal'),
         area: get('área') || get('area'),
-        horasContratadas: isNaN(horas) ? 42 : horas,
-        estado: estadoRaw === 'inactivo' ? 'Inactivo' : 'Activo',
-        birthday: get('cumpleaños') || get('cumpleanos') || get('birthday') || '',
+        horasContratadas: isNaN(horas) ? null : horas,
+        estado: estadoRaw === 'inactivo' ? 'Inactivo' : estadoRaw === 'activo' ? 'Activo' : null,
+        birthday: birthdayIdx !== undefined ? normalizeBirthday(row[birthdayIdx]) : '',
       });
     });
   } else if (
@@ -225,7 +337,7 @@ function parseSheetData(data: unknown[][]): ParseResult {
       };
       const label = get('nombre');
       if (!label) {
-        result.errors.push(`Fila ${i + 2}: Nombre vacío, se omite.`);
+        result.errors.push(`Fila ${i + headerIdx + 2}: Nombre vacío, se omite.`);
         return;
       }
       const colacion = parseInt(
@@ -272,8 +384,18 @@ function downloadTemplate(type: ImportType) {
 
 // ─── Preview Table ────────────────────────────────────────────────────────────
 
-function PreviewTable({ type, data }: { type: ImportType; data: ParseResult }) {
+function PreviewTable({
+  type,
+  data,
+  workerPlan,
+}: {
+  type: ImportType;
+  data: ParseResult;
+  workerPlan?: WorkerPlanItem[];
+}) {
   const [expanded, setExpanded] = useState(true);
+  const planCount = (kind: WorkerPlanItem['kind']) =>
+    (workerPlan || []).filter((p) => p.kind === kind).length;
 
   const items =
     type === 'workers'
@@ -302,6 +424,13 @@ function PreviewTable({ type, data }: { type: ImportType; data: ParseResult }) {
               : type === 'sucursales'
                 ? 'sucursal(es)'
                 : 'área(s)'}
+          {type === 'workers' && workerPlan && (
+            <span className="font-normal text-muted-foreground">
+              · {planCount('new')} nueva(s), {planCount('update')} se actualizan
+              {planCount('same') > 0 && `, ${planCount('same')} sin cambios`}
+              {planCount('ambiguous') > 0 && `, ${planCount('ambiguous')} se omiten`}
+            </span>
+          )}
         </div>
         {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
@@ -311,6 +440,11 @@ function PreviewTable({ type, data }: { type: ImportType; data: ParseResult }) {
           <table className="w-full text-xs">
             <thead className="bg-muted/20 sticky top-0">
               <tr>
+                {type === 'workers' && workerPlan && (
+                  <th className="px-3 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                    Qué pasa
+                  </th>
+                )}
                 {TEMPLATES[type].headers.map((h) => (
                   <th
                     key={h}
@@ -325,19 +459,26 @@ function PreviewTable({ type, data }: { type: ImportType; data: ParseResult }) {
               {type === 'workers' &&
                 data.workers.map((w, i) => (
                   <tr key={i} className="hover:bg-muted/10">
+                    {workerPlan && (
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <WorkerPlanBadge item={workerPlan[i]} />
+                      </td>
+                    )}
                     <td className="px-3 py-2 font-medium text-foreground">{w.name}</td>
                     <td className="px-3 py-2 text-muted-foreground">{w.rut}</td>
                     <td className="px-3 py-2 text-muted-foreground">{w.cargo}</td>
                     <td className="px-3 py-2 text-muted-foreground">{w.role}</td>
                     <td className="px-3 py-2 text-muted-foreground">{w.sucursal}</td>
                     <td className="px-3 py-2 text-muted-foreground">{w.area}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{w.horasContratadas}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{w.horasContratadas ?? ''}</td>
                     <td className="px-3 py-2">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-semibold ${w.estado === 'Activo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
-                      >
-                        {w.estado}
-                      </span>
+                      {w.estado && (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${w.estado === 'Activo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                        >
+                          {w.estado}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{w.birthday}</td>
                   </tr>
@@ -369,6 +510,35 @@ function PreviewTable({ type, data }: { type: ImportType; data: ParseResult }) {
         </div>
       )}
     </div>
+  );
+}
+
+function WorkerPlanBadge({ item }: { item?: WorkerPlanItem }) {
+  if (!item) return null;
+  if (item.kind === 'new')
+    return (
+      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+        Nueva
+      </span>
+    );
+  if (item.kind === 'update')
+    return (
+      <span
+        className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"
+        title={item.changes.join(', ')}
+      >
+        Actualiza: {item.changes.join(', ')}
+      </span>
+    );
+  if (item.kind === 'same')
+    return <span className="text-xs text-muted-foreground">Sin cambios</span>;
+  return (
+    <span
+      className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"
+      title="Hay más de una con ese nombre; agrega el RUT para distinguirlas"
+    >
+      Se omite (nombre repetido)
+    </span>
   );
 }
 
@@ -459,57 +629,25 @@ export default function ExcelImportPanel() {
     const workerNotes: string[] = [];
 
     if (selectedTypes.has('workers')) {
-      // Si la trabajadora ya existe (por RUT o, si no hay RUT, por nombre) no se crea de
-      // nuevo: solo se completan los datos que tenga vacíos.
-      const known: Worker[] = [...workers];
-      let completed = 0;
+      let updated = 0;
       let unchanged = 0;
       let ambiguous = 0;
 
-      const findExisting = (rut: string, name: string): Worker | null | 'ambiguous' => {
-        const nRut = normalizeRut(rut);
-        if (nRut) {
-          const byRut = known.find((k) => normalizeRut(k.rut) === nRut);
-          if (byRut) return byRut;
-        }
-        // Por nombre: solo a quien no tiene RUT (o tiene el mismo); con RUT distinto es otra persona
-        const byName = known.filter(
-          (k) =>
-            normalizeName(k.name) === normalizeName(name) &&
-            (!nRut || !normalizeRut(k.rut) || normalizeRut(k.rut) === nRut)
-        );
-        if (byName.length > 1) return 'ambiguous';
-        return byName[0] || null;
-      };
-
-      parseResult.workers.forEach((w, i) => {
-        const existing = findExisting(w.rut, w.name);
-        if (existing === 'ambiguous') {
+      planWorkerImport(parseResult.workers, workers).forEach((item, i) => {
+        if (item.kind === 'ambiguous') {
           ambiguous++;
           return;
         }
-        if (existing) {
-          const filled: Worker = {
-            ...existing,
-            rut: existing.rut || w.rut,
-            cargo: existing.cargo || w.cargo,
-            role: existing.role || w.role || w.cargo,
-            sucursal: existing.sucursal || w.sucursal,
-            area: existing.area || w.area,
-            birthday: existing.birthday || w.birthday,
-          };
-          const changed = (['rut', 'cargo', 'role', 'sucursal', 'area', 'birthday'] as const).some(
-            (k) => (filled[k] || '') !== (existing[k] || '')
-          );
-          if (changed) {
-            updateWorker(filled);
-            known[known.indexOf(existing)] = filled;
-            completed++;
-          } else {
-            unchanged++;
-          }
+        if (item.kind === 'same') {
+          unchanged++;
           return;
         }
+        if (item.kind === 'update') {
+          updateWorker(item.updated);
+          updated++;
+          return;
+        }
+        const w = item.parsed;
         const worker: Worker = {
           id: generateId() + i,
           name: w.name,
@@ -519,18 +657,17 @@ export default function ExcelImportPanel() {
           role: w.role || w.cargo,
           sucursal: w.sucursal,
           area: w.area,
-          horasContratadas: w.horasContratadas,
-          estado: w.estado,
+          horasContratadas: w.horasContratadas ?? 42,
+          estado: w.estado ?? 'Activo',
           avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
           birthday: w.birthday,
         };
         addWorker(worker);
-        known.push(worker);
         count++;
       });
 
-      if (completed > 0) workerNotes.push(`${completed} ya existían y se completaron sus datos`);
-      if (unchanged > 0) workerNotes.push(`${unchanged} ya existían y estaban completas`);
+      if (updated > 0) workerNotes.push(`${updated} ya existían y se actualizaron sus datos`);
+      if (unchanged > 0) workerNotes.push(`${unchanged} ya existían y no tenían cambios`);
       if (ambiguous > 0)
         workerNotes.push(
           `${ambiguous} se omitieron porque hay más de una con ese nombre (agrega el RUT para distinguirlas)`
@@ -751,7 +888,11 @@ export default function ExcelImportPanel() {
 
           {/* Preview tables */}
           {selectedTypes.has('workers') && parseResult!.workers.length > 0 && (
-            <PreviewTable type="workers" data={parseResult!} />
+            <PreviewTable
+              type="workers"
+              data={parseResult!}
+              workerPlan={planWorkerImport(parseResult!.workers, workers)}
+            />
           )}
           {selectedTypes.has('shifts') && parseResult!.shifts.length > 0 && (
             <PreviewTable type="shifts" data={parseResult!} />
