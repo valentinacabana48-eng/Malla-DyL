@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { Pencil, Trash2, ChevronUp, ChevronDown, Users } from 'lucide-react';
+import { Pencil, Trash2, ChevronUp, ChevronDown, Users, UserX } from 'lucide-react';
 import { type Worker } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 
@@ -8,6 +8,70 @@ interface Props {
   workers: Worker[];
   onEdit: (w: Worker) => void;
   onDelete: (id: string) => void;
+  onDeactivate: (w: Worker) => void;
+}
+
+/** Borrar de verdad: se pierde todo su historial, por eso se pide escribir BORRAR. */
+function DeleteWorkerDialog({
+  worker,
+  onConfirm,
+  onClose,
+}: {
+  worker: Worker;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const [texto, setTexto] = useState('');
+  const listo = texto.trim().toUpperCase() === 'BORRAR';
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-md rounded-2xl bg-card border border-border shadow-xl p-5 flex flex-col gap-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-lg font-bold text-foreground">Borrar a {worker.name}</h3>
+        <p className="text-sm text-muted-foreground">
+          Se borra para siempre todo lo suyo: malla, asistencia, RRHH, licencias, solicitudes y
+          clave de Mis turnos. No se puede deshacer.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Si solo dejó de trabajar, no la borres: déjala <strong>Inactiva</strong> y se guarda su
+          historial.
+        </p>
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-foreground">
+          Para confirmar, escribe BORRAR
+          <input
+            autoFocus
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            className="min-h-[44px] rounded-xl border border-border bg-background px-3 text-base"
+          />
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[44px] rounded-xl bg-muted text-foreground text-sm font-semibold"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!listo}
+            onClick={onConfirm}
+            className="min-h-[44px] rounded-xl bg-red-600 text-white text-sm font-semibold disabled:opacity-40"
+          >
+            Borrar para siempre
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function formatBirthday(birthday: string): string {
@@ -34,10 +98,12 @@ function formatBirthday(birthday: string): string {
   }
 }
 
-export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
+export default function PersonalTable({ workers, onEdit, onDelete, onDeactivate }: Props) {
   const [sortField, setSortField] = useState<keyof Worker>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  // Dar de baja se confirma en la misma fila; borrar abre un aviso aparte
+  const [deactivateConfirm, setDeactivateConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<Worker | null>(null);
   const isReadonly = useReadonly('personal');
 
   const handleSort = (field: keyof Worker) => {
@@ -136,21 +202,31 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
                 <Pencil size={16} />
                 Editar
               </button>
-              {deleteConfirm === worker.id ? (
+              {worker.estado === 'Inactivo' ? (
+                <button
+                  type="button"
+                  onClick={() => setDeleting(worker)}
+                  disabled={isReadonly}
+                  className="flex items-center justify-center gap-2 min-h-[44px] rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-semibold disabled:opacity-40"
+                >
+                  <Trash2 size={16} />
+                  Borrar
+                </button>
+              ) : deactivateConfirm === worker.id ? (
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => {
-                      onDelete(worker.id);
-                      setDeleteConfirm(null);
+                      onDeactivate(worker);
+                      setDeactivateConfirm(null);
                     }}
-                    className="min-h-[44px] rounded-xl bg-red-600 text-white text-sm font-semibold"
+                    className="min-h-[44px] rounded-xl bg-amber-600 text-white text-sm font-semibold"
                   >
-                    Eliminar
+                    Dar de baja
                   </button>
                   <button
                     type="button"
-                    onClick={() => setDeleteConfirm(null)}
+                    onClick={() => setDeactivateConfirm(null)}
                     className="min-h-[44px] rounded-xl bg-muted text-foreground text-sm font-semibold"
                   >
                     No
@@ -159,12 +235,12 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
               ) : (
                 <button
                   type="button"
-                  onClick={() => setDeleteConfirm(worker.id)}
+                  onClick={() => setDeactivateConfirm(worker.id)}
                   disabled={isReadonly}
-                  className="flex items-center justify-center gap-2 min-h-[44px] rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-semibold disabled:opacity-40"
+                  className="flex items-center justify-center gap-2 min-h-[44px] rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-sm font-semibold disabled:opacity-40"
                 >
-                  <Trash2 size={16} />
-                  Eliminar
+                  <UserX size={16} />
+                  Dar de baja
                 </button>
               )}
             </div>
@@ -260,19 +336,29 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
                     >
                       <Pencil size={15} />
                     </button>
-                    {deleteConfirm === worker.id ? (
+                    {worker.estado === 'Inactivo' ? (
+                      <button
+                        onClick={() => setDeleting(worker)}
+                        disabled={isReadonly}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Borrar para siempre"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    ) : deactivateConfirm === worker.id ? (
                       <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground">¿Dar de baja?</span>
                         <button
                           onClick={() => {
-                            onDelete(worker.id);
-                            setDeleteConfirm(null);
+                            onDeactivate(worker);
+                            setDeactivateConfirm(null);
                           }}
-                          className="px-2 py-1 bg-red-500 text-white text-xs rounded-md font-medium hover:bg-red-600 transition-colors"
+                          className="px-2 py-1 bg-amber-600 text-white text-xs rounded-md font-medium hover:bg-amber-700 transition-colors"
                         >
                           Sí
                         </button>
                         <button
-                          onClick={() => setDeleteConfirm(null)}
+                          onClick={() => setDeactivateConfirm(null)}
                           className="px-2 py-1 bg-muted text-foreground text-xs rounded-md font-medium hover:bg-muted/80 transition-colors"
                         >
                           No
@@ -280,12 +366,12 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
                       </div>
                     ) : (
                       <button
-                        onClick={() => setDeleteConfirm(worker.id)}
+                        onClick={() => setDeactivateConfirm(worker.id)}
                         disabled={isReadonly}
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Eliminar trabajadora"
+                        className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-500 hover:text-amber-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Dar de baja (queda Inactiva y se guarda su historial)"
                       >
-                        <Trash2 size={15} />
+                        <UserX size={15} />
                       </button>
                     )}
                   </div>
@@ -295,6 +381,16 @@ export default function PersonalTable({ workers, onEdit, onDelete }: Props) {
           </tbody>
         </table>
       </div>
+      {deleting && (
+        <DeleteWorkerDialog
+          worker={deleting}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => {
+            onDelete(deleting.id);
+            setDeleting(null);
+          }}
+        />
+      )}
     </div>
   );
 }

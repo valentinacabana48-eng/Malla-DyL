@@ -7,7 +7,7 @@ import { misTurnosUrl, whatsappLink } from '@/lib/misTurnos';
 import { useAppContext, type Worker } from '@/context/AppContext';
 
 /** 4 números al azar, sin claves fáciles de adivinar (1111, 1234, 4321) */
-function inventarClave(): string {
+export function inventarClave(): string {
   for (;;) {
     const n = new Uint32Array(1);
     crypto.getRandomValues(n);

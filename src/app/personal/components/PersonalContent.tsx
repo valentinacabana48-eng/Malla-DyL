@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Users, Download, Plus } from 'lucide-react';
+import { Users, Download, Plus, KeyRound } from 'lucide-react';
 import { applyPrintSetup, createWorkbook, downloadWorkbook } from '@/lib/excel';
 import { useAppContext, type Worker } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
@@ -10,6 +10,7 @@ import PersonalFilters from './PersonalFilters';
 import PersonalSummary from './PersonalSummary';
 import PersonalTable from './PersonalTable';
 import AddWorkerPanel from './AddWorkerPanel';
+import BulkPinPanel from './BulkPinPanel';
 
 export default function PersonalContent() {
   const { workers, addWorker, updateWorker, deleteWorker, sucursales, globalSucursal, globalArea } =
@@ -23,6 +24,7 @@ export default function PersonalContent() {
   const [filterHoras, setFilterHoras] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
+  const [showClaves, setShowClaves] = useState(false);
 
   // Todos los filtros menos cargo y horas (así cada distribución muestra todas sus tarjetas)
   const workersBase = useMemo(() => {
@@ -109,7 +111,13 @@ export default function PersonalContent() {
   const handleDeleteWorker = (id: string) => {
     const w = workers.find((w) => w.id === id);
     deleteWorker(id);
-    toast.success(`${w?.name} eliminada`);
+    toast.success(`${w?.name} borrada`);
+  };
+
+  // Dar de baja guarda su historial; deja de salir en la malla y en Mis turnos
+  const handleDeactivateWorker = (worker: Worker) => {
+    updateWorker({ ...worker, estado: 'Inactivo' });
+    toast.success(`${worker.name} quedó Inactiva. Su historial se guarda.`);
   };
 
   const handleEdit = (worker: Worker) => {
@@ -248,7 +256,16 @@ export default function PersonalContent() {
             Administra la información de los trabajadores de la empresa.
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => setShowClaves(true)}
+            disabled={isReadonly}
+            className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ boxShadow: 'var(--shadow-sm)' }}
+          >
+            <KeyRound size={14} />
+            Claves Mis turnos
+          </button>
           <button
             onClick={handleExport}
             className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted transition-all duration-150"
@@ -319,8 +336,13 @@ export default function PersonalContent() {
             workers={filteredWorkers}
             onEdit={handleEdit}
             onDelete={handleDeleteWorker}
+            onDeactivate={handleDeactivateWorker}
           />
         </div>
+
+        {showClaves && (
+          <BulkPinPanel workers={filteredWorkers} onClose={() => setShowClaves(false)} />
+        )}
 
         {/* En el celular el formulario ocupa toda la pantalla; en el computador va al lado */}
         {editingWorker && (
