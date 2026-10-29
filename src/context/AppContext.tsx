@@ -212,6 +212,8 @@ export interface Worker {
   exentoDomingos?: boolean;
   /** Pasillo fijo (p. ej. reponedoras); '' o undefined = sin pasillo */
   pasillo?: string;
+  /** Entra a Mis turnos aunque su área no tenga acceso (se cambia solo desde Personal) */
+  misTurnosExcepcion?: boolean;
 }
 
 export type MonthSchedule = Record<string, ShiftCode[]>;
@@ -510,6 +512,8 @@ interface AppContextValue {
   sucursales: Sucursal[];
   areas: string[];
   areaCargos: AreaCargos;
+  /** Áreas sin acceso a Mis turnos */
+  areasSinMisTurnos: string[];
   selectedMes: string;
   globalSucursal: string;
   setGlobalSucursal: (s: string) => void;
@@ -558,6 +562,8 @@ interface AppContextValue {
   updateArea: (oldName: string, newName: string) => void;
   deleteArea: (name: string) => void;
   setAreaCargos: (area: string, cargos: string[]) => void;
+  setAreaMisTurnos: (area: string, acceso: boolean) => void;
+  setWorkerMisTurnosExcepcion: (workerId: string, excepcion: boolean) => Promise<boolean>;
   addCustomNonWorkingType: (t: NonWorkingType) => void;
   updateCustomNonWorkingType: (t: NonWorkingType) => void;
   deleteCustomNonWorkingType: (code: string) => void;
@@ -601,6 +607,7 @@ function rowToWorker(row: Record<string, unknown>): Worker {
     birthday: (row.birthday as string) || '',
     exentoDomingos: row.exento_domingos === true,
     pasillo: (row.pasillo as string) || '',
+    misTurnosExcepcion: row.mis_turnos_excepcion === true,
   };
 }
 
@@ -805,6 +812,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [sucursales, setSucursales] = useState<Sucursal[]>(DEFAULT_SUCURSALES_DATA);
   const [areas, setAreas] = useState<string[]>(DEFAULT_AREAS);
   const [areaCargos, setAreaCargosState] = useState<AreaCargos>({});
+  const [areasSinMisTurnos, setAreasSinMisTurnos] = useState<string[]>([]);
   const [selectedMes, setSelectedMesState] = useState<string>(() =>
     typeof window === 'undefined' ? currentMonthLabel() : loadSelectedMes()
   );
@@ -920,6 +928,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         if (areasData && areasData.length > 0) {
           setAreas(areasData.map((r) => r.name as string));
+          setAreasSinMisTurnos(
+            areasData.filter((r) => r.mis_turnos === false).map((r) => r.name as string)
+          );
         }
         if (areaCargosData) {
           const ac: AreaCargos = {};
@@ -1665,6 +1676,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateArea = useCallback(
     async (oldName: string, newName: string) => {
       setAreas((prev) => prev.map((a) => (a === oldName ? newName : a)));
+      setAreasSinMisTurnos((prev) => prev.map((a) => (a === oldName ? newName : a)));
       setWorkers((prev) => prev.map((w) => (w.area === oldName ? { ...w, area: newName } : w)));
       setAreaCargosState((prev) => {
         const next = { ...prev };
@@ -1678,7 +1690,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Crear la nueva primero y borrar la antigua al final: si algo falla no se pierde el área
         let ok =
           (await dbWrite(
-            supabase.from('areas').upsert({ name: newName }, { onConflict: 'name' }),
+            supabase.from('areas').upsert(
+              // Sin acceso a Mis turnos: el área nueva tampoco lo tiene
+              areasSinMisTurnos.includes(oldName)
+                ? { name: newName, mis_turnos: false }
+                : { name: newName },
+              { onConflict: 'name' }
+            ),
             'el área'
           )) &&
           (await dbWrite(
@@ -1716,12 +1734,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           toast.error('El cambio de nombre quedó incompleto. Recarga la página y revisa el área.');
       }
     },
-    [supabase]
+    [supabase, areasSinMisTurnos]
   );
 
   const deleteArea = useCallback(
     async (name: string) => {
       setAreas((prev) => prev.filter((a) => a !== name));
+      setAreasSinMisTurnos((prev) => prev.filter((a) => a !== name));
       setAreaCargosState((prev) => {
         const next = { ...prev };
         delete next[name];
@@ -1732,6 +1751,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         'los cargos del área'
       );
       await dbWrite(supabase.from('areas').delete().eq('name', name), 'la eliminación del área');
+    },
+    [supabase]
+  );
+
+  // ── Acceso a Mis turnos ──
+  const setAreaMisTurnos = useCallback(
+    async (area: string, acceso: boolean) => {
+      setAreasSinMisTurnos((prev) =>
+        acceso ? prev.filter((a) => a !== area) : prev.includes(area) ? prev : [...prev, area]
+      );
+      await dbWrite(
+        supabase.from('areas').upsert({ name: area, mis_turnos: acceso }, { onConflict: 'name' }),
+        'el acceso a Mis turnos del área'
+      );
+    },
+    [supabase]
+  );
+
+  const setWorkerMisTurnosExcepcion = useCallback(
+    async (workerId: string, excepcion: boolean) => {
+      const ok = await dbWrite(
+        supabase.from('workers').update({ mis_turnos_excepcion: excepcion }).eq('id', workerId),
+        'el acceso a Mis turnos'
+      );
+      if (ok)
+        setWorkers((prev) =>
+          prev.map((w) => (w.id === workerId ? { ...w, misTurnosExcepcion: excepcion } : w))
+        );
+      return ok;
     },
     [supabase]
   );
@@ -2034,6 +2082,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sucursales: visibleSucursales,
         areas: visibleAreas,
         areaCargos,
+        areasSinMisTurnos,
         selectedMes,
         setSelectedMes,
         globalSucursal,
@@ -2062,6 +2111,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateArea,
         deleteArea,
         setAreaCargos,
+        setAreaMisTurnos,
+        setWorkerMisTurnosExcepcion,
         addCustomNonWorkingType,
         updateCustomNonWorkingType,
         deleteCustomNonWorkingType,
