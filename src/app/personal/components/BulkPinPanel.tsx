@@ -19,9 +19,12 @@ interface Creada {
  */
 export default function BulkPinPanel({
   workers,
+  alcance,
   onClose,
 }: {
   workers: Worker[];
+  /** Filtros de Personal que arman la lista, en palabras ("Sucursal: Centro · Área: Cajas") */
+  alcance: string;
   onClose: () => void;
 }) {
   const { areasSinMisTurnos } = useAppContext();
@@ -122,6 +125,9 @@ export default function BulkPinPanel({
                 Se crea una clave para cada trabajadora de la lista que estás viendo que todavía no
                 tiene. Para elegir una sucursal o un área, usa los filtros de Personal antes de
                 abrir esto.
+              </p>
+              <p className="text-sm font-semibold text-foreground bg-muted rounded-xl px-3 py-2">
+                {alcance}
               </p>
               {error ? (
                 <p className="text-sm font-semibold text-red-600">

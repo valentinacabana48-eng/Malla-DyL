@@ -341,7 +341,17 @@ export default function PersonalContent() {
         </div>
 
         {showClaves && (
-          <BulkPinPanel workers={filteredWorkers} onClose={() => setShowClaves(false)} />
+          <BulkPinPanel
+            workers={filteredWorkers}
+            alcance={[
+              `Sucursal: ${filterSucursales.length ? filterSucursales.join(', ') : 'Todas'}`,
+              `Área: ${filterAreas.length ? filterAreas.join(', ') : 'Todas'}`,
+              ...(filterCargos.length ? [`Cargo: ${filterCargos.join(', ')}`] : []),
+              ...(filterHoras.length ? [`Horas: ${filterHoras.join(', ')}`] : []),
+              ...(searchQuery.trim() ? [`Búsqueda: «${searchQuery.trim()}»`] : []),
+            ].join(' · ')}
+            onClose={() => setShowClaves(false)}
+          />
         )}
 
         {/* En el celular el formulario ocupa toda la pantalla; en el computador va al lado */}
