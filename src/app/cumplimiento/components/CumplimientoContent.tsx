@@ -32,7 +32,6 @@ interface WorkerCompliance {
   workerId: string;
   workerName: string;
   initials: string;
-  avatarColor: string;
   area: string;
   cargo: string;
   horasContratadas: number;
@@ -160,7 +159,6 @@ export default function CumplimientoContent() {
         workerId: worker.id,
         workerName: worker.name,
         initials: worker.initials,
-        avatarColor: worker.avatarColor || '#1d5bd4',
         area: worker.area,
         cargo: worker.cargo || worker.role,
         horasContratadas: horasSemanales,
@@ -440,10 +438,7 @@ export default function CumplimientoContent() {
                 >
                   {/* Worker info */}
                   <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
-                      style={{ background: wc.avatarColor }}
-                    >
+                    <div className="w-8 h-8 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-[11px] font-bold shrink-0">
                       {wc.initials}
                     </div>
                     <div className="min-w-0">

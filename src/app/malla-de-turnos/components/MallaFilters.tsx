@@ -105,7 +105,17 @@ export default function MallaFilters({
   nameSearch,
   setNameSearch,
 }: Props) {
-  const { sucursales, areas, workers } = useAppContext();
+  const { sucursales, areasDeSucursales, workers, loading } = useAppContext();
+  // Solo las áreas que hay en las sucursales elegidas
+  const areas = useMemo(
+    () => areasDeSucursales(selectedSucursales),
+    [areasDeSucursales, selectedSucursales]
+  );
+  useEffect(() => {
+    if (loading) return;
+    const kept = selectedAreas.filter((a) => areas.includes(a));
+    if (kept.length !== selectedAreas.length) setSelectedAreas(kept);
+  }, [loading, areas, selectedAreas, setSelectedAreas]);
 
   // Pasillos de las sucursales elegidas (Ajustes) y los que tienen las trabajadoras
   const pasilloOptions = useMemo(() => {

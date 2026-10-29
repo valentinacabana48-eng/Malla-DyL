@@ -43,12 +43,13 @@ function getInitials(name: string): string {
 }
 
 export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Props) {
-  const { sucursales, areas, areaCargos } = useAppContext();
+  const { sucursales, areasDeSucursales, areaCargos } = useAppContext();
   const isReadonly = useReadonly('personal');
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
     reset,
   } = useForm<FormData>({
@@ -84,6 +85,14 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
   const selectedArea = watch('area');
   const selectedSucursal = watch('sucursal');
   const selectedPasillo = watch('pasillo');
+  // Las áreas de su sucursal (y la que ya tiene, aunque no sea de ahí)
+  const areas = useMemo(() => {
+    const list = areasDeSucursales(selectedSucursal ? [selectedSucursal] : []);
+    return worker.area && !list.includes(worker.area) ? [...list, worker.area] : list;
+  }, [areasDeSucursales, selectedSucursal, worker.area]);
+  useEffect(() => {
+    if (areas.length > 0 && !areas.includes(selectedArea)) setValue('area', areas[0]);
+  }, [areas, selectedArea, setValue]);
 
   // Pasillos de la sucursal (Ajustes). Se conserva el que ya tenía aunque ya no esté en la lista.
   const pasilloOptions = useMemo(() => {

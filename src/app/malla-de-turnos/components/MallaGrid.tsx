@@ -219,8 +219,8 @@ function SmartDropdown({
 
 // ─── Individual ShiftCell (normal mode — no active shift selected) ─────────
 // ─── Marca de solicitud aprobada (⇄) ─────────────────────────────────────
-// En el celular la casilla muestra la hora de entrada y salida (más corto que el código);
-// en el computador, el código y los minutos de colación (la hora de entrada ya va en el código)
+// La casilla muestra la hora de entrada y salida (el código puede no calzar con el horario);
+// en el computador, además, los minutos de colación
 function ShiftCellText({
   code,
   start,
@@ -232,16 +232,14 @@ function ShiftCellText({
   end?: string;
   colacion?: number;
 }) {
+  if (!start) return <span>{code?.toUpperCase()}</span>;
   return (
     <>
-      <span className={start ? 'hidden lg:inline' : undefined}>{code?.toUpperCase()}</span>
-      {start && (
-        <span className="hidden lg:inline font-semibold text-[9px] opacity-85">
-          {colacion && colacion > 0 ? `col ${colacion}'` : 'sin col'}
-        </span>
-      )}
-      {start && <span className="lg:hidden">{start}</span>}
-      {start && end && <span className="lg:hidden">{end}</span>}
+      <span>{start}</span>
+      {end && <span>{end}</span>}
+      <span className="hidden lg:inline font-semibold text-[9px] opacity-85">
+        {colacion && colacion > 0 ? `col ${colacion}'` : 'sin col'}
+      </span>
     </>
   );
 }
@@ -1238,7 +1236,7 @@ export default function MallaGrid({
           <thead className="sticky top-0 z-20">
             <tr className="bg-muted/30 border-b border-border">
               <th
-                className="text-left px-3 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] sticky left-0 w-[96px] min-w-[96px] max-w-[96px] lg:w-[140px] lg:min-w-[140px] lg:max-w-[140px] border-r border-border"
+                className="text-left px-3 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] sticky left-0 w-[96px] min-w-[96px] max-w-[96px] lg:w-[180px] lg:min-w-[180px] lg:max-w-[180px] border-r border-border"
                 style={{ zIndex: 13, backgroundColor: '#f1f5f9' }}
               >
                 <span className="lg:hidden">Nombre</span>
@@ -1247,7 +1245,7 @@ export default function MallaGrid({
               {/* Summary column header — sticky */}
               <th
                 className="hidden lg:table-cell text-center px-1 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] border-r border-border min-w-[90px] w-[90px] lg:sticky"
-                style={{ left: 140, zIndex: 13, backgroundColor: '#f1f5f9' }}
+                style={{ left: 180, zIndex: 13, backgroundColor: '#f1f5f9' }}
               >
                 <div>Resumen</div>
                 <div className="text-[9px] font-normal normal-case tracking-normal text-muted-foreground/70">
@@ -1314,7 +1312,7 @@ export default function MallaGrid({
                 >
                   {/* Sticky worker name cell */}
                   <td
-                    className="px-2 py-0.5 sticky left-0 border-r border-border w-[96px] min-w-[96px] max-w-[96px] lg:w-[140px] lg:min-w-[140px] lg:max-w-[140px]"
+                    className="px-2 py-0.5 sticky left-0 border-r border-border w-[96px] min-w-[96px] max-w-[96px] lg:w-[180px] lg:min-w-[180px] lg:max-w-[180px]"
                     style={{ zIndex: 2, backgroundColor: stickyBgColor }}
                   >
                     <div className="flex items-center gap-1.5">
@@ -1326,7 +1324,11 @@ export default function MallaGrid({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1">
-                          <p className="font-semibold text-foreground text-xs truncate">
+                          {/* En el computador el nombre usa hasta 3 líneas; en el celular, 1 */}
+                          <p
+                            className="font-semibold text-foreground text-xs leading-tight truncate lg:whitespace-normal lg:break-words lg:line-clamp-3"
+                            title={worker.name}
+                          >
                             {worker.name}
                           </p>
                         </div>
@@ -1389,7 +1391,7 @@ export default function MallaGrid({
                     return (
                       <td
                         className="hidden lg:table-cell border-r border-border px-1 py-0.5 min-w-[90px] w-[90px] text-center align-middle lg:sticky"
-                        style={{ left: 140, zIndex: 2, backgroundColor: stickyBgColor }}
+                        style={{ left: 180, zIndex: 2, backgroundColor: stickyBgColor }}
                       >
                         {/* Monthly total hours */}
                         <div
