@@ -5,6 +5,7 @@ import { X, Save } from 'lucide-react';
 import { HORAS_OPTIONS, useAppContext, type Worker } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import { formatRut, normalizeRut } from '@/lib/rut';
+import { getInitials } from '@/lib/initials';
 import WorkerPinSection from './WorkerPinSection';
 
 interface Props {
@@ -35,12 +36,6 @@ const AVATAR_COLORS = [
   'bg-violet-100 text-violet-700',
   'bg-teal-100 text-teal-700',
 ];
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(' ');
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
 
 export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Props) {
   const { sucursales, areasDeSucursales, areaCargos } = useAppContext();
