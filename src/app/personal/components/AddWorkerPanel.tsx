@@ -121,7 +121,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
   };
 
   return (
-    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden lg:sticky lg:top-4">
+    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden lg:overflow-y-auto lg:max-h-[calc(100vh-6rem)] lg:sticky lg:top-4">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
