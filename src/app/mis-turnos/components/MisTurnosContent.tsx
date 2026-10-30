@@ -325,10 +325,38 @@ function specialIcon(d: PublishedDay | null | undefined): string {
 
 /** Colores de cada tipo de día: mañana celeste, tarde ámbar, libre verde, especial morado */
 const HERO_STYLE = {
-  manana: { bg: 'from-sky-400 to-blue-600', Icon: Sun, label: 'Turno de mañana' },
-  tarde: { bg: 'from-amber-400 to-orange-600', Icon: Sunset, label: 'Turno de tarde' },
-  libre: { bg: 'from-emerald-400 to-teal-600', Icon: Coffee, label: 'Día libre' },
-  especial: { bg: 'from-violet-500 to-indigo-600', Icon: CalendarDays, label: '' },
+  manana: {
+    bg: 'from-sky-400 to-blue-600',
+    bar: 'bg-sky-500',
+    soft: 'bg-sky-50 text-sky-700',
+    Icon: Sun,
+    label: 'Turno de mañana',
+    short: 'Mañana',
+  },
+  tarde: {
+    bg: 'from-amber-400 to-orange-600',
+    bar: 'bg-amber-500',
+    soft: 'bg-amber-50 text-amber-700',
+    Icon: Sunset,
+    label: 'Turno de tarde',
+    short: 'Tarde',
+  },
+  libre: {
+    bg: 'from-emerald-400 to-teal-600',
+    bar: 'bg-emerald-500',
+    soft: 'bg-emerald-50 text-emerald-700',
+    Icon: Coffee,
+    label: 'Día libre',
+    short: 'Libre',
+  },
+  especial: {
+    bg: 'from-violet-500 to-indigo-600',
+    bar: 'bg-violet-500',
+    soft: 'bg-violet-50 text-violet-700',
+    Icon: CalendarDays,
+    label: '',
+    short: '',
+  },
 } as const;
 
 function heroKind(d: PublishedDay | null | undefined): keyof typeof HERO_STYLE {
@@ -338,39 +366,47 @@ function heroKind(d: PublishedDay | null | undefined): keyof typeof HERO_STYLE {
   return 'libre';
 }
 
-/** Tarjeta grande de hoy */
+/** Tarjeta de hoy: blanca y sobria, el color del turno solo en la franja y la etiqueta */
 function TodayHero({ label, d }: { label: string; d: PublishedDay | null | undefined }) {
   const k = heroKind(d);
-  const { bg, Icon } = HERO_STYLE[k];
+  const { bar, soft, Icon, short } = HERO_STYLE[k];
   const turno = d?.s && d?.e && !d.esp;
   const horas = dayHours(d);
   return (
-    <div
-      className={`relative overflow-hidden rounded-3xl p-5 text-white shadow-lg bg-gradient-to-br ${bg}`}
-    >
-      <Icon
-        size={120}
-        strokeWidth={1.5}
-        className="absolute -right-6 -top-6 opacity-20"
+    <div className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/70 shadow-sm px-5 py-4 pl-6">
+      <span
+        className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${bar}`}
         aria-hidden="true"
       />
-      <span className="text-[13px] font-bold uppercase tracking-wider text-white/85">{label}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          {label}
+        </span>
+        {short && (
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ${soft}`}
+          >
+            <Icon size={13} aria-hidden="true" />
+            {short}
+          </span>
+        )}
+      </div>
       {turno ? (
         <>
-          <p className="mt-1 text-[clamp(30px,10vw,40px)] leading-none font-black tracking-tight whitespace-nowrap">
+          <p className="mt-2 text-[clamp(28px,8.5vw,36px)] leading-none font-semibold tracking-tight text-slate-900 tabular-nums whitespace-nowrap">
             {d.s}
-            <span className="mx-2 text-white/60 font-bold">→</span>
+            <span className="mx-2 text-slate-300 font-light">–</span>
             {d.e}
           </p>
-          <p className="mt-2 text-[14px] font-semibold text-white/90">
+          <p className="mt-2 text-[14px] font-medium text-slate-500">
             {fmtHoras(horas)} h de trabajo
             {d.col ? ` · colación ${d.col} min` : ''}
           </p>
         </>
       ) : (
-        <p className="mt-1 text-[32px] leading-tight font-black">
+        <p className="mt-2 text-[26px] leading-tight font-semibold text-slate-900">
           {k === 'especial' && <span className="mr-2">{specialIcon(d)}</span>}
-          {k === 'libre' ? '¡Día libre!' : dayText(d)}
+          {k === 'libre' ? 'Día libre' : dayText(d)}
         </p>
       )}
     </div>
@@ -380,12 +416,10 @@ function TodayHero({ label, d }: { label: string; d: PublishedDay | null | undef
 /** Fila chica para mañana */
 function TomorrowRow({ label, d }: { label: string; d: PublishedDay | null | undefined }) {
   const k = heroKind(d);
-  const { bg, Icon } = HERO_STYLE[k];
+  const { soft, Icon } = HERO_STYLE[k];
   return (
     <div className="flex items-center gap-3 bg-white rounded-2xl px-3.5 py-3 shadow-sm border border-slate-100">
-      <span
-        className={`w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br ${bg} text-white flex items-center justify-center`}
-      >
+      <span className={`w-10 h-10 shrink-0 rounded-xl ${soft} flex items-center justify-center`}>
         <Icon size={19} aria-hidden="true" />
       </span>
       <span className="flex flex-col min-w-0">
