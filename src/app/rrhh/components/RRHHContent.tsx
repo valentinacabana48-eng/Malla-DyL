@@ -115,6 +115,16 @@ function isDayOff(att: AttendanceRecord | null): boolean {
   return !!att && att.status !== 'PRESENTE';
 }
 
+// Conteo de días del período, para descuentos y liquidación
+const DAY_COUNTS: { key: string; label: string; statuses: string[] }[] = [
+  { key: 'faltaInj', label: 'Faltas injustificadas', statuses: ['AUSENTE'] },
+  { key: 'faltaJust', label: 'Faltas justificadas', statuses: ['FALTA_JUSTIFICADA'] },
+  { key: 'licencia', label: 'Licencias', statuses: ['LICENCIA'] },
+  { key: 'vacaciones', label: 'Vacaciones', statuses: ['VACACIONES'] },
+  { key: 'permisoSG', label: 'Permisos sin goce', statuses: ['PERMISO_SG'] },
+  { key: 'permisoCG', label: 'Permisos con goce', statuses: ['PERMISO_CG', 'PERMISO'] },
+];
+
 // Nombre corto del estado para la celda y el Excel
 function dayOffLabel(att: AttendanceRecord): string {
   if (att.status === 'AUSENTE') return 'Falta injustificada';
@@ -492,6 +502,8 @@ export default function RRHHContent() {
     let sundayHours = 0;
     let holidayHours = 0;
     let sundaySurcharge = 0;
+    let diasTrabajados = 0;
+    const dayCounts: Record<string, number> = {};
 
     for (const d of calcDays) {
       const hrs = dayHours(workerId, d);
@@ -501,6 +513,10 @@ export default function RRHHContent() {
       const inPeriod = d.dateStr >= periodStart && d.dateStr <= periodEnd;
       if (!inPeriod) continue;
       periodHours += hrs;
+      if (hrs > 0) diasTrabajados++;
+      const status = attendanceMap[workerId]?.[d.dateStr]?.status;
+      const count = status ? DAY_COUNTS.find((c) => c.statuses.includes(status)) : undefined;
+      if (count) dayCounts[count.key] = (dayCounts[count.key] || 0) + 1;
       if (d.date.getDay() === 0 && hrs > 0) {
         sundayHours += hrs;
         sundaySurcharge += hrs * 0.3; // recargo dominical legal: 30% (comercio)
@@ -546,6 +562,8 @@ export default function RRHHContent() {
       recargoDominical,
       totalOvertimeHours,
       recargoHE,
+      diasTrabajados,
+      dayCounts,
     };
   };
 
@@ -624,6 +642,8 @@ export default function RRHHContent() {
         'Semanas con Extras',
         'Horas Extra Período',
         'Recargo Dominical 30% (h)',
+        'Días Trabajados',
+        ...DAY_COUNTS.map((c) => c.label),
       ];
       // Una columna por semana (todas las personas tienen las mismas semanas)
       const allStats = filteredWorkers.map((w) => calcWorkerStats(w.id));
@@ -648,6 +668,8 @@ export default function RRHHContent() {
           stats.overtimeWeeks.length,
           stats.totalOvertime,
           stats.recargoDominical,
+          stats.diasTrabajados,
+          ...DAY_COUNTS.map((c) => stats.dayCounts[c.key] ?? 0),
         ];
         for (let i = 0; i < maxWeeks; i++) {
           row.push(stats.weeks[i]?.hours ?? 0);
@@ -692,6 +714,7 @@ export default function RRHHContent() {
               14,
               14,
               16,
+              ...Array(1 + DAY_COUNTS.length).fill(14),
               ...Array(maxWeeks).fill(16),
             ],
           },
@@ -1372,6 +1395,27 @@ export default function RRHHContent() {
                     ))}
                   </div>
                 )}
+                {/* Días del período (para descuentos) */}
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-semibold text-foreground">Días del período:</span>
+                  <span className="bg-green-50 border border-green-200 text-green-700 rounded px-2 py-0.5 font-semibold">
+                    Trabajados: {stats.diasTrabajados}
+                  </span>
+                  {DAY_COUNTS.filter(
+                    (c) => c.key === 'faltaInj' || (stats.dayCounts[c.key] ?? 0) > 0
+                  ).map((c) => (
+                    <span
+                      key={c.key}
+                      className={`rounded px-2 py-0.5 font-semibold border ${
+                        c.key === 'faltaInj' && (stats.dayCounts[c.key] ?? 0) > 0
+                          ? 'bg-red-50 border-red-200 text-red-700'
+                          : 'bg-muted/40 border-border text-foreground'
+                      }`}
+                    >
+                      {c.label}: {stats.dayCounts[c.key] ?? 0}
+                    </span>
+                  ))}
+                </div>
                 {/* Weekly summary */}
                 <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
                   <div className="bg-muted/30 rounded-lg px-2 py-1.5 text-center">
