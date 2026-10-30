@@ -15,13 +15,7 @@ import {
 import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
 import { downloadSimpleWorkbook } from '@/lib/excel';
-import {
-  useAppContext,
-  getDaysOfWeekForMonth,
-  getDaysInMonth,
-  monthLabelToKey,
-  MESES,
-} from '@/context/AppContext';
+import { useAppContext, monthLabelToKey, MESES } from '@/context/AppContext';
 import { getStatusLabel } from '@/app/asistencia/components/asistenciaUtils';
 
 // ─── Chilean public holidays 2026 (YYYY-MM-DD) ────────────────────────────
@@ -44,10 +38,61 @@ const FERIADOS_2026 = new Set([
   '2026-12-25',
 ]);
 
-function isFeriado(year: number, monthIdx: number, day: number): boolean {
-  const key = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  return FERIADOS_2026.has(key);
+function isFeriado(dateStr: string): boolean {
+  return FERIADOS_2026.has(dateStr);
 }
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const DOW_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+// Un rango muy largo vuelve lenta la tabla: se limita a ~3 meses
+const MAX_RANGE_DAYS = 93;
+
+interface RangeDay {
+  date: Date;
+  /** YYYY-MM-DD */
+  dateStr: string;
+  /** Mes de la malla al que pertenece (YYYY-MM) */
+  monthKey: string;
+  /** Día del mes, desde 1 */
+  day: number;
+}
+
+function buildRange(start: string, end: string, maxDays = MAX_RANGE_DAYS): RangeDay[] {
+  const [sy, sm, sd] = start.split('-').map(Number);
+  const [ey, em, ed] = end.split('-').map(Number);
+  if (!sy || !ey) return [];
+  const cur = new Date(sy, sm - 1, sd);
+  const last = new Date(ey, em - 1, ed);
+  const days: RangeDay[] = [];
+  while (cur <= last && days.length < maxDays) {
+    days.push({
+      date: new Date(cur),
+      dateStr: toDateStr(cur),
+      monthKey: `${cur.getFullYear()}-${pad2(cur.getMonth() + 1)}`,
+      day: cur.getDate(),
+    });
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}
+
+// Lunes (offset 0) o domingo (offset 6) de la semana de esa fecha
+function weekEdge(dateStr: string, offset: 0 | 6): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(d - ((date.getDay() + 6) % 7) + offset);
+  return toDateStr(date);
+}
+
+// 2026-10-05 → 5/10
+const fmtShort = (dateStr: string) => {
+  const [, m, d] = dateStr.split('-').map(Number);
+  return `${d}/${m}`;
+};
+
+// 2026-10-05 → 05/10/2026
+const fmtDate = (dateStr: string) => dateStr.split('-').reverse().join('/');
 
 interface DayRecord {
   entradaReal: string;
@@ -84,7 +129,8 @@ function dayOffLabel(att: AttendanceRecord): string {
   return getStatusLabel(att.status);
 }
 
-type WorkerDayRecords = Record<string, Record<number, DayRecord>>;
+// tiempos reales: workerId -> fecha (YYYY-MM-DD) -> DayRecord
+type WorkerDayRecords = Record<string, Record<string, DayRecord>>;
 // attendance keyed by workerId -> dateStr -> AttendanceRecord
 type AttendanceMap = Record<string, Record<string, AttendanceRecord>>;
 
@@ -153,6 +199,10 @@ export default function RRHHContent() {
   const [attendanceMap, setAttendanceMap] = useState<AttendanceMap>({});
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Período: el mes elegido o un rango de fechas libre
+  const [periodMode, setPeriodMode] = useState<'mes' | 'rango'>('mes');
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -166,40 +216,42 @@ export default function RRHHContent() {
     if (globalArea && globalArea !== 'Todas') setSelectedArea(globalArea);
   }, [globalArea]);
 
-  const MONTH_NAMES_MAP: Record<string, number> = {
-    Enero: 0,
-    Febrero: 1,
-    Marzo: 2,
-    Abril: 3,
-    Mayo: 4,
-    Junio: 5,
-    Julio: 6,
-    Agosto: 7,
-    Septiembre: 8,
-    Octubre: 9,
-    Noviembre: 10,
-    Diciembre: 11,
-  };
-  const parts = (selectedMes || '').split(' ');
-  const monthIdx = MONTH_NAMES_MAP[parts[0]] ?? 0;
-  const year = parseInt(parts[1] || '2026', 10);
-
-  const daysOfWeek = useMemo(() => getDaysOfWeekForMonth(selectedMes), [selectedMes]);
-  const daysInMonth = useMemo(() => getDaysInMonth(selectedMes), [selectedMes]);
   const monthKey = useMemo(() => monthLabelToKey(selectedMes), [selectedMes]);
 
-  const currentSchedule = useMemo(() => scheduleData[monthKey] || {}, [scheduleData, monthKey]);
-  const currentSpecialDays = useMemo(() => specialDays[monthKey] || {}, [specialDays, monthKey]);
-
-  // ─── Build date range for the selected month ───────────────────────────
-  const monthStartDate = useMemo(() => {
-    return `${year}-${String(monthIdx + 1).padStart(2, '0')}-01`;
-  }, [year, monthIdx]);
-
+  // ─── Período visible: el mes elegido o el rango de fechas ──────────────
+  const monthStartDate = `${monthKey}-01`;
   const monthEndDate = useMemo(() => {
-    const lastDay = new Date(year, monthIdx + 1, 0).getDate();
-    return `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-  }, [year, monthIdx]);
+    const [y, m] = monthKey.split('-').map(Number);
+    return `${monthKey}-${pad2(new Date(y, m, 0).getDate())}`;
+  }, [monthKey]);
+
+  const rangeValid = !!rangeFrom && !!rangeTo && rangeFrom <= rangeTo;
+  const useRange = periodMode === 'rango' && rangeValid;
+  const periodStart = useRange ? rangeFrom : monthStartDate;
+  const days = useMemo(
+    () => buildRange(useRange ? rangeFrom : monthStartDate, useRange ? rangeTo : monthEndDate),
+    [useRange, rangeFrom, rangeTo, monthStartDate, monthEndDate]
+  );
+  const numDays = days.length;
+  // Si el rango pasa de ~3 meses se corta: el fin real es el último día mostrado
+  const periodEnd = days[numDays - 1]?.dateStr ?? periodStart;
+  const rangeTruncated = useRange && periodEnd < rangeTo;
+  // Las semanas se calculan completas (lunes a domingo) aunque parte caiga fuera del
+  // período: se necesitan esos días extra de asistencia, malla y horarios reales.
+  const calcStart = weekEdge(periodStart, 0);
+  const calcEnd = weekEdge(periodEnd, 6);
+  const calcDays = useMemo(
+    () => buildRange(calcStart, calcEnd, MAX_RANGE_DAYS + 14),
+    [calcStart, calcEnd]
+  );
+  const periodLabel = useRange ? `${fmtDate(periodStart)} al ${fmtDate(periodEnd)}` : selectedMes;
+
+  // Al pasar a rango por primera vez, parte con el mes que se estaba viendo
+  const switchToRange = () => {
+    if (!rangeFrom) setRangeFrom(monthStartDate);
+    if (!rangeTo) setRangeTo(monthEndDate);
+    setPeriodMode('rango');
+  };
 
   // ─── Load attendance records from Supabase for the selected month ──────
   const loadAttendance = useCallback(async () => {
@@ -210,8 +262,8 @@ export default function RRHHContent() {
         supabase
           .from('attendance_records')
           .select('worker_id, record_date, status, absence_reason, retiro_horas')
-          .gte('record_date', monthStartDate)
-          .lte('record_date', monthEndDate)
+          .gte('record_date', calcStart)
+          .lte('record_date', calcEnd)
           .order('worker_id')
           .order('record_date')
           .range(from, to)
@@ -236,7 +288,7 @@ export default function RRHHContent() {
     } finally {
       setLoadingAttendance(false);
     }
-  }, [monthStartDate, monthEndDate, supabase]);
+  }, [calcStart, calcEnd, supabase]);
 
   useEffect(() => {
     loadAttendance();
@@ -279,10 +331,15 @@ export default function RRHHContent() {
   );
 
   // ─── Get programmed shift info for a worker/day ────────────────────────
-  const getProgrammedShift = (workerId: string, dayIdx: number) => {
-    const special = (currentSpecialDays[workerId] || {})[dayIdx];
+  // dayIdx = posición del día dentro del período visible
+  const getProgrammedShift = (workerId: string, dayIdx: number) =>
+    programmedFor(workerId, days[dayIdx]);
+
+  const programmedFor = (workerId: string, d: RangeDay | undefined) => {
+    if (!d) return null;
+    const special = specialDays[d.monthKey]?.[workerId]?.[d.day - 1];
     if (special) return { type: 'special', code: special };
-    const code = (currentSchedule[workerId] || [])[dayIdx];
+    const code = scheduleData[d.monthKey]?.[workerId]?.[d.day - 1];
     if (!code) return null;
     if (code === 'DESC') return { type: 'desc', code: 'DESC' };
     const shift = shifts[code];
@@ -292,13 +349,13 @@ export default function RRHHContent() {
 
   // ─── Get attendance record for a worker/day ────────────────────────────
   const getAttendanceForDay = (workerId: string, dayIdx: number): AttendanceRecord | null => {
-    const dateStr = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayIdx + 1).padStart(2, '0')}`;
-    return attendanceMap[workerId]?.[dateStr] ?? null;
+    const dateStr = days[dayIdx]?.dateStr;
+    return (dateStr && attendanceMap[workerId]?.[dateStr]) || null;
   };
 
   // ─── Edit handlers ─────────────────────────────────────────────────────
   const startEdit = (workerId: string, dayIdx: number) => {
-    const existing = dayRecords[workerId]?.[dayIdx];
+    const existing = dayRecords[workerId]?.[days[dayIdx].dateStr];
     const prog = getProgrammedShift(workerId, dayIdx);
     let defaultEntry: DayRecord = {
       entradaReal: '',
@@ -321,23 +378,25 @@ export default function RRHHContent() {
   const saveEdit = async () => {
     if (!editingCell) return;
     const { workerId, dayIdx } = editingCell;
-    const dateStr = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayIdx + 1).padStart(2, '0')}`;
-    setDayRecords((prev) => ({
-      ...prev,
-      [workerId]: {
-        ...(prev[workerId] || {}),
-        [dayIdx]: { ...editBuffer },
-      },
-    }));
+    const { dateStr, monthKey: dayMonthKey } = days[dayIdx];
+    const previous = dayRecords[workerId]?.[dateStr];
+    const setRecord = (rec: DayRecord | undefined) =>
+      setDayRecords((prev) => {
+        const forWorker = { ...(prev[workerId] || {}) };
+        if (rec) forWorker[dateStr] = rec;
+        else delete forWorker[dateStr];
+        return { ...prev, [workerId]: forWorker };
+      });
+    setRecord({ ...editBuffer });
     setEditingCell(null);
 
     // Persist to Supabase
     try {
-      await supabase.from('rrhh_time_records').upsert(
+      const { error } = await supabase.from('rrhh_time_records').upsert(
         {
           worker_id: workerId,
           record_date: dateStr,
-          month_key: monthKey,
+          month_key: dayMonthKey,
           entrada_real: editBuffer.entradaReal || null,
           salida_real: editBuffer.salidaReal || null,
           entrada_colacion: editBuffer.entradaColacion || null,
@@ -346,8 +405,12 @@ export default function RRHHContent() {
         },
         { onConflict: 'worker_id,record_date' }
       );
+      if (error) throw error;
     } catch (err) {
+      // Si no se guardó, se vuelve a lo que había para no mostrar un dato que no existe
       console.error('Error saving time record:', err);
+      setRecord(previous);
+      alert('No se pudo guardar el horario real. Revisa tu conexión e intenta de nuevo.');
     }
   };
 
@@ -360,7 +423,8 @@ export default function RRHHContent() {
         supabase
           .from('rrhh_time_records')
           .select('*')
-          .eq('month_key', monthKey)
+          .gte('record_date', calcStart)
+          .lte('record_date', calcEnd)
           .order('id')
           .range(from, to)
       );
@@ -370,10 +434,8 @@ export default function RRHHContent() {
         data.forEach((r: Record<string, unknown>) => {
           const wid = r.worker_id as string;
           const dt = r.record_date as string;
-          const [, , d] = dt.split('-').map(Number);
-          const dayIdx = d - 1;
           if (!records[wid]) records[wid] = {};
-          records[wid][dayIdx] = {
+          records[wid][dt] = {
             entradaReal: (r.entrada_real as string) || '',
             salidaReal: (r.salida_real as string) || '',
             entradaColacion: (r.entrada_colacion as string) || '',
@@ -388,91 +450,88 @@ export default function RRHHContent() {
       // Table may not exist yet — silently ignore
       console.warn('rrhh_time_records table not found or error:', err);
     }
-  }, [monthKey, supabase]);
+  }, [calcStart, calcEnd, supabase]);
 
   useEffect(() => {
     loadTimeRecords();
   }, [loadTimeRecords]);
 
   // ─── Hours calculations ────────────────────────────────────────────────
-  const calcWorkerStats = (workerId: string) => {
-    const workerRecords = dayRecords[workerId] || {};
-    const workerSchedule = currentSchedule[workerId] || [];
-    const workerSpecial = currentSpecialDays[workerId] || {};
+  // Horas de un día: horario real si se anotó; si no, el turno de la malla, en 0 si ese día
+  // no trabajó según Asistencia y descontando un retiro anticipado.
+  const dayHours = (workerId: string, d: RangeDay): number => {
+    const record = dayRecords[workerId]?.[d.dateStr];
+    if (record && record.entradaReal && record.salidaReal) {
+      return calcNetHoursFromTimes(
+        record.entradaReal,
+        record.salidaReal,
+        record.entradaColacion,
+        record.salidaColacion
+      );
+    }
+    const att = attendanceMap[workerId]?.[d.dateStr] ?? null;
+    if (isDayOff(att)) return 0;
+    const prog = programmedFor(workerId, d);
+    const shift = prog?.type === 'shift' ? prog.shift : null;
+    if (!shift || !shift.start || !shift.end) return 0;
+    const [sh, sm] = shift.start.split(':').map(Number);
+    const [eh, em] = shift.end.split(':').map(Number);
+    let mins = eh * 60 + em - (sh * 60 + sm);
+    if (mins < 0) mins += 24 * 60;
+    let hrs = mins / 60;
+    if (shift.colacion > 0) hrs -= shift.colacion / 60;
+    if (att?.retiroHoras) hrs = Math.max(0, hrs - att.retiroHoras);
+    return hrs;
+  };
 
-    const weekMap: Record<number, number> = {};
+  const calcWorkerStats = (workerId: string) => {
+    // Semanas de lunes a domingo. Cada semana se cobra en el corte donde termina (su domingo),
+    // sumando también los días que caen antes del inicio; así ninguna semana se cuenta dos veces.
+    const weekMap: Record<string, number> = {};
+    let periodHours = 0;
     let sundayHours = 0;
     let holidayHours = 0;
     let sundaySurcharge = 0;
 
-    for (let i = 0; i < daysInMonth; i++) {
-      const date = new Date(year, monthIdx, i + 1);
-      const dow = (date.getDay() + 6) % 7;
-      const weekStart = new Date(date);
-      weekStart.setDate(date.getDate() - dow);
-      const weekKey = weekStart.getTime();
+    for (const d of calcDays) {
+      const hrs = dayHours(workerId, d);
+      const monday = weekEdge(d.dateStr, 0);
+      weekMap[monday] = (weekMap[monday] || 0) + hrs;
 
-      const record = workerRecords[i];
-      let hrs = 0;
-
-      if (record && record.entradaReal && record.salidaReal) {
-        hrs = calcNetHoursFromTimes(
-          record.entradaReal,
-          record.salidaReal,
-          record.entradaColacion,
-          record.salidaColacion
-        );
-      } else {
-        const att = getAttendanceForDay(workerId, i);
-        if (isDayOff(att)) {
-          hrs = 0;
-        } else {
-          const special = workerSpecial[i];
-          if (!special) {
-            const code = workerSchedule[i];
-            if (code && code !== 'DESC') {
-              const shift = shifts[code];
-              if (shift && shift.start && shift.end) {
-                const [sh, sm] = shift.start.split(':').map(Number);
-                const [eh, em] = shift.end.split(':').map(Number);
-                let mins = eh * 60 + em - (sh * 60 + sm);
-                if (mins < 0) mins += 24 * 60;
-                hrs = mins / 60;
-                if (shift.colacion > 0) hrs -= shift.colacion / 60;
-                // Si se retiró antes (marcado en Asistencia), se descuentan esas horas
-                if (att?.retiroHoras) hrs = Math.max(0, hrs - att.retiroHoras);
-              }
-            }
-          }
-        }
-      }
-
-      weekMap[weekKey] = (weekMap[weekKey] || 0) + hrs;
-      if (date.getDay() === 0 && hrs > 0) {
+      const inPeriod = d.dateStr >= periodStart && d.dateStr <= periodEnd;
+      if (!inPeriod) continue;
+      periodHours += hrs;
+      if (d.date.getDay() === 0 && hrs > 0) {
         sundayHours += hrs;
         sundaySurcharge += hrs * 0.3; // recargo dominical legal: 30% (comercio)
       }
-      if (isFeriado(year, monthIdx, i + 1) && hrs > 0) holidayHours += hrs;
+      if (isFeriado(d.dateStr) && hrs > 0) holidayHours += hrs;
     }
 
     const contractedWeekly = workers.find((w) => w.id === workerId)?.horasContratadas ?? 42;
-    const weeks = Object.entries(weekMap)
-      .sort((a, b) => Number(a[0]) - Number(b[0]))
-      .map(([, hrs], idx) => ({
-        label: `S${idx + 1}`,
-        hours: Math.round(hrs * 10) / 10,
-        overtime: Math.max(0, Math.round((hrs - contractedWeekly) * 10) / 10),
-      }));
+    const weeks = Object.keys(weekMap)
+      .sort()
+      .map((monday, idx) => {
+        const sunday = weekEdge(monday, 6);
+        const hrs = weekMap[monday];
+        // Termina después del período: sus extras se ven en el corte siguiente
+        const nextPeriod = sunday > periodEnd;
+        return {
+          label: `S${idx + 1}`,
+          range: `${fmtShort(monday)}–${fmtShort(sunday)}`,
+          fromPrev: monday < periodStart,
+          nextPeriod,
+          hours: Math.round(hrs * 10) / 10,
+          overtime: nextPeriod ? 0 : Math.max(0, Math.round((hrs - contractedWeekly) * 10) / 10),
+        };
+      });
 
-    const totalHours = weeks.reduce((s, w) => s + w.hours, 0);
+    const totalHours = periodHours;
     const totalOvertime = weeks.reduce((s, w) => s + w.overtime, 0);
-    const overtimeWeeks = weeks.filter((w) => w.hours > contractedWeekly);
+    const overtimeWeeks = weeks.filter((w) => w.overtime > 0);
 
     const recargoDominical = Math.round(sundayHours * 0.3 * 10) / 10;
-    const totalOvertimeHours = overtimeWeeks.reduce(
-      (sum, w) => sum + Math.round((w.hours - contractedWeekly) * 10) / 10,
-      0
-    );
+    const totalOvertimeHours = overtimeWeeks.reduce((sum, w) => sum + w.overtime, 0);
     const recargoHE = Math.round(totalOvertimeHours * 0.5 * 10) / 10;
 
     return {
@@ -490,13 +549,6 @@ export default function RRHHContent() {
     };
   };
 
-  const getDowLabel = (_dow: string, dayIdx: number) => {
-    const date = new Date(year, monthIdx, dayIdx + 1);
-    const d = date.getDay();
-    const labels = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    return labels[d];
-  };
-
   // ─── Excel Export ──────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
     setExporting(true);
@@ -510,11 +562,9 @@ export default function RRHHContent() {
         'Sucursal',
         'Horas Contratadas',
       ];
-      for (let i = 1; i <= daysInMonth; i++) {
-        const date = new Date(year, monthIdx, i);
-        const labels = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-        horarioHeaders.push(`${labels[date.getDay()]} ${i}`);
-      }
+      days.forEach((d) =>
+        horarioHeaders.push(`${DOW_LABELS[d.date.getDay()]} ${d.day}/${d.date.getMonth() + 1}`)
+      );
 
       const horarioRows = filteredWorkers.map((worker) => {
         const row: (string | number)[] = [
@@ -525,7 +575,7 @@ export default function RRHHContent() {
           worker.sucursal || '',
           worker.horasContratadas,
         ];
-        for (let dayIdx = 0; dayIdx < daysInMonth; dayIdx++) {
+        for (let dayIdx = 0; dayIdx < numDays; dayIdx++) {
           const att = getAttendanceForDay(worker.id, dayIdx);
           if (att && isDayOff(att)) {
             row.push(
@@ -533,7 +583,7 @@ export default function RRHHContent() {
             );
             continue;
           }
-          const record = dayRecords[worker.id]?.[dayIdx];
+          const record = dayRecords[worker.id]?.[days[dayIdx].dateStr];
           if (record && record.entradaReal && record.salidaReal) {
             row.push(`${record.entradaReal} - ${record.salidaReal}`);
             continue;
@@ -568,20 +618,23 @@ export default function RRHHContent() {
         'Área',
         'Sucursal',
         'Horas Contratadas/Sem',
-        'Total Horas Mes',
+        'Total Horas Período',
         'Horas Domingos',
         'Horas Feriados',
         'Semanas con Extras',
+        'Horas Extra Período',
+        'Recargo Dominical 30% (h)',
       ];
-      // Add week columns dynamically
-      const maxWeeks = Math.max(
-        ...filteredWorkers.map((w) => calcWorkerStats(w.id).weeks.length),
-        0
+      // Una columna por semana (todas las personas tienen las mismas semanas)
+      const allStats = filteredWorkers.map((w) => calcWorkerStats(w.id));
+      const weekCols = allStats[0]?.weeks ?? [];
+      const maxWeeks = weekCols.length;
+      weekCols.forEach((wk) =>
+        horasHeaders.push(`${wk.label} ${wk.range}${wk.nextPeriod ? ' (sigue próximo corte)' : ''}`)
       );
-      for (let i = 1; i <= maxWeeks; i++) horasHeaders.push(`Semana ${i}`);
 
-      const horasRows = filteredWorkers.map((worker) => {
-        const stats = calcWorkerStats(worker.id);
+      const horasRows = filteredWorkers.map((worker, wIdx) => {
+        const stats = allStats[wIdx];
         const row: (string | number)[] = [
           worker.name,
           worker.rut || '',
@@ -593,6 +646,8 @@ export default function RRHHContent() {
           stats.sundayHours,
           stats.holidayHours,
           stats.overtimeWeeks.length,
+          stats.totalOvertime,
+          stats.recargoDominical,
         ];
         for (let i = 0; i < maxWeeks; i++) {
           row.push(stats.weeks[i]?.hours ?? 0);
@@ -603,7 +658,7 @@ export default function RRHHContent() {
       // ── Summary sheet ──
       const summaryData = [
         ['REPORTE RRHH', ''],
-        ['Mes', selectedMes],
+        ['Período', periodLabel],
         ['Sucursal', selectedSucursal],
         ['Área', selectedArea],
         ['Cargo', selectedCargo],
@@ -613,18 +668,32 @@ export default function RRHHContent() {
       ];
 
       // ── Download ──
-      const fileName = `RRHH_${selectedMes.replace(' ', '_')}_${selectedSucursal !== 'Todas' ? selectedSucursal + '_' : ''}${selectedCargo !== 'Todos' ? selectedCargo + '_' : ''}export.xlsx`;
+      const fileName = `RRHH_${(useRange ? `${periodStart}_a_${periodEnd}` : selectedMes).replace(/ /g, '_')}_${selectedSucursal !== 'Todas' ? selectedSucursal + '_' : ''}${selectedCargo !== 'Todos' ? selectedCargo + '_' : ''}export.xlsx`;
       await downloadSimpleWorkbook(
         [
           {
             name: 'Horario Programado',
             rows: [horarioHeaders, ...horarioRows],
-            colWidths: [28, 14, 20, 16, 16, 12, ...Array(daysInMonth).fill(17)],
+            colWidths: [28, 14, 20, 16, 16, 12, ...Array(numDays).fill(17)],
           },
           {
             name: 'Horas y Extras',
             rows: [horasHeaders, ...horasRows],
-            colWidths: [28, 14, 20, 16, 16, 14, 14, 14, 14, 14, ...Array(maxWeeks).fill(12)],
+            colWidths: [
+              28,
+              14,
+              20,
+              16,
+              16,
+              14,
+              14,
+              14,
+              14,
+              14,
+              14,
+              16,
+              ...Array(maxWeeks).fill(16),
+            ],
           },
           { name: 'Resumen', rows: summaryData, colWidths: [24, 28], header: false },
         ],
@@ -638,12 +707,10 @@ export default function RRHHContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filteredWorkers,
-    daysInMonth,
-    year,
-    monthIdx,
+    days,
     dayRecords,
     attendanceMap,
-    selectedMes,
+    periodLabel,
     selectedSucursal,
     selectedArea,
     selectedCargo,
@@ -680,23 +747,76 @@ export default function RRHHContent() {
 
       {/* Filters */}
       <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-wrap gap-4 items-end mb-5">
-        {/* Mes */}
-        <div className="flex flex-col gap-1 min-w-[160px]">
+        {/* Período: mes o rango de fechas (cortes) */}
+        <div className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-            Mes
+            Período
           </span>
-          <select
-            value={selectedMes}
-            onChange={(e) => setSelectedMes(e.target.value)}
-            className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
-          >
-            {MESES.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-1 bg-muted/40 rounded-lg p-1 w-fit">
+            <button
+              onClick={() => setPeriodMode('mes')}
+              className={`px-3 py-1 rounded-md text-xs font-semibold ${periodMode === 'mes' ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}`}
+            >
+              Mes
+            </button>
+            <button
+              onClick={switchToRange}
+              className={`px-3 py-1 rounded-md text-xs font-semibold ${periodMode === 'rango' ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}`}
+            >
+              Rango de fechas
+            </button>
+          </div>
         </div>
+        {periodMode === 'mes' ? (
+          <div className="flex flex-col gap-1 min-w-[160px]">
+            <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+              Mes
+            </span>
+            <select
+              value={selectedMes}
+              onChange={(e) => setSelectedMes(e.target.value)}
+              className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+            >
+              {MESES.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+              Desde – Hasta
+            </span>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={rangeFrom}
+                onChange={(e) => setRangeFrom(e.target.value)}
+                className="px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <span className="text-muted-foreground text-sm">al</span>
+              <input
+                type="date"
+                value={rangeTo}
+                min={rangeFrom || undefined}
+                onChange={(e) => setRangeTo(e.target.value)}
+                className="px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            {!rangeValid && (
+              <span className="text-[11px] text-amber-600">
+                Elige una fecha de inicio y una de término (se muestra el mes mientras tanto).
+              </span>
+            )}
+            {rangeTruncated && (
+              <span className="text-[11px] text-amber-600">
+                Máximo {MAX_RANGE_DAYS} días: se muestra hasta el {fmtDate(periodEnd)}.
+              </span>
+            )}
+          </div>
+        )}
         {/* Sucursal */}
         <div className="flex flex-col gap-1 min-w-[160px]">
           <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
@@ -841,18 +961,24 @@ export default function RRHHContent() {
                 <th className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-left font-semibold text-foreground min-w-[180px]">
                   Trabajador/a
                 </th>
-                {Array.from({ length: daysInMonth }, (_, i) => {
-                  const dow = daysOfWeek[i];
-                  const isSun = dow === 'D';
-                  const isSat = dow === 'S';
-                  const isFer = isFeriado(year, monthIdx, i + 1);
+                {days.map((d, i) => {
+                  const isSun = d.date.getDay() === 0;
+                  const isSat = d.date.getDay() === 6;
+                  const isFer = isFeriado(d.dateStr);
                   return (
                     <th
                       key={`hdr-${i}`}
                       className={`px-1 py-2 text-center font-semibold min-w-[90px] ${isSun ? 'text-red-600 bg-red-50/50' : isFer ? 'text-orange-600 bg-orange-50/50' : isSat ? 'text-blue-600' : 'text-muted-foreground'}`}
                     >
-                      <div>{getDowLabel(dow, i)}</div>
-                      <div className="font-bold text-foreground">{i + 1}</div>
+                      <div>{DOW_LABELS[d.date.getDay()]}</div>
+                      <div className="font-bold text-foreground">
+                        {d.day}
+                        {useRange && (
+                          <span className="font-normal text-muted-foreground">
+                            /{d.date.getMonth() + 1}
+                          </span>
+                        )}
+                      </div>
                       {isFer && <div className="text-[9px] text-orange-500">Feriado</div>}
                     </th>
                   );
@@ -875,9 +1001,9 @@ export default function RRHHContent() {
                       </div>
                     </div>
                   </td>
-                  {Array.from({ length: daysInMonth }, (_, dayIdx) => {
+                  {days.map((d, dayIdx) => {
                     const prog = getProgrammedShift(worker.id, dayIdx);
-                    const record = dayRecords[worker.id]?.[dayIdx];
+                    const record = dayRecords[worker.id]?.[d.dateStr];
                     const att = getAttendanceForDay(worker.id, dayIdx);
                     // Descanso / no trabajaba en un día sin turno se ve como día libre normal
                     const isAbsent =
@@ -891,9 +1017,8 @@ export default function RRHHContent() {
                           : dayOffLabel(att).toUpperCase();
                     const isEditing =
                       editingCell?.workerId === worker.id && editingCell?.dayIdx === dayIdx;
-                    const dow = daysOfWeek[dayIdx];
-                    const isSun = dow === 'D';
-                    const isFer = isFeriado(year, monthIdx, dayIdx + 1);
+                    const isSun = d.date.getDay() === 0;
+                    const isFer = isFeriado(d.dateStr);
 
                     // Cell background: absent overrides sun/holiday tint
                     const cellBg = isAbsent
@@ -912,7 +1037,7 @@ export default function RRHHContent() {
                         >
                           <div className="bg-card border border-secondary rounded-lg p-2 shadow-lg min-w-[160px] z-30 relative">
                             <p className="text-[10px] font-bold text-secondary mb-2">
-                              Día {dayIdx + 1}
+                              Día {fmtDate(d.dateStr)}
                             </p>
                             <div className="grid grid-cols-2 gap-1 mb-1">
                               <div>
@@ -1122,7 +1247,7 @@ export default function RRHHContent() {
                   <div className="ml-auto flex gap-2 text-center flex-wrap justify-end">
                     <div className="bg-muted/40 rounded-lg px-3 py-2">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                        Total mes
+                        Total período
                       </p>
                       <p className="text-lg font-bold text-foreground">{stats.totalHours}h</p>
                     </div>
@@ -1187,23 +1312,43 @@ export default function RRHHContent() {
                 {/* Weekly breakdown */}
                 <div className="flex flex-wrap gap-2">
                   {stats.weeks.map((wk, idx) => {
-                    const isOver = wk.hours > stats.contractedWeekly;
-                    const isUnder = wk.hours > 0 && wk.hours < stats.contractedWeekly;
+                    const isOver = wk.overtime > 0;
+                    const isUnder =
+                      !wk.nextPeriod && wk.hours > 0 && wk.hours < stats.contractedWeekly;
                     return (
                       <div
                         key={`wk-${worker.id}-${idx}`}
                         className={`flex flex-col items-center px-3 py-2 rounded-lg border text-xs min-w-[70px] ${
-                          isOver
-                            ? 'bg-red-50 border-red-200 text-red-700'
-                            : isUnder
-                              ? 'bg-amber-50 border-amber-200 text-amber-700'
-                              : wk.hours === 0
-                                ? 'bg-muted/30 border-border text-muted-foreground'
-                                : 'bg-green-50 border-green-200 text-green-700'
+                          wk.nextPeriod
+                            ? 'bg-muted/30 border-dashed border-border text-muted-foreground'
+                            : isOver
+                              ? 'bg-red-50 border-red-200 text-red-700'
+                              : isUnder
+                                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                : wk.hours === 0
+                                  ? 'bg-muted/30 border-border text-muted-foreground'
+                                  : 'bg-green-50 border-green-200 text-green-700'
                         }`}
                       >
                         <span className="font-bold text-sm">{wk.label}</span>
+                        <span className="text-[9px] opacity-80">{wk.range}</span>
                         <span className="font-semibold">{wk.hours}h</span>
+                        {wk.fromPrev && (
+                          <span
+                            className="text-[9px]"
+                            title="Incluye días antes del inicio del período"
+                          >
+                            incluye días previos
+                          </span>
+                        )}
+                        {wk.nextPeriod && (
+                          <span
+                            className="text-[9px]"
+                            title="La semana termina después del período"
+                          >
+                            sigue en el próximo corte
+                          </span>
+                        )}
                         {isOver && (
                           <span className="text-[9px] font-bold">+{wk.overtime}h extra</span>
                         )}
@@ -1242,7 +1387,7 @@ export default function RRHHContent() {
                     </p>
                   </div>
                   <div className="bg-muted/30 rounded-lg px-2 py-1.5 text-center">
-                    <p className="text-muted-foreground text-[10px]">Total HE mes</p>
+                    <p className="text-muted-foreground text-[10px]">Total HE período</p>
                     <p
                       className={`font-bold ${stats.totalOvertime > 0 ? 'text-red-600' : 'text-foreground'}`}
                     >
