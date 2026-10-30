@@ -614,27 +614,63 @@ function parsePasillos(text: string): string[] {
   ]);
 }
 
-function PasillosInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function ListaInput({
+  label,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <div className="w-full flex flex-col gap-1">
-      <label className="text-xs text-muted-foreground">
-        Pasillos (opcional, separados por coma; p. ej. 1, 2, 3, Bebidas):
-      </label>
+      <label className="text-xs text-muted-foreground">{label}</label>
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Sin pasillos"
+        placeholder={placeholder}
         className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       />
     </div>
   );
 }
 
+function PasillosInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <ListaInput
+      label="Pasillos (opcional, separados por coma; p. ej. 1, 2, 3, Bebidas):"
+      placeholder="Sin pasillos"
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
+function BodegasInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <ListaInput
+      label="Bodegas (opcional, separadas por coma; p. ej. 1, 2, Refrigerados):"
+      placeholder="Sin bodegas"
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
 interface SucursalManagerProps {
   sucursales: Sucursal[];
-  onAdd: (name: string, cajas: number, pasillos: string[]) => void;
-  onUpdate: (oldName: string, newName: string, cajas: number, pasillos: string[]) => void;
+  onAdd: (name: string, cajas: number, pasillos: string[], bodegas: string[]) => void;
+  onUpdate: (
+    oldName: string,
+    newName: string,
+    cajas: number,
+    pasillos: string[],
+    bodegas: string[]
+  ) => void;
   onDelete: (name: string) => void;
 }
 
@@ -643,10 +679,12 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
   const [newName, setNewName] = useState('');
   const [newCajas, setNewCajas] = useState(20);
   const [newPasillos, setNewPasillos] = useState('');
+  const [newBodegas, setNewBodegas] = useState('');
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editCajas, setEditCajas] = useState(20);
   const [editPasillos, setEditPasillos] = useState('');
+  const [editBodegas, setEditBodegas] = useState('');
   const [deletingItem, setDeletingItem] = useState<string | null>(null);
   const [error, setError] = useState('');
 
@@ -665,10 +703,11 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
       setError('El número de cajas debe ser al menos 1.');
       return;
     }
-    onAdd(trimmed, newCajas, parsePasillos(newPasillos));
+    onAdd(trimmed, newCajas, parsePasillos(newPasillos), parsePasillos(newBodegas));
     setNewName('');
     setNewCajas(20);
     setNewPasillos('');
+    setNewBodegas('');
     setShowForm(false);
     setError('');
   }
@@ -688,7 +727,13 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
       setError('El número de cajas debe ser al menos 1.');
       return;
     }
-    onUpdate(editingItem!, trimmed, editCajas, parsePasillos(editPasillos));
+    onUpdate(
+      editingItem!,
+      trimmed,
+      editCajas,
+      parsePasillos(editPasillos),
+      parsePasillos(editBodegas)
+    );
     setEditingItem(null);
     setError('');
   }
@@ -749,6 +794,7 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
               />
             </div>
             <PasillosInput value={newPasillos} onChange={setNewPasillos} />
+            <BodegasInput value={newBodegas} onChange={setNewBodegas} />
             <button
               type="submit"
               className="flex items-center gap-1.5 bg-secondary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all"
@@ -763,6 +809,7 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
                 setNewName('');
                 setNewCajas(20);
                 setNewPasillos('');
+                setNewBodegas('');
                 setError('');
               }}
               className="px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted transition-colors"
@@ -822,6 +869,7 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
                     />
                   </div>
                   <PasillosInput value={editPasillos} onChange={setEditPasillos} />
+                  <BodegasInput value={editBodegas} onChange={setEditBodegas} />
                   <button
                     type="submit"
                     className="flex items-center gap-1 bg-secondary text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition-all"
@@ -841,29 +889,38 @@ function SucursalManager({ sucursales, onAdd, onUpdate, onDelete }: SucursalMana
                   </button>
                 </form>
               ) : (
-                <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between hover:shadow-sm transition-shadow">
-                  <div className="flex items-center gap-3">
-                    <MapPin size={14} className="text-muted-foreground" />
+                <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between gap-2 hover:shadow-sm transition-shadow">
+                  <div className="flex items-center gap-x-3 gap-y-1 flex-wrap min-w-0">
+                    <MapPin size={14} className="text-muted-foreground shrink-0" />
                     <span className="text-sm font-medium text-foreground">{suc.name}</span>
-                    <span className="text-xs bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-semibold">
+                    <span className="whitespace-nowrap text-xs bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-semibold">
                       {suc.cajas} caja{suc.cajas !== 1 ? 's' : ''}
                     </span>
                     {suc.pasillos.length > 0 && (
                       <span
-                        className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-semibold"
+                        className="whitespace-nowrap text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-semibold"
                         title={suc.pasillos.join(', ')}
                       >
                         {suc.pasillos.length} pasillo{suc.pasillos.length !== 1 ? 's' : ''}
                       </span>
                     )}
+                    {suc.bodegas.length > 0 && (
+                      <span
+                        className="whitespace-nowrap text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-semibold"
+                        title={suc.bodegas.join(', ')}
+                      >
+                        {suc.bodegas.length} bodega{suc.bodegas.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => {
                         setEditingItem(suc.name);
                         setEditName(suc.name);
                         setEditCajas(suc.cajas);
                         setEditPasillos(suc.pasillos.join(', '));
+                        setEditBodegas(suc.bodegas.join(', '));
                         setShowForm(false);
                         setError('');
                       }}

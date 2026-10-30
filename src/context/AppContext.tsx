@@ -213,6 +213,8 @@ export interface Worker {
   exentoDomingos?: boolean;
   /** Pasillo fijo (p. ej. reponedoras); '' o undefined = sin pasillo */
   pasillo?: string;
+  /** Bodega fija (p. ej. bodegueras); '' o undefined = sin bodega */
+  bodega?: string;
   /** Entra a Mis turnos aunque su área no tenga acceso (se cambia solo desde Personal) */
   misTurnosExcepcion?: boolean;
 }
@@ -274,11 +276,18 @@ export interface Sucursal {
   cajas: number;
   /** Pasillos de la sucursal, para asignárselos a las trabajadoras que trabajan por pasillo */
   pasillos: string[];
+  /** Bodegas de la sucursal, para asignárselas a las trabajadoras que trabajan en bodega */
+  bodegas: string[];
 }
 
 /** "3" → "Pasillo 3"; si ya dice "Pasillo…" lo deja igual */
 export function pasilloLabel(p: string): string {
   return /^pasillo/i.test(p) ? p : `Pasillo ${p}`;
+}
+
+/** "2" → "Bodega 2"; si ya dice "Bodega…" lo deja igual */
+export function bodegaLabel(b: string): string {
+  return /^bodega/i.test(b) ? b : `Bodega ${b}`;
 }
 
 /** Ordena pasillos con los números en orden natural: 2 antes que 10 */
@@ -287,10 +296,10 @@ export function sortPasillos(list: string[]): string[] {
 }
 
 const DEFAULT_SUCURSALES_DATA: Sucursal[] = [
-  { name: 'Mayorista Talca', cajas: 20, pasillos: [] },
-  { name: 'Mayorista Curicó', cajas: 20, pasillos: [] },
-  { name: 'Mayorista Linares', cajas: 20, pasillos: [] },
-  { name: 'Mayorista Rancagua', cajas: 20, pasillos: [] },
+  { name: 'Mayorista Talca', cajas: 20, pasillos: [], bodegas: [] },
+  { name: 'Mayorista Curicó', cajas: 20, pasillos: [], bodegas: [] },
+  { name: 'Mayorista Linares', cajas: 20, pasillos: [], bodegas: [] },
+  { name: 'Mayorista Rancagua', cajas: 20, pasillos: [], bodegas: [] },
 ];
 const DEFAULT_AREAS = ['Cajas', 'Tesorería', 'Supermercado', 'Bodega'];
 
@@ -563,8 +572,14 @@ interface AppContextValue {
     overrideMonthKey?: string
   ) => void;
   getSpecialDaysForWorker: (workerId: string) => Record<number, string>;
-  addSucursal: (name: string, cajas?: number, pasillos?: string[]) => void;
-  updateSucursal: (oldName: string, newName: string, cajas?: number, pasillos?: string[]) => void;
+  addSucursal: (name: string, cajas?: number, pasillos?: string[], bodegas?: string[]) => void;
+  updateSucursal: (
+    oldName: string,
+    newName: string,
+    cajas?: number,
+    pasillos?: string[],
+    bodegas?: string[]
+  ) => void;
   deleteSucursal: (name: string) => void;
   getSucursalCajas: (name: string) => number;
   addArea: (name: string) => void;
@@ -620,6 +635,7 @@ function rowToWorker(row: Record<string, unknown>): Worker {
     birthday: (row.birthday as string) || '',
     exentoDomingos: row.exento_domingos === true,
     pasillo: (row.pasillo as string) || '',
+    bodega: (row.bodega as string) || '',
     misTurnosExcepcion: row.mis_turnos_excepcion === true,
   };
 }
@@ -640,6 +656,7 @@ function workerToRow(w: Worker) {
     birthday: w.birthday,
     exento_domingos: !!w.exentoDomingos,
     pasillo: w.pasillo || '',
+    bodega: w.bodega || '',
   };
 }
 
@@ -1024,6 +1041,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               name: r.name as string,
               cajas: r.cajas as number,
               pasillos: Array.isArray(r.pasillos) ? (r.pasillos as string[]) : [],
+              bodegas: Array.isArray(r.bodegas) ? (r.bodegas as string[]) : [],
             }))
           );
         }
@@ -1691,12 +1709,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Sucursales ──
   const addSucursal = useCallback(
-    async (name: string, cajas: number = 20, pasillos: string[] = []) => {
+    async (name: string, cajas: number = 20, pasillos: string[] = [], bodegas: string[] = []) => {
       setSucursales((prev) =>
-        prev.some((s) => s.name === name) ? prev : [...prev, { name, cajas, pasillos }]
+        prev.some((s) => s.name === name) ? prev : [...prev, { name, cajas, pasillos, bodegas }]
       );
       await dbWrite(
-        supabase.from('sucursales').upsert({ name, cajas, pasillos }, { onConflict: 'name' }),
+        supabase
+          .from('sucursales')
+          .upsert({ name, cajas, pasillos, bodegas }, { onConflict: 'name' }),
         'la sucursal'
       );
     },
@@ -1704,9 +1724,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateSucursal = useCallback(
-    async (oldName: string, newName: string, cajas?: number, pasillos?: string[]) => {
+    async (
+      oldName: string,
+      newName: string,
+      cajas?: number,
+      pasillos?: string[],
+      bodegas?: string[]
+    ) => {
       const current = sucursales.find((s) => s.name === oldName);
       const newPasillos = pasillos ?? current?.pasillos ?? [];
+      const newBodegas = bodegas ?? current?.bodegas ?? [];
       setSucursales((prev) =>
         prev.map((s) =>
           s.name === oldName
@@ -1714,6 +1741,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 name: newName,
                 cajas: cajas !== undefined ? cajas : s.cajas,
                 pasillos: newPasillos,
+                bodegas: newBodegas,
               }
             : s
         )
@@ -1771,7 +1799,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             supabase
               .from('sucursales')
               .upsert(
-                { name: newName, cajas: newCajas, pasillos: newPasillos },
+                { name: newName, cajas: newCajas, pasillos: newPasillos, bodegas: newBodegas },
                 { onConflict: 'name' }
               ),
             'la sucursal'
@@ -1788,13 +1816,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           toast.error(
             'El cambio de nombre quedó incompleto. Recarga la página y revisa la sucursal.'
           );
-      } else if (cajas !== undefined || pasillos !== undefined) {
+      } else if (cajas !== undefined || pasillos !== undefined || bodegas !== undefined) {
         await dbWrite(
           supabase
             .from('sucursales')
             .update({
               ...(cajas !== undefined ? { cajas } : {}),
               ...(pasillos !== undefined ? { pasillos } : {}),
+              ...(bodegas !== undefined ? { bodegas } : {}),
             })
             .eq('name', oldName),
           'la sucursal'

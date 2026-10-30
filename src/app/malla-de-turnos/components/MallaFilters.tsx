@@ -10,6 +10,7 @@ import {
   Hash,
   SlidersHorizontal,
   Rows3,
+  Warehouse,
 } from 'lucide-react';
 import { MESES, sortPasillos, useAppContext } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
@@ -33,6 +34,9 @@ interface Props {
   /** [] = todos */
   selectedPasillos: string[];
   setSelectedPasillos: (v: string[]) => void;
+  /** [] = todos */
+  selectedBodegas: string[];
+  setSelectedBodegas: (v: string[]) => void;
   selectedHoras: string[];
   setSelectedHoras: (v: string[]) => void;
   nameSearch: string;
@@ -100,6 +104,8 @@ export default function MallaFilters({
   setSelectedCargos,
   selectedPasillos,
   setSelectedPasillos,
+  selectedBodegas,
+  setSelectedBodegas,
   selectedHoras,
   setSelectedHoras,
   nameSearch,
@@ -132,6 +138,21 @@ export default function MallaFilters({
     if (kept.length !== selectedPasillos.length) setSelectedPasillos(kept);
   }, [pasilloOptions, selectedPasillos, setSelectedPasillos]);
 
+  // Bodegas, igual que los pasillos
+  const bodegaOptions = useMemo(() => {
+    const inSucursal = (name: string) =>
+      selectedSucursales.length === 0 || selectedSucursales.includes(name);
+    const set = new Set<string>();
+    sucursales.forEach((s) => inSucursal(s.name) && s.bodegas.forEach((b) => set.add(b)));
+    workers.forEach((w) => w.bodega && inSucursal(w.sucursal) && set.add(w.bodega));
+    return sortPasillos([...set]);
+  }, [sucursales, workers, selectedSucursales]);
+
+  useEffect(() => {
+    const kept = selectedBodegas.filter((b) => bodegaOptions.includes(b));
+    if (kept.length !== selectedBodegas.length) setSelectedBodegas(kept);
+  }, [bodegaOptions, selectedBodegas, setSelectedBodegas]);
+
   const [clientSucursales, setClientSucursales] = useState<string[]>([]);
   const [clientAreas, setClientAreas] = useState<string[]>([]);
   const [clientTurnoOptions, setClientTurnoOptions] = useState<string[]>(['Todos']);
@@ -154,6 +175,7 @@ export default function MallaFilters({
     (selectedSucursales.length > 0 ? 1 : 0) +
     (selectedCargos.length > 0 ? 1 : 0) +
     (selectedPasillos.length > 0 ? 1 : 0) +
+    (selectedBodegas.length > 0 ? 1 : 0) +
     (selectedTurno !== 'Todos' ? 1 : 0) +
     (selectedHoras.length > 0 ? 1 : 0);
   const multiClass = 'flex flex-col gap-1 min-w-[160px] lg:max-w-[260px]';
@@ -223,6 +245,17 @@ export default function MallaFilters({
             selected={selectedPasillos}
             onChange={setSelectedPasillos}
             allLabel="Todos"
+            className={multiClass}
+          />
+        )}
+        {bodegaOptions.length > 0 && (
+          <MultiSelect
+            label="Bodega"
+            icon={Warehouse}
+            options={mounted ? bodegaOptions : []}
+            selected={selectedBodegas}
+            onChange={setSelectedBodegas}
+            allLabel="Todas"
             className={multiClass}
           />
         )}
