@@ -81,7 +81,7 @@ export type TipoCuenta = 'gerente_sucursal' | 'jefe_area' | 'edita_turnos';
 
 /**
  * Tipos de cuenta de Ajustes → Usuarios. Elegir uno marca sus casillas; después se pueden
- * ajustar una por una. Ninguno publica: eso se marca aparte.
+ * ajustar una por una. El jefe de área publica porque es quien hace el turno de su área.
  */
 export const TIPOS_CUENTA: { tipo: TipoCuenta; label: string; perms: Perm[] }[] = [
   {
@@ -96,6 +96,7 @@ export const TIPOS_CUENTA: { tipo: TipoCuenta; label: string; perms: Perm[] }[] 
       'dashboard',
       'malla_ver',
       'malla_editar',
+      'malla_publicar',
       'malla_borrador',
       'cumplimiento',
       'personal_ver',
