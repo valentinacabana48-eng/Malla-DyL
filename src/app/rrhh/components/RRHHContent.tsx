@@ -1206,8 +1206,8 @@ export default function RRHHContent() {
                                 >
                                   {prog.code}
                                 </span>
-                                <span className="text-[9px] text-muted-foreground">
-                                  {prog.shift.start}
+                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                                  {prog.shift.start}–{prog.shift.end}
                                 </span>
                                 <Edit3 size={8} className="text-muted-foreground/40" />
                               </>
