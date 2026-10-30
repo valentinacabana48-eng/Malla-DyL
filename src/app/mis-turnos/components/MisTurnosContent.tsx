@@ -46,11 +46,17 @@ const BRANCH_LOGOS = [
   { src: '/assets/images/descarga-1784608578238.png', alt: 'Envases DyL' },
 ];
 
-function AdminLink({ className }: { className: string }) {
+function AdminLink({
+  className,
+  label = 'Administración',
+}: {
+  className: string;
+  label?: React.ReactNode;
+}) {
   return (
-    <Link href="/" className={className}>
+    <Link href="/" className={className} title="Administración" aria-label="Administración">
       <LayoutDashboard size={15} />
-      Administración
+      {label}
     </Link>
   );
 }
@@ -351,7 +357,7 @@ function TodayHero({ label, d }: { label: string; d: PublishedDay | null | undef
       <span className="text-[13px] font-bold uppercase tracking-wider text-white/85">{label}</span>
       {turno ? (
         <>
-          <p className="mt-1 text-[40px] leading-none font-black tracking-tight">
+          <p className="mt-1 text-[clamp(30px,10vw,40px)] leading-none font-black tracking-tight whitespace-nowrap">
             {d.s}
             <span className="mx-2 text-white/60 font-bold">→</span>
             {d.e}
@@ -730,37 +736,38 @@ function Shell({
       <div className="max-w-md lg:max-w-6xl mx-auto pb-6">
         {/* Saludo, sucursal y botones; el mes va montado encima del borde de abajo */}
         <header className="bg-gradient-to-br from-[#0f2744] via-[#16386a] to-[#1d4ed8] text-white px-5 lg:px-6 pt-6 pb-14 rounded-b-[32px]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="w-12 h-12 shrink-0 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-[17px] font-black">
-                {safeInitials('', data.name)}
-              </span>
-              <div className="min-w-0">
-                <p className="text-[13px] text-blue-100">Hola 👋</p>
-                <h1 className="text-[22px] font-extrabold leading-tight break-words">
-                  {primerNombre}
-                </h1>
-              </div>
-            </div>
+          {/* Arriba la sucursal y los botones; abajo el saludo con todo el ancho para el nombre */}
+          <div className="flex items-center justify-between gap-2">
+            <p className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold text-blue-100">
+              <MapPin size={13} className="shrink-0" aria-hidden="true" />
+              <span className="truncate">{data.sucursal}</span>
+            </p>
             <div className="flex items-center gap-2 shrink-0">
               {adminSession && (
-                <AdminLink className="h-10 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold flex items-center gap-1.5" />
+                <AdminLink
+                  label={<span className="hidden sm:inline">Admin</span>}
+                  className="h-9 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold flex items-center gap-1.5"
+                />
               )}
               <button
                 type="button"
                 onClick={onLogout}
-                aria-label="Salir"
-                className="h-10 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold flex items-center gap-1.5"
+                className="h-9 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold flex items-center gap-1.5"
               >
                 <LogOut size={15} />
                 Salir
               </button>
             </div>
           </div>
-          <p className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold text-blue-100">
-            <MapPin size={13} className="shrink-0" aria-hidden="true" />
-            <span className="truncate">{data.sucursal}</span>
-          </p>
+          <div className="mt-4 flex items-center gap-3">
+            <span className="w-12 h-12 shrink-0 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-[17px] font-black">
+              {safeInitials('', data.name)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] text-blue-100 whitespace-nowrap">Hola 👋</p>
+              <h1 className="text-[22px] font-extrabold leading-tight truncate">{primerNombre}</h1>
+            </div>
+          </div>
         </header>
         {children}
       </div>
