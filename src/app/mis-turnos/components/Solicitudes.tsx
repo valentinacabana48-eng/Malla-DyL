@@ -30,7 +30,8 @@ interface ShiftOption {
   end: string;
 }
 
-interface Coworker extends ShiftOption {
+// De las compañeras solo llega el nombre: no se muestran sus horarios
+interface Coworker {
   id: string;
   name: string;
 }
@@ -135,11 +136,7 @@ export default function Solicitudes({
         const r = data as { ok: boolean; mine?: string; coworkers?: Coworker[] } | null;
         if (!active) return;
         setCoworkers(
-          r?.ok
-            ? [...(r.coworkers ?? [])].sort(
-                (a, b) => byHour(a, b) || a.name.localeCompare(b.name, 'es')
-              )
-            : []
+          r?.ok ? [...(r.coworkers ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es')) : []
         );
         setMine(r?.mine ?? '');
       });
@@ -336,9 +333,6 @@ export default function Solicitudes({
                       <span className="flex-1 min-w-0 text-sm font-semibold text-gray-900 truncate">
                         {c.name}
                       </span>
-                      <span className="text-sm text-gray-700">
-                        {c.start} a {c.end}
-                      </span>
                     </label>
                   ))}
                 </div>
@@ -397,12 +391,11 @@ export default function Solicitudes({
                   {r.tipo === 'intercambio' && (
                     <p className="text-[13px] text-gray-600">
                       {(() => {
+                        // Solo su propio turno; el de la compañera no se muestra.
                         // Al aprobar, la jefa pudo ajustar el turno de la compañera
-                        const suyoFinal = r.turno_companera || r.turno_actual;
-                        const yo = r.mia ? r.turno_pedido : suyoFinal;
-                        const ella = r.mia ? suyoFinal : r.turno_pedido;
+                        const yo = r.mia ? r.turno_pedido : r.turno_companera || r.turno_actual;
                         const verbo = r.status === 'aprobada' ? 'Quedaste' : 'Quedarías';
-                        return `${verbo} ${shiftText(yo)} y ella ${shiftText(ella)}`;
+                        return `${verbo} ${shiftText(yo)}`;
                       })()}
                     </p>
                   )}
