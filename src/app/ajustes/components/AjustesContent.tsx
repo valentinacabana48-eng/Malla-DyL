@@ -1163,15 +1163,15 @@ function AreaManager({
                   </form>
                 ) : (
                   <>
-                    <div className="px-4 py-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="px-4 py-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
                         <Users size={14} className="text-muted-foreground" />
                         <span className="text-sm font-medium text-foreground">{area}</span>
-                        <span className="text-xs bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-semibold">
+                        <span className="text-xs bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
                           {cargos.length} cargo{cargos.length !== 1 ? 's' : ''}
                         </span>
                         <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                          className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${
                             propias
                               ? 'bg-amber-50 text-amber-700'
                               : 'bg-muted text-muted-foreground'
@@ -1180,10 +1180,10 @@ function AreaManager({
                           {propias ? `Solo ${propias.join(', ')}` : 'Todas las sucursales'}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex flex-wrap items-center gap-1 -ml-1.5 lg:ml-0">
                         <button
                           onClick={() => setMisTurnosArea(showMisTurnos ? null : area)}
-                          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                          className={`flex items-center gap-1 px-2 py-1 rounded-lg whitespace-nowrap text-xs font-semibold transition-colors ${
                             limitado
                               ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
                               : misTurnos

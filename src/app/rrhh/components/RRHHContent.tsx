@@ -1285,17 +1285,20 @@ export default function RRHHContent() {
                 key={`hrs-${worker.id}`}
                 className="bg-card rounded-xl border border-border p-4 shadow-sm"
               >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-sm font-bold shrink-0">
-                    {worker.initials}
+                <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-sm font-bold shrink-0">
+                      {worker.initials}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-foreground text-sm">{worker.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {worker.cargo} · {worker.area} · {worker.horasContratadas}h
+                        contratadas/semana
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-foreground text-sm">{worker.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {worker.cargo} · {worker.area} · {worker.horasContratadas}h contratadas/semana
-                    </p>
-                  </div>
-                  <div className="ml-auto flex gap-2 text-center flex-wrap justify-end">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center lg:ml-auto lg:flex lg:flex-wrap lg:justify-end">
                     <div className="bg-muted/40 rounded-lg px-3 py-2">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
                         Total período
@@ -1305,7 +1308,7 @@ export default function RRHHContent() {
                     <div
                       className={`rounded-lg px-3 py-2 ${stats.sundayHours > 0 ? 'bg-red-50 border border-red-100' : 'bg-muted/40'}`}
                     >
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center justify-center gap-1">
                         <Sun size={10} /> Domingos
                       </p>
                       <p
@@ -1327,7 +1330,7 @@ export default function RRHHContent() {
                     <div
                       className={`rounded-lg px-3 py-2 ${stats.holidayHours > 0 ? 'bg-orange-50 border border-orange-100' : 'bg-muted/40'}`}
                     >
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center justify-center gap-1">
                         <Star size={10} /> Feriados
                       </p>
                       <p
@@ -1361,7 +1364,7 @@ export default function RRHHContent() {
                   </div>
                 </div>
                 {/* Weekly breakdown */}
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 lg:flex lg:flex-wrap">
                   {stats.weeks.map((wk, idx) => {
                     const isOver = wk.overtime > 0;
                     const isUnder =
@@ -1369,7 +1372,7 @@ export default function RRHHContent() {
                     return (
                       <div
                         key={`wk-${worker.id}-${idx}`}
-                        className={`flex flex-col items-center px-3 py-2 rounded-lg border text-xs min-w-[70px] ${
+                        className={`flex flex-col items-center text-center px-2 lg:px-3 py-2 rounded-lg border text-xs lg:min-w-[70px] ${
                           wk.nextPeriod
                             ? 'bg-muted/30 border-dashed border-border text-muted-foreground'
                             : isOver
@@ -1413,7 +1416,7 @@ export default function RRHHContent() {
                   })}
                 </div>
                 {stats.overtimeWeeks.length > 0 && (
-                  <div className="mt-3 flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-xs text-red-700">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-xs text-red-700">
                     <Clock size={12} />
                     <span className="font-semibold">Horas extras:</span>
                     {stats.overtimeWeeks.map((wk, i) => (

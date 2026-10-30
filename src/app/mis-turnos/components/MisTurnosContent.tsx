@@ -428,7 +428,8 @@ function MonthScreen({
   const [seen, setSeen] = useState(() => readLocal(seenKey));
 
   useEffect(() => {
-    setSelected(isCurrentMonth ? hoy.day - 1 : null);
+    // Sin día elegido al abrir: el de hoy ya sale arriba en grande
+    setSelected(null);
     setSeen(readLocal(seenKey));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthKey]);
@@ -615,7 +616,7 @@ function MonthScreen({
                         <button
                           key={i}
                           type="button"
-                          onClick={() => setSelected(i)}
+                          onClick={() => setSelected(isSel ? null : i)}
                           aria-label={`Día ${i + 1}: ${dayText(d)}${wasChanged ? ', cambió' : ''}`}
                           aria-pressed={isSel}
                           className={`relative min-h-[62px] lg:min-h-[88px] rounded-xl px-0.5 py-1.5 lg:py-2 flex flex-col items-center gap-0.5 text-center transition-transform active:scale-95 ${tile} ${
