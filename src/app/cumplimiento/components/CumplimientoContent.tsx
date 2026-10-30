@@ -274,35 +274,41 @@ export default function CumplimientoContent() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-5">
         <div
-          className="bg-card border border-border rounded-2xl p-4"
+          className="bg-card border border-border rounded-2xl p-3 lg:p-4 min-w-0"
           style={{ boxShadow: 'var(--shadow-card)' }}
         >
-          <p className="text-xs text-muted-foreground mb-1">Total trabajadoras</p>
+          <p className="text-xs text-muted-foreground mb-1 truncate">
+            Total<span className="hidden lg:inline"> trabajadoras</span>
+          </p>
           <p className="text-2xl font-bold text-foreground">{complianceData.length}</p>
         </div>
         <div
-          className="bg-card border border-green-200 rounded-2xl p-4"
+          className="bg-card border border-green-200 rounded-2xl p-3 lg:p-4 min-w-0"
           style={{ boxShadow: 'var(--shadow-card)' }}
         >
-          <div className="flex items-center gap-2 mb-1">
-            <CheckCircle2 size={14} className="text-green-600" />
-            <p className="text-xs text-green-700 font-medium">Cumplen</p>
+          <div className="flex items-start gap-1 lg:gap-2 mb-1">
+            <CheckCircle2 size={14} className="text-green-600 shrink-0 mt-px" />
+            <p className="text-xs text-green-700 font-medium leading-tight">Cumplen</p>
           </div>
           <p className="text-2xl font-bold text-green-700">{passCount}</p>
-          <p className="text-xs text-green-600 mt-0.5">{passRate}% del total</p>
+          <p className="text-xs text-green-600 mt-0.5 truncate">
+            {passRate}%<span className="hidden lg:inline"> del total</span>
+          </p>
         </div>
         <div
-          className="bg-card border border-red-200 rounded-2xl p-4"
+          className="bg-card border border-red-200 rounded-2xl p-3 lg:p-4 min-w-0"
           style={{ boxShadow: 'var(--shadow-card)' }}
         >
-          <div className="flex items-center gap-2 mb-1">
-            <XCircle size={14} className="text-red-500" />
-            <p className="text-xs text-red-600 font-medium">No cumplen</p>
+          <div className="flex items-start gap-1 lg:gap-2 mb-1">
+            <XCircle size={14} className="text-red-500 shrink-0 mt-px" />
+            <p className="text-xs text-red-600 font-medium leading-tight">No cumplen</p>
           </div>
           <p className="text-2xl font-bold text-red-600">{failCount}</p>
-          <p className="text-xs text-red-500 mt-0.5">{100 - passRate}% del total</p>
+          <p className="text-xs text-red-500 mt-0.5 truncate">
+            {100 - passRate}%<span className="hidden lg:inline"> del total</span>
+          </p>
         </div>
       </div>
 
@@ -331,8 +337,8 @@ export default function CumplimientoContent() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[180px]">
+      <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:gap-3 mb-4">
+        <div className="relative col-span-2 lg:flex-1 lg:min-w-[180px]">
           <Search
             size={13}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -348,7 +354,7 @@ export default function CumplimientoContent() {
         <select
           value={selectedSucursal}
           onChange={(e) => setSelectedSucursal(e.target.value)}
-          className="px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-secondary"
+          className="min-w-0 w-full lg:w-auto px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-secondary"
         >
           <option value="Todas">Todas las sucursales</option>
           {sucursales.map((s) => (
@@ -360,7 +366,7 @@ export default function CumplimientoContent() {
         <select
           value={selectedArea}
           onChange={(e) => setSelectedArea(e.target.value)}
-          className="px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-secondary"
+          className="min-w-0 w-full lg:w-auto px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-secondary"
         >
           <option value="Todas">Todas las áreas</option>
           {areas.map((a) => (
@@ -369,12 +375,12 @@ export default function CumplimientoContent() {
             </option>
           ))}
         </select>
-        <div className="flex gap-1 bg-muted/50 rounded-xl p-1">
+        <div className="col-span-2 flex gap-1 bg-muted/50 rounded-xl p-1">
           {(['all', 'pass', 'fail'] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilterStatus(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex-1 lg:flex-none whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 filterStatus === f
                   ? 'bg-card shadow-sm text-foreground'
                   : 'text-muted-foreground hover:text-foreground'
@@ -508,9 +514,9 @@ export default function CumplimientoContent() {
                           >
                             <div className="flex items-center gap-1.5 mb-1">
                               {rule.pass ? (
-                                <CheckCircle2 size={12} className="text-green-600 shrink-0" />
+                                <CheckCircle2 size={12} className="text-green-600 shrink-0 mt-px" />
                               ) : (
-                                <XCircle size={12} className="text-red-500 shrink-0" />
+                                <XCircle size={12} className="text-red-500 shrink-0 mt-px" />
                               )}
                               <span
                                 className={`text-xs lg:text-[10px] font-bold uppercase tracking-wide ${rule.pass ? 'text-green-700' : 'text-red-600'}`}
