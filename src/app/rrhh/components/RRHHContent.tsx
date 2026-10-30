@@ -22,6 +22,7 @@ import {
   monthLabelToKey,
   MESES,
 } from '@/context/AppContext';
+import { getStatusLabel } from '@/app/asistencia/components/asistenciaUtils';
 
 // ─── Chilean public holidays 2026 (YYYY-MM-DD) ────────────────────────────
 const FERIADOS_2026 = new Set([
@@ -60,6 +61,27 @@ interface AttendanceRecord {
   recordDate: string;
   status: string;
   absenceReason: string;
+  retiroHoras: number;
+}
+
+// Cualquier estado de asistencia distinto de «Presente» es un día sin trabajar
+// (falta, licencia, vacaciones, permiso, descanso...): no suma horas.
+function isDayOff(att: AttendanceRecord | null): boolean {
+  return !!att && att.status !== 'PRESENTE';
+}
+
+// Nombre corto del estado para la celda y el Excel
+function dayOffLabel(att: AttendanceRecord): string {
+  if (att.status === 'AUSENTE') return 'Falta injustificada';
+  if (att.status.startsWith('CUSTOM_')) {
+    return att.status
+      .replace(/^CUSTOM_/, '')
+      .replace(/_\d+$/, '')
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/^./, (c) => c.toUpperCase());
+  }
+  return getStatusLabel(att.status);
 }
 
 type WorkerDayRecords = Record<string, Record<number, DayRecord>>;
@@ -187,7 +209,7 @@ export default function RRHHContent() {
       const data = await fetchAll((from, to) =>
         supabase
           .from('attendance_records')
-          .select('worker_id, record_date, status, absence_reason')
+          .select('worker_id, record_date, status, absence_reason, retiro_horas')
           .gte('record_date', monthStartDate)
           .lte('record_date', monthEndDate)
           .order('worker_id')
@@ -205,6 +227,7 @@ export default function RRHHContent() {
           recordDate: dt,
           status: r.status as string,
           absenceReason: (r.absence_reason as string) || '',
+          retiroHoras: Number(r.retiro_horas) || 0,
         };
       });
       setAttendanceMap(map);
@@ -401,7 +424,7 @@ export default function RRHHContent() {
         );
       } else {
         const att = getAttendanceForDay(workerId, i);
-        if (att && att.status === 'AUSENTE') {
+        if (isDayOff(att)) {
           hrs = 0;
         } else {
           const special = workerSpecial[i];
@@ -416,6 +439,8 @@ export default function RRHHContent() {
                 if (mins < 0) mins += 24 * 60;
                 hrs = mins / 60;
                 if (shift.colacion > 0) hrs -= shift.colacion / 60;
+                // Si se retiró antes (marcado en Asistencia), se descuentan esas horas
+                if (att?.retiroHoras) hrs = Math.max(0, hrs - att.retiroHoras);
               }
             }
           }
@@ -425,7 +450,7 @@ export default function RRHHContent() {
       weekMap[weekKey] = (weekMap[weekKey] || 0) + hrs;
       if (date.getDay() === 0 && hrs > 0) {
         sundayHours += hrs;
-        sundaySurcharge += hrs * 0.35; // 35% Sunday surcharge
+        sundaySurcharge += hrs * 0.3; // recargo dominical legal: 30% (comercio)
       }
       if (isFeriado(year, monthIdx, i + 1) && hrs > 0) holidayHours += hrs;
     }
@@ -502,9 +527,10 @@ export default function RRHHContent() {
         ];
         for (let dayIdx = 0; dayIdx < daysInMonth; dayIdx++) {
           const att = getAttendanceForDay(worker.id, dayIdx);
-          const isAbsent = att?.status === 'AUSENTE';
-          if (isAbsent) {
-            row.push(att?.absenceReason ? `Falta: ${att.absenceReason}` : 'Falta injustificada');
+          if (att && isDayOff(att)) {
+            row.push(
+              att.absenceReason ? `${dayOffLabel(att)}: ${att.absenceReason}` : dayOffLabel(att)
+            );
             continue;
           }
           const record = dayRecords[worker.id]?.[dayIdx];
@@ -853,7 +879,16 @@ export default function RRHHContent() {
                     const prog = getProgrammedShift(worker.id, dayIdx);
                     const record = dayRecords[worker.id]?.[dayIdx];
                     const att = getAttendanceForDay(worker.id, dayIdx);
-                    const isAbsent = att?.status === 'AUSENTE';
+                    // Descanso / no trabajaba en un día sin turno se ve como día libre normal
+                    const isAbsent =
+                      isDayOff(att) &&
+                      (prog?.type === 'shift' || !['DESCANSO', 'NT'].includes(att?.status ?? ''));
+                    const absentLabel =
+                      !att || !isAbsent
+                        ? ''
+                        : att.status === 'AUSENTE'
+                          ? 'AUSENTE'
+                          : dayOffLabel(att).toUpperCase();
                     const isEditing =
                       editingCell?.workerId === worker.id && editingCell?.dayIdx === dayIdx;
                     const dow = daysOfWeek[dayIdx];
@@ -958,7 +993,7 @@ export default function RRHHContent() {
                             </span>
                             {/* Absent badge */}
                             <span className="bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full leading-none mt-0.5">
-                              AUSENTE
+                              {absentLabel}
                             </span>
                             {/* Reason */}
                             {att?.absenceReason && (
@@ -987,7 +1022,7 @@ export default function RRHHContent() {
                           <div className="flex flex-col items-center gap-0.5">
                             <AlertCircle size={12} className="text-red-500" />
                             <span className="bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full leading-none">
-                              AUSENTE
+                              {absentLabel}
                             </span>
                             {att?.absenceReason && (
                               <span
