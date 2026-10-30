@@ -549,6 +549,7 @@ export default function RRHHContent() {
     const overtimeWeeks = weeks.filter((w) => w.overtime > 0);
 
     const recargoDominical = Math.round(sundayHours * 0.3 * 10) / 10;
+    const domingosConRecargo = Math.round((sundayHours + sundayHours * 0.3) * 10) / 10;
     const totalOvertimeHours = overtimeWeeks.reduce((sum, w) => sum + w.overtime, 0);
     const recargoHE = Math.round(totalOvertimeHours * 0.5 * 10) / 10;
 
@@ -562,6 +563,7 @@ export default function RRHHContent() {
       contractedWeekly,
       overtimeWeeks,
       recargoDominical,
+      domingosConRecargo,
       totalOvertimeHours,
       recargoHE,
       diasTrabajados,
@@ -644,6 +646,7 @@ export default function RRHHContent() {
         'Semanas con Extras',
         'Horas Extra Período',
         'Recargo Dominical 30% (h)',
+        'Domingos con Recargo (h)',
         'Días Trabajados',
         ...DAY_COUNTS.map((c) => c.label),
       ];
@@ -670,6 +673,7 @@ export default function RRHHContent() {
           stats.overtimeWeeks.length,
           stats.totalOvertime,
           stats.recargoDominical,
+          stats.domingosConRecargo,
           stats.diasTrabajados,
           ...DAY_COUNTS.map((c) => stats.dayCounts[c.key] ?? 0),
         ];
@@ -716,6 +720,7 @@ export default function RRHHContent() {
               14,
               14,
               16,
+              14,
               ...Array(1 + DAY_COUNTS.length).fill(14),
               ...Array(maxWeeks).fill(16),
             ],
@@ -1317,16 +1322,6 @@ export default function RRHHContent() {
                         {stats.sundayHours}h
                       </p>
                     </div>
-                    {stats.sundaySurcharge > 0 && (
-                      <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
-                        <p className="text-[10px] text-orange-600 uppercase tracking-wider">
-                          Recargo Dom.
-                        </p>
-                        <p className="text-lg font-bold text-orange-600">
-                          +{stats.sundaySurcharge}h
-                        </p>
-                      </div>
-                    )}
                     <div
                       className={`rounded-lg px-3 py-2 ${stats.holidayHours > 0 ? 'bg-orange-50 border border-orange-100' : 'bg-muted/40'}`}
                     >
@@ -1341,9 +1336,14 @@ export default function RRHHContent() {
                     </div>
                     <div className="bg-purple-50 border border-purple-100 rounded-lg px-3 py-2">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                        Recargo dominical (30%)
+                        Domingos con recargo (30%)
                       </p>
-                      <p className="text-lg font-bold text-purple-600">{stats.recargoDominical}h</p>
+                      <p className="text-lg font-bold text-purple-600">
+                        {stats.domingosConRecargo}h
+                      </p>
+                      <p className="text-[10px] text-purple-600">
+                        {stats.sundayHours}h + {stats.recargoDominical}h recargo
+                      </p>
                     </div>
                     {stats.totalOvertimeHours > 0 && (
                       <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
