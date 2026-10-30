@@ -16,10 +16,12 @@ export default function MenuButton({
   label,
   icon,
   items,
+  className = '',
 }: {
   label: string;
   icon?: React.ReactNode;
   items: MenuItem[];
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   // Abre hacia la derecha si cabe; si no, hacia la izquierda
@@ -43,7 +45,7 @@ export default function MenuButton({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className={`relative ${className}`}>
       <button
         type="button"
         onClick={() => {
@@ -53,9 +55,10 @@ export default function MenuButton({
         }}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors"
+        className="w-full flex items-center justify-center gap-1.5 lg:gap-2 px-2 lg:px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors"
       >
-        {icon}
+        {/* En el celular sin ícono, para que los botones quepan en una sola fila */}
+        {icon && <span className="hidden lg:inline-flex">{icon}</span>}
         {label}
         <ChevronDown size={15} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>

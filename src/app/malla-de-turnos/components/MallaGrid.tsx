@@ -1768,8 +1768,10 @@ export default function MallaGrid({
       )}
 
       {/* ─── Fixed bottom scrollbar ────────────────────────────────────── */}
+      {/* Solo en computador: en el celular se desliza con el dedo y la barra tapaba el menú inferior */}
       {showFixedBar && gridRect && (
         <div
+          className="hidden lg:block"
           style={{
             position: 'fixed',
             bottom: 0,

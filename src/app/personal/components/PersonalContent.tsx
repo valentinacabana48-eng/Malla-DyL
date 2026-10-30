@@ -256,19 +256,20 @@ export default function PersonalContent() {
             Administra la información de los trabajadores de la empresa.
           </p>
         </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* En el celular: los tres en una fila, con nombres cortos */}
+        <div className="flex items-center gap-2 lg:gap-2.5 w-full lg:w-auto lg:flex-wrap">
           <button
             onClick={() => setShowClaves(true)}
             disabled={isReadonly}
-            className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 lg:gap-2 border border-border bg-card px-3 lg:px-4 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ boxShadow: 'var(--shadow-sm)' }}
           >
             <KeyRound size={14} />
-            Claves Mis turnos
+            Claves<span className="hidden lg:inline">Mis turnos</span>
           </button>
           <button
             onClick={handleExport}
-            className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted transition-all duration-150"
+            className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 lg:gap-2 border border-border bg-card px-3 lg:px-4 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-muted transition-all duration-150"
             style={{ boxShadow: 'var(--shadow-sm)' }}
           >
             <Download size={14} />
@@ -292,11 +293,11 @@ export default function PersonalContent() {
               })
             }
             disabled={isReadonly}
-            className="flex items-center gap-2 bg-secondary text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 lg:gap-2 bg-secondary text-white px-3 lg:px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ boxShadow: '0 2px 8px rgba(29,91,212,0.3)' }}
           >
             <Plus size={15} />
-            Añadir trabajador
+            Añadir<span className="hidden lg:inline">trabajador</span>
           </button>
         </div>
       </div>

@@ -1,7 +1,8 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import AppLogo from '@/components/ui/AppLogo';
 import {
   LayoutDashboard,
@@ -17,11 +18,16 @@ import {
   Monitor,
   Smartphone,
   Inbox,
+  CalendarClock,
+  Download,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { setVista, useVistaActual } from '@/lib/vista';
 import { routePerm } from '@/lib/permisos';
 import { usePendingRequests } from '@/hooks/usePendingRequests';
+import { useInstallPrompt, useIosInstallable } from '@/lib/pwa';
+import IosInstallModal from './IosInstallModal';
 
 const navItems: {
   label: string;
@@ -48,7 +54,11 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const { isAdmin, isGlobalAdmin, canManageSucursal, can } = useAuth();
+  const { isAdmin, isGlobalAdmin, canManageSucursal, can, signOut, user } = useAuth();
+  const installApp = useInstallPrompt();
+  const iosInstallable = useIosInstallable();
+  const [showIosInstall, setShowIosInstall] = useState(false);
+  const canInstall = !!installApp || iosInstallable;
   const vista = useVistaActual();
   const pendingRequests = usePendingRequests();
   const visibleItems = navItems.filter(
@@ -63,7 +73,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside
-      className="flex flex-col h-full transition-all duration-300 ease-in-out"
+      className="flex flex-col h-full overflow-y-auto lg:overflow-visible transition-all duration-300 ease-in-out"
       style={{
         width: collapsed ? 64 : 240,
         minHeight: '100%',
@@ -159,6 +169,43 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </button>
         </div>
       )}
+
+      {/* Celular: lo que en el computador está en la barra de arriba */}
+      <div className="lg:hidden px-2.5 pb-3 flex flex-col gap-0.5">
+        <Link
+          href="/mis-turnos"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl sidebar-nav-hover text-white/70 hover:text-white"
+        >
+          <CalendarClock size={18} className="shrink-0" />
+          <span className="text-sm font-medium">Ir a Mis turnos</span>
+        </Link>
+        {canInstall && (
+          <button
+            type="button"
+            onClick={installApp ?? (() => setShowIosInstall(true))}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl sidebar-nav-hover text-white/70 hover:text-white"
+          >
+            <Download size={18} className="shrink-0" />
+            <span className="text-sm font-medium">Instalar app</span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={signOut}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl sidebar-nav-hover text-white/70 hover:text-red-300 text-left"
+        >
+          <LogOut size={18} className="shrink-0" />
+          <span className="flex flex-col min-w-0">
+            <span className="text-sm font-medium">Cerrar sesión</span>
+            {user?.email && (
+              <span className="text-[11px] text-white/40 truncate">{user.email}</span>
+            )}
+          </span>
+        </button>
+      </div>
+      {/* Fuera del menú: dentro del menú deslizable el aviso quedaría del ancho del menú */}
+      {showIosInstall &&
+        createPortal(<IosInstallModal onClose={() => setShowIosInstall(false)} />, document.body)}
 
       {/* Bottom */}
       <div className="px-2.5 pb-5 flex flex-col gap-3 border-t border-white/[0.07] pt-4">

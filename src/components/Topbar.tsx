@@ -53,11 +53,29 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
         <Menu className="w-7 h-7 lg:w-[18px] lg:h-[18px]" />
       </button>
 
-      {/* Global Sucursal + Área display */}
+      {/* Sucursal y área. En el celular, Mis turnos, instalar y salir van en el menú "Más" */}
       {mounted && (
         <div className="flex items-center gap-2 ml-1 flex-1 min-w-0">
+          {/* Celular: sucursal y área completas en un solo botón que abre el cambio */}
+          <button
+            onClick={onChangeBranch}
+            className="lg:hidden flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-xl min-w-0 flex-1 text-left"
+            title="Cambiar sucursal y área"
+          >
+            <MapPin className="w-[18px] h-[18px] text-blue-600 shrink-0" />
+            <span className="flex flex-col min-w-0 flex-1 leading-tight">
+              <span className="text-sm font-semibold text-blue-700 truncate">
+                {globalSucursal === 'Todas' ? 'Sin sucursal' : globalSucursal}
+              </span>
+              <span className="text-xs text-blue-600/80 truncate">
+                {globalArea === 'Todas' ? 'Sin área' : globalArea}
+              </span>
+            </span>
+            <RefreshCw className="w-4 h-4 text-blue-600/70 shrink-0" />
+          </button>
+
           {/* Sucursal badge */}
-          <div className="flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 bg-blue-50 border border-blue-200 rounded-lg min-w-0">
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 bg-blue-50 border border-blue-200 rounded-lg min-w-0">
             <MapPin className="w-[18px] h-[18px] lg:w-[13px] lg:h-[13px] text-blue-600 shrink-0" />
             <span className="text-sm lg:text-xs font-semibold text-blue-700 truncate">
               {globalSucursal === 'Todas' ? 'Sin sucursal' : globalSucursal}
@@ -75,7 +93,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
           {/* Change button */}
           <button
             onClick={onChangeBranch}
-            className="flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted border border-border transition-all duration-150"
+            className="hidden lg:flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted border border-border transition-all duration-150"
             title="Cambiar sucursal y área"
           >
             <RefreshCw className="w-[18px] h-[18px] lg:w-3 lg:h-3" />
@@ -108,7 +126,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
             </div>
           )}
           {role === 'admin' && (
-            <div className="flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 bg-green-50 border border-green-200 rounded-lg">
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 bg-green-50 border border-green-200 rounded-lg">
               <Lock className="w-[18px] h-[18px] lg:w-[13px] lg:h-[13px] text-green-600 shrink-0" />
               <span className="text-xs font-semibold text-green-700 hidden lg:block">Admin</span>
             </div>
@@ -117,7 +135,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
           {/* Pasar a "Mis turnos" (la app de las trabajadoras) */}
           <Link
             href="/mis-turnos"
-            className="ml-auto flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-foreground hover:bg-muted border border-border transition-all duration-150"
+            className="ml-auto hidden lg:flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-foreground hover:bg-muted border border-border transition-all duration-150"
             title="Ir a Mis turnos"
           >
             <CalendarClock className="w-[18px] h-[18px] lg:w-3 lg:h-3" />
@@ -128,7 +146,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
           {canInstall && (
             <button
               onClick={installApp ?? (() => setShowIosInstall(true))}
-              className="flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-white bg-secondary hover:bg-blue-700 transition-all duration-150"
+              className="hidden lg:flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-white bg-secondary hover:bg-blue-700 transition-all duration-150"
               title="Instalar DyL Gestor como app"
             >
               <Download className="w-[18px] h-[18px] lg:w-3 lg:h-3" />
@@ -139,7 +157,7 @@ export default function Topbar({ onMenuToggle, onChangeBranch }: TopbarProps) {
           {/* Logout button */}
           <button
             onClick={signOut}
-            className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-red-600 hover:bg-red-50 border border-border transition-all duration-150`}
+            className={`hidden lg:flex items-center gap-1.5 px-2.5 lg:px-3 py-2 lg:py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-red-600 hover:bg-red-50 border border-border transition-all duration-150`}
             title={user?.email ? `Cerrar sesión (${user.email})` : 'Cerrar sesión'}
           >
             <LogOut className="w-[18px] h-[18px] lg:w-3 lg:h-3" />

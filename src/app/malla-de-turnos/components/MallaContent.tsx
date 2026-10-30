@@ -480,18 +480,20 @@ export default function MallaContent() {
             Asignación de turnos por colaborador/a
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* En el celular: todos en una fila del ancho de la pantalla */}
+        <div className="flex items-center gap-2 w-full lg:w-auto lg:flex-wrap">
           {can('malla_publicar') && (
             <button
               type="button"
               onClick={() => setShowPublishModal(true)}
               disabled={!canPublish}
               title={canPublish ? undefined : 'Elige una sola sucursal para publicar su malla'}
-              className="relative flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative flex-1 lg:flex-none flex items-center justify-center gap-1.5 lg:gap-2 bg-indigo-600 text-white px-2 lg:px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ boxShadow: '0 2px 8px rgba(79,70,229,0.3)' }}
             >
               <Send size={15} />
-              {publishState.pending.length > 0 ? 'Publicar cambios' : 'Publicar'}
+              Publicar
+              {publishState.pending.length > 0 && <span className="hidden lg:inline">cambios</span>}
               {publishState.pending.length > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-amber-400 text-amber-950 text-[11px] font-bold flex items-center justify-center">
                   {publishState.pending.length}
@@ -501,6 +503,7 @@ export default function MallaContent() {
           )}
           <MenuButton
             label="Asignar"
+            className="flex-1 lg:flex-none"
             icon={<PenLine size={15} />}
             items={[
               {
@@ -528,6 +531,7 @@ export default function MallaContent() {
           />
           <MenuButton
             label="Excel"
+            className="flex-1 lg:flex-none"
             icon={<FileSpreadsheet size={15} />}
             items={[
               {

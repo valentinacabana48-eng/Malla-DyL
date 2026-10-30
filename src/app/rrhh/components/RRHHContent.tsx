@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Download,
   Search,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
@@ -197,6 +198,7 @@ export default function RRHHContent() {
   const [selectedCargo, setSelectedCargo] = useState('Todos');
   const [searchName, setSearchName] = useState('');
   const [activeTab, setActiveTab] = useState<'horario' | 'horas'>('horario');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [dayRecords, setDayRecords] = useState<WorkerDayRecords>({});
   const [editingCell, setEditingCell] = useState<{ workerId: string; dayIdx: number } | null>(null);
   const [editBuffer, setEditBuffer] = useState<DayRecord>({
@@ -741,15 +743,15 @@ export default function RRHHContent() {
   ]);
 
   return (
-    <div className="p-6 xl:p-8 max-w-screen-2xl mx-auto">
+    <div className="p-4 lg:p-6 xl:p-8 max-w-screen-2xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+      <div className="flex items-start justify-between mb-5 lg:mb-6 gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-foreground section-header-line flex items-center gap-2">
             <Users size={20} className="text-secondary" />
             Recursos Humanos
           </h1>
-          <p className="text-muted-foreground text-sm mt-1 ml-3">
+          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-3">
             Control de horarios y horas trabajadas por colaborador/a
           </p>
         </div>
@@ -769,7 +771,7 @@ export default function RRHHContent() {
       </div>
 
       {/* Filters */}
-      <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-wrap gap-4 items-end mb-5">
+      <div className="bg-card rounded-xl border border-border p-3 lg:p-4 shadow-sm flex flex-wrap gap-3 lg:gap-4 items-end mb-5">
         {/* Período: mes o rango de fechas (cortes) */}
         <div className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
@@ -840,60 +842,77 @@ export default function RRHHContent() {
             )}
           </div>
         )}
-        {/* Sucursal */}
-        <div className="flex flex-col gap-1 min-w-[160px]">
-          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-            Sucursal
-          </span>
-          <select
-            value={selectedSucursal}
-            onChange={(e) => setSelectedSucursal(e.target.value)}
-            className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
-          >
-            {sucursalOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-        {/* Área */}
-        <div className="flex flex-col gap-1 min-w-[160px]">
-          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-            Área
-          </span>
-          <select
-            value={selectedArea}
-            onChange={(e) => setSelectedArea(e.target.value)}
-            className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
-          >
-            {areaOptions.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-        </div>
-        {/* Cargo */}
-        <div className="flex flex-col gap-1 min-w-[160px]">
-          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-            Cargo
-          </span>
-          <select
-            value={selectedCargo}
-            onChange={(e) => setSelectedCargo(e.target.value)}
-            className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
-          >
-            {cargoOptions.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+        {/* En el celular, sucursal, área y cargo van en "Más filtros" (como en la Malla) */}
+        <button
+          type="button"
+          onClick={() => setShowMoreFilters((v) => !v)}
+          aria-expanded={showMoreFilters}
+          className="lg:hidden flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-card text-sm font-semibold text-foreground"
+        >
+          <SlidersHorizontal size={15} />
+          Más filtros
+          {selectedCargo !== 'Todos' && (
+            <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-secondary text-white text-[11px] font-bold flex items-center justify-center">
+              1
+            </span>
+          )}
+        </button>
+        <div className={`${showMoreFilters ? 'flex' : 'hidden'} w-full flex-col gap-3 lg:contents`}>
+          {/* Sucursal */}
+          <div className="flex flex-col gap-1 min-w-[160px]">
+            <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+              Sucursal
+            </span>
+            <select
+              value={selectedSucursal}
+              onChange={(e) => setSelectedSucursal(e.target.value)}
+              className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+            >
+              {sucursalOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* Área */}
+          <div className="flex flex-col gap-1 min-w-[160px]">
+            <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+              Área
+            </span>
+            <select
+              value={selectedArea}
+              onChange={(e) => setSelectedArea(e.target.value)}
+              className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+            >
+              {areaOptions.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* Cargo */}
+          <div className="flex flex-col gap-1 min-w-[160px]">
+            <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+              Cargo
+            </span>
+            <select
+              value={selectedCargo}
+              onChange={(e) => setSelectedCargo(e.target.value)}
+              className="pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+            >
+              {cargoOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         {/* Buscador nombre */}
-        <div className="flex flex-col gap-1 min-w-[200px] flex-1">
-          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+        <div className="flex flex-col gap-1 w-full lg:w-auto lg:min-w-[200px] flex-1">
+          <span className="hidden lg:block text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
             Buscar trabajador/a
           </span>
           <div className="relative">
@@ -936,16 +955,16 @@ export default function RRHHContent() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 bg-muted/40 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-4 bg-muted/40 rounded-xl p-1 w-full lg:w-fit">
         <button
           onClick={() => setActiveTab('horario')}
-          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'horario' ? 'bg-card shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          className={`flex-1 lg:flex-none px-3 lg:px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'horario' ? 'bg-card shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
         >
           📅 Horario programado
         </button>
         <button
           onClick={() => setActiveTab('horas')}
-          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'horas' ? 'bg-card shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          className={`flex-1 lg:flex-none px-3 lg:px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'horas' ? 'bg-card shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
         >
           ⏱️ Horas y extras
         </button>
@@ -981,7 +1000,7 @@ export default function RRHHContent() {
           <table className="min-w-max w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <th className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-left font-semibold text-foreground min-w-[180px]">
+                <th className="sticky left-0 z-10 bg-muted lg:bg-muted/30 px-2 lg:px-4 py-3 text-left font-semibold text-foreground min-w-[112px] max-w-[112px] lg:max-w-none lg:min-w-[180px]">
                   Trabajador/a
                 </th>
                 {days.map((d, i) => {
@@ -991,7 +1010,7 @@ export default function RRHHContent() {
                   return (
                     <th
                       key={`hdr-${i}`}
-                      className={`px-1 py-2 text-center font-semibold min-w-[90px] ${isSun ? 'text-red-600 bg-red-50/50' : isFer ? 'text-orange-600 bg-orange-50/50' : isSat ? 'text-blue-600' : 'text-muted-foreground'}`}
+                      className={`px-1 py-2 text-center font-semibold min-w-[62px] lg:min-w-[90px] ${isSun ? 'text-red-600 bg-red-50/50' : isFer ? 'text-orange-600 bg-orange-50/50' : isSat ? 'text-blue-600' : 'text-muted-foreground'}`}
                     >
                       <div>{DOW_LABELS[d.date.getDay()]}</div>
                       <div className="font-bold text-foreground">
@@ -1011,13 +1030,15 @@ export default function RRHHContent() {
             <tbody className="divide-y divide-border/50">
               {filteredWorkers.map((worker) => (
                 <tr key={`rrhh-row-${worker.id}`} className="hover:bg-muted/20 transition-colors">
-                  <td className="sticky left-0 z-10 bg-card px-4 py-2 border-r border-border">
+                  <td className="sticky left-0 z-10 bg-card px-2 lg:px-4 py-2 border-r border-border max-w-[112px] lg:max-w-none">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-[10px] font-bold shrink-0">
+                      <div className="hidden lg:flex w-7 h-7 rounded-full bg-secondary/15 text-secondary items-center justify-center text-[10px] font-bold shrink-0">
                         {worker.initials}
                       </div>
-                      <div>
-                        <p className="font-semibold text-foreground text-xs">{worker.name}</p>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground text-xs leading-tight">
+                          {worker.name}
+                        </p>
                         <p className="text-[10px] text-muted-foreground">
                           {worker.cargo} · {worker.horasContratadas}h
                         </p>
@@ -1132,7 +1153,7 @@ export default function RRHHContent() {
                           <div className="flex flex-col items-center gap-0.5">
                             {/* Programmed shift (greyed out to show what was planned) */}
                             <span
-                              className={`text-[9px] font-semibold px-1 rounded opacity-50 ${prog.shift.colorClass}`}
+                              className={`hidden lg:inline text-[9px] font-semibold px-1 rounded opacity-50 ${prog.shift.colorClass}`}
                             >
                               {prog.code}
                             </span>
@@ -1224,12 +1245,19 @@ export default function RRHHContent() {
                               </>
                             ) : (
                               <>
+                                {/* En el celular solo el horario (el código no cabe) */}
                                 <span
-                                  className={`text-[10px] font-bold px-1 rounded ${prog.shift.colorClass}`}
+                                  className={`hidden lg:inline text-[10px] font-bold px-1 rounded ${prog.shift.colorClass}`}
                                 >
                                   {prog.code}
                                 </span>
-                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                                <span
+                                  className={`lg:hidden flex flex-col text-[10px] font-bold leading-tight px-1.5 py-0.5 rounded ${prog.shift.colorClass}`}
+                                >
+                                  <span>{prog.shift.start}</span>
+                                  <span>{prog.shift.end}</span>
+                                </span>
+                                <span className="hidden lg:inline text-[9px] text-muted-foreground whitespace-nowrap">
                                   {prog.shift.start}–{prog.shift.end}
                                 </span>
                                 <Edit3 size={8} className="text-muted-foreground/40" />
