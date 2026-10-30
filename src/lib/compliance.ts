@@ -54,9 +54,14 @@ export interface MonthCompliance {
   totalHours: number;
   weeks: WeekCompliance[];
   maxConsecutive: number;
+  /** Primer y último día (1-based) de la racha más larga; 0 o menos = empezó el mes anterior */
+  maxRunStartDay: number;
+  maxRunEndDay: number;
   consecutiveOk: boolean;
   totalSundays: number;
   sundaysOff: number;
+  /** Días (1-based) de los domingos trabajados */
+  sundaysWorkedDays: number[];
   /** false si la persona trabaja todos los domingos o el mes tiene menos de 2 */
   sundayRuleApplies: boolean;
   sundaysOk: boolean;
@@ -178,10 +183,16 @@ export function evaluateMonth(input: MonthInput): MonthCompliance {
   }
   // La racha del mes anterior solo cuenta si continúa el día 1 de este mes
   let maxConsecutive = 0;
+  let maxRunStartDay = 0;
+  let maxRunEndDay = 0;
   for (let i = 0; i < daysInMonth; i++) {
     if (worked(i)) {
       run++;
-      maxConsecutive = Math.max(maxConsecutive, run);
+      if (run > maxConsecutive) {
+        maxConsecutive = run;
+        maxRunEndDay = i + 1;
+        maxRunStartDay = i + 2 - run;
+      }
     } else {
       run = 0;
     }
@@ -191,10 +202,12 @@ export function evaluateMonth(input: MonthInput): MonthCompliance {
   // ── Domingos libres ──
   let totalSundays = 0;
   let sundaysOff = 0;
+  const sundaysWorkedDays: number[] = [];
   for (let i = 0; i < daysInMonth; i++) {
     if (new Date(year, monthIdx, i + 1).getDay() !== 0) continue;
     totalSundays++;
     if (!worked(i)) sundaysOff++;
+    else sundaysWorkedDays.push(i + 1);
   }
   const sundayRuleApplies = !input.exentoDomingos && totalSundays >= MIN_SUNDAYS_OFF;
   const sundaysOk = !hasShifts || !sundayRuleApplies || sundaysOff >= MIN_SUNDAYS_OFF;
@@ -220,9 +233,12 @@ export function evaluateMonth(input: MonthInput): MonthCompliance {
     totalHours: round1(totalHours),
     weeks,
     maxConsecutive,
+    maxRunStartDay,
+    maxRunEndDay,
     consecutiveOk: !hasShifts || consecutiveOk,
     totalSundays,
     sundaysOff,
+    sundaysWorkedDays,
     sundayRuleApplies,
     sundaysOk,
     hoursOk: !hasShifts || hoursOk,

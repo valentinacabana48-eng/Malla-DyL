@@ -28,6 +28,16 @@ const RULES: ComplianceRule[] = [
   },
 ];
 
+interface WeekRow {
+  /** S1, S2… */
+  label: string;
+  /** Lunes a domingo, ej. 26/10–1/11 */
+  range: string;
+  hours: number;
+  status: 'ok' | 'over' | 'under' | 'empty';
+  note: string;
+}
+
 interface WorkerCompliance {
   workerId: string;
   workerName: string;
@@ -39,7 +49,13 @@ interface WorkerCompliance {
   rules: Record<string, { pass: boolean; detail: string }>;
   overallPass: boolean;
   totalMonthHours: number;
+  weeks: WeekRow[];
+  /** Qué no cumple y en qué semana, en frases cortas */
+  problems: string[];
 }
+
+const fmtDM = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`;
+const fmtH = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)}h`;
 
 export default function CumplimientoContent() {
   const {
@@ -116,16 +132,59 @@ export default function CumplimientoContent() {
       const hasAnyShifts = c.hasShifts;
       const totalMonthHours = c.totalHours;
 
+      // Semanas lunes a domingo, con sus fechas reales (pueden cruzar de mes)
+      const weekLabel = (i: number) => `S${i + 1}`;
+      const weeks: WeekRow[] = c.weeks.map((w, i) => {
+        const first = new Date(year, month - 1, w.startDay);
+        const monday = new Date(year, month - 1, w.startDay - ((first.getDay() + 6) % 7));
+        const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+        const partial =
+          w.isBoundary &&
+          ((w.startDay === 1 && !scheduleData[prevKey]?.[worker.id]) ||
+            (w.startDay !== 1 && !scheduleData[nextKey]?.[worker.id]));
+        let status: WeekRow['status'] = 'ok';
+        let note = partial ? 'parte en otro mes' : '';
+        if (w.scheduledDays === 0 && w.prevHours === 0 && w.nextHours === 0) {
+          status = 'empty';
+          note = 'sin turnos';
+        } else if (w.over) {
+          status = 'over';
+          note = `se pasa ${fmtH(Math.round((w.totalHours - horasSemanales) * 10) / 10)}`;
+        } else if (w.under) {
+          status = 'under';
+          note = 'pocas horas';
+        }
+        return {
+          label: weekLabel(i),
+          range: `${fmtDM(monday)}–${fmtDM(sunday)}`,
+          hours: w.totalHours,
+          status,
+          note,
+        };
+      });
+      const weeksOfDays = (from: number, to: number) => {
+        const idx = c.weeks
+          .map((w, i) => (w.endDay >= from && w.startDay <= to ? i : -1))
+          .filter((i) => i >= 0);
+        if (idx.length === 0) return '';
+        return idx.length === 1
+          ? weekLabel(idx[0])
+          : `${weekLabel(idx[0])}–${weekLabel(idx[idx.length - 1])}`;
+      };
+      const dayDM = (day: number) => fmtDM(new Date(year, month - 1, day));
+
       // ── Regla 1: Días seguidos ──
       const consecutivePass = c.consecutiveOk;
+      const runText = `del ${dayDM(c.maxRunStartDay)} al ${dayDM(c.maxRunEndDay)} (${weeksOfDays(Math.max(1, c.maxRunStartDay), c.maxRunEndDay)})`;
       const consecutiveDetail = hasAnyShifts
         ? consecutivePass
           ? `Máx. ${c.maxConsecutive} días seguidos ✓`
-          : `${c.maxConsecutive} días seguidos (máx. permitido: ${MAX_CONSECUTIVE_DAYS})`
+          : `${c.maxConsecutive} días seguidos ${runText} (máx. permitido: ${MAX_CONSECUTIVE_DAYS})`
         : 'Sin turnos asignados';
 
       // ── Regla 2: Domingos libres ──
       const sundaysPass = c.sundaysOk;
+      const sundaysWorkedText = c.sundaysWorkedDays.map(dayDM).join(', ');
       const sundaysDetail = worker.exentoDomingos
         ? 'Trabaja todos los domingos (no aplica) ✓'
         : !hasAnyShifts
@@ -134,11 +193,11 @@ export default function CumplimientoContent() {
             ? `El mes tiene ${c.totalSundays} domingo(s): no aplica ✓`
             : sundaysPass
               ? `${c.sundaysOff} de ${c.totalSundays} domingo(s) libre(s) ✓`
-              : `Solo ${c.sundaysOff} de ${c.totalSundays} domingo(s) libre(s) (mín. ${MIN_SUNDAYS_OFF})`;
+              : `Solo ${c.sundaysOff} de ${c.totalSundays} domingo(s) libre(s) (mín. ${MIN_SUNDAYS_OFF}). Trabaja los domingos ${sundaysWorkedText}`;
 
       // ── Regla 3: Horas por semana ──
-      const overWeeks = c.weeks.filter((w) => w.over);
-      const underWeeks = c.weeks.filter((w) => w.under);
+      const overWeeks = weeks.filter((w) => w.status === 'over');
+      const underWeeks = weeks.filter((w) => w.status === 'under');
       const weeklyPass = !hasAnyShifts || (overWeeks.length === 0 && underWeeks.length === 0);
       const weeklyDetail = !hasAnyShifts
         ? 'Sin turnos asignados'
@@ -146,12 +205,23 @@ export default function CumplimientoContent() {
           ? `Todas las semanas dentro de las ${horasSemanales}h contratadas ✓`
           : [
               overWeeks.length > 0
-                ? `${overWeeks.length} semana(s) sobre ${horasSemanales}h (${overWeeks.map((w) => `${w.startDay}-${w.endDay}: ${w.totalHours}h`).join(', ')})`
+                ? `Sobre ${horasSemanales}h: ${overWeeks.map((w) => `${w.label} (${w.range}) ${fmtH(w.hours)}`).join(', ')}`
                 : '',
-              underWeeks.length > 0 ? `${underWeeks.length} semana(s) con horas insuficientes` : '',
+              underWeeks.length > 0
+                ? `Pocas horas: ${underWeeks.map((w) => `${w.label} (${w.range}) ${fmtH(w.hours)}`).join(', ')}`
+                : '',
             ]
               .filter(Boolean)
               .join(' · ');
+
+      const problems: string[] = [];
+      if (hasAnyShifts) {
+        const listWeeks = (ws: WeekRow[]) => ws.map((w) => `${w.label} (${w.range})`).join(', ');
+        if (overWeeks.length > 0) problems.push(`Se pasa de horas en ${listWeeks(overWeeks)}`);
+        if (underWeeks.length > 0) problems.push(`Pocas horas en ${listWeeks(underWeeks)}`);
+        if (!consecutivePass) problems.push(`${c.maxConsecutive} días seguidos ${runText}`);
+        if (!sundaysPass) problems.push(`Solo ${c.sundaysOff} domingo(s) libre(s)`);
+      }
 
       const overallPass = consecutivePass && sundaysPass && weeklyPass;
 
@@ -170,6 +240,8 @@ export default function CumplimientoContent() {
           weekly_hours: { pass: weeklyPass, detail: weeklyDetail },
         },
         overallPass,
+        weeks,
+        problems,
       };
     });
   }, [
@@ -265,8 +337,9 @@ export default function CumplimientoContent() {
             <div className="bg-white/70 rounded-xl p-3 border border-blue-100">
               <p className="font-bold mb-1">✅ Criterio de cumplimiento</p>
               <p>
-                Se acepta una <strong>tolerancia del ±10%</strong> sobre las horas esperadas.
-                Semanas con 0h no se penalizan si no hay turnos asignados.
+                Cada semana (lunes a domingo) se compara con las horas contratadas: no puede
+                pasarse, y se avisa si queda más de un <strong>10% corta</strong>. Al abrir una
+                trabajadora se ve cada semana (S1, S2…) con sus fechas y cuál no cumple.
               </p>
             </div>
           </div>
@@ -450,6 +523,11 @@ export default function CumplimientoContent() {
                         <span className="font-medium">{wc.horasContratadas}h/sem</span> (~
                         {wc.expectedMonthlyHours}h/mes)
                       </p>
+                      {!wc.overallPass && wc.problems.length > 0 && (
+                        <p className="text-xs lg:text-[11px] text-red-600 font-medium mt-0.5">
+                          {wc.problems.join(' · ')}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -494,7 +572,49 @@ export default function CumplimientoContent() {
                 {/* Expanded detail */}
                 {isExpanded && (
                   <div className="px-4 pb-4 pt-2 bg-muted/10 border-t border-border/30">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-2 mb-1.5">
+                      Horas por semana (lunes a domingo)
+                    </p>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                      {wc.weeks.map((w) => (
+                        <div
+                          key={w.label}
+                          className={`rounded-xl px-2 py-2 text-center border ${
+                            w.status === 'over' || w.status === 'under'
+                              ? 'bg-red-50 border-red-300'
+                              : w.status === 'empty'
+                                ? 'bg-muted/30 border-dashed border-border'
+                                : 'bg-green-50 border-green-200'
+                          }`}
+                        >
+                          <p
+                            className={`text-xs font-bold ${
+                              w.status === 'over' || w.status === 'under'
+                                ? 'text-red-700'
+                                : w.status === 'empty'
+                                  ? 'text-muted-foreground'
+                                  : 'text-green-700'
+                            }`}
+                          >
+                            {w.label}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">{w.range}</p>
+                          <p className="text-sm font-bold text-foreground">{fmtH(w.hours)}</p>
+                          {w.note && (
+                            <p
+                              className={`text-[10px] leading-tight ${
+                                w.status === 'over' || w.status === 'under'
+                                  ? 'text-red-600 font-semibold'
+                                  : 'text-muted-foreground'
+                              }`}
+                            >
+                              {w.note}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
                       {RULES.map((r) => {
                         const rule = wc.rules[r.id];
                         return (

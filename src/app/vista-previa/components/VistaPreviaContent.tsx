@@ -138,6 +138,33 @@ function dayIndexFromDate(date: number): number {
   return date - 1;
 }
 
+const MONTH_INDEX: Record<string, number> = {
+  Enero: 0,
+  Febrero: 1,
+  Marzo: 2,
+  Abril: 3,
+  Mayo: 4,
+  Junio: 5,
+  Julio: 6,
+  Agosto: 7,
+  Septiembre: 8,
+  Octubre: 9,
+  Noviembre: 10,
+  Diciembre: 11,
+};
+
+function parseMonthLabel(monthLabel: string): { year: number; monthIdx: number } {
+  const parts = (monthLabel || '').split(' ');
+  return { monthIdx: MONTH_INDEX[parts[0]] ?? 7, year: parseInt(parts[1] || '2026', 10) };
+}
+
+/** Clave (aaaa-mm) del mes anterior o siguiente */
+function shiftMonthKey(monthKey: string, delta: number): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 function buildMonthClippedWeeks(
   monthLabel: string,
   daysInMonthCount: number
@@ -387,441 +414,310 @@ type NonWorkingTypeInfo = { code: string; label: string };
 
 /** Malla mensual de una trabajadora: copia trabajador/a (opcional) y copia empresa para firmar */
 function MallaDocument({
-  worker,
-  monthLabel,
-  schedule,
-  specialDaysMap,
-  shifts,
-  nonWorkingTypes,
   printVersion,
   breakBefore,
-}: {
-  worker: import('@/context/AppContext').Worker;
-  monthLabel: string;
-  schedule: (string | null)[];
-  specialDaysMap: Record<number, string>;
-  shifts: Record<string, import('@/context/AppContext').Shift>;
-  nonWorkingTypes: NonWorkingTypeInfo[];
+  ...props
+}: MallaPageProps & {
   printVersion: 'trabajador' | 'empresa';
   /** Empieza en una hoja nueva (cuando se imprimen varias seguidas) */
   breakBefore: boolean;
 }) {
-  const calendarWeeks = useMemo(() => buildCalendarWeeks(monthLabel), [monthLabel]);
-  const monthCalendarWeeks = useMemo(
-    () => calendarWeeks.filter((week) => week.some((cell) => !cell.isOtherMonth && cell.date > 0)),
-    [calendarWeeks]
+  return (
+    <>
+      {printVersion === 'trabajador' && (
+        <MallaPage {...props} copy="trabajador" breakBefore={breakBefore} />
+      )}
+      <MallaPage
+        {...props}
+        copy="empresa"
+        breakBefore={printVersion === 'trabajador' || breakBefore}
+      />
+    </>
   );
+}
+
+interface MallaPageProps {
+  worker: import('@/context/AppContext').Worker;
+  monthLabel: string;
+  schedule: (string | null)[];
+  specialDaysMap: Record<number, string>;
+  /** Mes anterior y siguiente, para completar las semanas que cruzan de mes */
+  prevSchedule?: (string | null)[];
+  prevSpecialDays?: Record<number, string>;
+  nextSchedule?: (string | null)[];
+  nextSpecialDays?: Record<number, string>;
+  shifts: Record<string, import('@/context/AppContext').Shift>;
+  nonWorkingTypes: NonWorkingTypeInfo[];
+}
+
+/** Una hoja de la malla. La copia empresa lleva además la firma. */
+function MallaPage({
+  worker,
+  monthLabel,
+  schedule,
+  specialDaysMap,
+  prevSchedule,
+  prevSpecialDays,
+  nextSchedule,
+  nextSpecialDays,
+  shifts,
+  nonWorkingTypes,
+  copy,
+  breakBefore,
+}: MallaPageProps & { copy: 'trabajador' | 'empresa'; breakBefore: boolean }) {
+  const calendarWeeks = useMemo(() => buildCalendarWeeks(monthLabel), [monthLabel]);
   const summary = useMemo(
-    () => computeSummary(monthLabel, schedule, specialDaysMap, shifts),
-    [monthLabel, schedule, specialDaysMap, shifts]
+    () =>
+      computeSummary(monthLabel, schedule, specialDaysMap, shifts, {
+        prevSchedule,
+        prevSpecialDays,
+        nextSchedule,
+        nextSpecialDays,
+      }),
+    [
+      monthLabel,
+      schedule,
+      specialDaysMap,
+      shifts,
+      prevSchedule,
+      prevSpecialDays,
+      nextSchedule,
+      nextSpecialDays,
+    ]
   );
   const monthParts = monthLabel.split(' ');
   const monthName = monthParts[0] || 'Julio';
   const monthYear = monthParts[1] || '2026';
+  const subtitle = [worker.cargo || worker.role, worker.sucursal].filter(Boolean).join(' · ');
+
+  // Qué mostrar en un día: turno, descanso o día especial (licencia, vacaciones…)
+  const describeDay = (
+    code: string | null | undefined,
+    specialDayCode: string | undefined
+  ): {
+    shiftInfo: import('@/context/AppContext').Shift | null;
+    label: string | null;
+    color: string;
+  } => {
+    if (specialDayCode) {
+      const nwt = nonWorkingTypes.find((t) => t.code === specialDayCode);
+      return {
+        shiftInfo: null,
+        label: nwt ? nwt.label.toUpperCase() : specialDayCode,
+        color: 'text-yellow-700',
+      };
+    }
+    if (code && code !== 'DESC' && shifts[code]) {
+      return { shiftInfo: shifts[code], label: null, color: '' };
+    }
+    return {
+      shiftInfo: null,
+      label: 'DESCANSO',
+      color: code === 'DESC' ? 'text-gray-500' : 'text-gray-400',
+    };
+  };
+
+  const renderDayContent = (
+    code: string | null | undefined,
+    specialDayCode: string | undefined,
+    muted: boolean
+  ) => {
+    const { shiftInfo, label, color } = describeDay(code, specialDayCode);
+    if (shiftInfo) {
+      return (
+        <>
+          <span
+            className={`hidden lg:block print:block text-[10px] font-bold text-center leading-tight ${muted ? 'text-gray-400' : 'text-blue-700'}`}
+          >
+            {shiftInfo.label.toUpperCase()}
+          </span>
+          <span
+            className={`text-[10px] lg:text-[9px] print:text-[9px] font-bold lg:font-semibold print:font-semibold text-center leading-tight [overflow-wrap:anywhere] ${muted ? 'text-gray-400' : 'text-blue-600'}`}
+          >
+            {shiftInfo.start} - {shiftInfo.end}
+          </span>
+          {!muted && shiftInfo.colacion > 0 && (
+            <span className="text-[8px] font-semibold text-amber-700 text-center leading-tight flex items-center gap-0.5 mt-0.5">
+              <Coffee size={7} className="text-amber-700 flex-shrink-0" />
+              {shiftInfo.colacion}m
+            </span>
+          )}
+        </>
+      );
+    }
+    return (
+      <span
+        className={`text-[9px] lg:text-[10px] print:text-[10px] font-semibold text-center leading-tight [overflow-wrap:anywhere] ${muted ? 'text-gray-300' : color}`}
+      >
+        {/* Celular: palabras largas abreviadas (DESCANSO → DESC.) */}
+        <span className="lg:hidden print:hidden">
+          {label && label.length > 7 ? `${label.slice(0, 4)}.` : label}
+        </span>
+        <span className="hidden lg:inline print:inline">{label}</span>
+      </span>
+    );
+  };
 
   return (
-    <>
-      {/* ── COPY 1: Worker's copy (solo en la versión trabajador/a) ── */}
-      {printVersion === 'trabajador' && (
-        <div
-          className={`pdf-page bg-white p-3 lg:p-8 print:p-8 rounded-xl border border-border shadow-sm ${breakBefore ? 'pdf-page-break mt-8' : ''}`}
-        >
-          {/* Copy label */}
-          <div className="text-right mb-2">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
-              Copia trabajador/a
+    <div
+      className={`pdf-page bg-white p-3 lg:p-8 print:p-8 rounded-xl border border-border shadow-sm ${breakBefore ? 'pdf-page-break mt-8' : ''}`}
+    >
+      {/* Copy label */}
+      <div className="text-right mb-2">
+        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
+          {copy === 'trabajador' ? 'Copia trabajador/a' : 'Copia empresa — para firmar'}
+        </span>
+      </div>
+
+      {/* Logos */}
+      <div className="flex justify-center items-center gap-3 lg:gap-6 print:gap-6 mb-6">
+        <img
+          src="/assets/images/descarga-1784608578238.png"
+          alt="Mayorista DyL"
+          className="h-14 lg:h-24 print:h-24 object-contain"
+        />
+        <img
+          src="/assets/images/descarga__2_-1784608577889.png"
+          alt="Envases DyL"
+          className="h-14 lg:h-24 print:h-24 object-contain"
+        />
+        <img
+          src="/assets/images/descarga__1_-1784608578251.png"
+          alt="Distribuidora DyL"
+          className="h-14 lg:h-24 print:h-24 object-contain"
+        />
+      </div>
+
+      {/* Title */}
+      <h1 className="text-center text-2xl font-black tracking-widest text-gray-900 mb-6 uppercase">
+        MALLA MENSUAL
+      </h1>
+
+      {/* Worker name + Month boxes */}
+      <div className="flex gap-3 lg:gap-6 print:gap-6 mb-6">
+        <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex flex-col items-center justify-center text-center">
+          <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
+            {worker.name}
+          </span>
+          {subtitle && (
+            <span className="text-[11px] lg:text-xs print:text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+              {subtitle}
             </span>
-          </div>
-
-          {/* Logos */}
-          <div className="flex justify-center items-center gap-3 lg:gap-6 print:gap-6 mb-6">
-            <img
-              src="/assets/images/descarga-1784608578238.png"
-              alt="Mayorista DyL"
-              className="h-14 lg:h-24 print:h-24 object-contain"
-            />
-            <img
-              src="/assets/images/descarga__2_-1784608577889.png"
-              alt="Envases DyL"
-              className="h-14 lg:h-24 print:h-24 object-contain"
-            />
-            <img
-              src="/assets/images/descarga__1_-1784608578251.png"
-              alt="Distribuidora DyL"
-              className="h-14 lg:h-24 print:h-24 object-contain"
-            />
-          </div>
-
-          {/* Title */}
-          <h1 className="text-center text-2xl font-black tracking-widest text-gray-900 mb-6 uppercase">
-            MALLA MENSUAL
-          </h1>
-
-          {/* Worker name + Month boxes */}
-          <div className="flex gap-3 lg:gap-6 print:gap-6 mb-6">
-            <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
-              <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
-                {worker.name}
-              </span>
-            </div>
-            <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
-              <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
-                {monthName} {monthYear}
-              </span>
-            </div>
-          </div>
-
-          {/* Calendar grid */}
-          <div className="border-2 border-gray-400 rounded overflow-hidden mb-6">
-            {/* Header row */}
-            <div className="grid grid-cols-7 border-b-2 border-gray-400">
-              {['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'].map(
-                (day) => (
-                  <div
-                    key={day}
-                    className="text-center py-2 text-[11px] lg:text-xs print:text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
-                  >
-                    {/* Celular: día abreviado (LUN, MAR…) para que quepa */}
-                    <span className="lg:hidden print:hidden">{day.slice(0, 3)}</span>
-                    <span className="hidden lg:inline print:inline">{day}</span>
-                  </div>
-                )
-              )}
-            </div>
-
-            {/* Week rows */}
-            {calendarWeeks.map((week, wi) => (
-              <div
-                key={`week-${wi}`}
-                className="grid grid-cols-7 border-b border-gray-300 last:border-b-0"
-              >
-                {week.map((cell, ci) => {
-                  if (cell.isOtherMonth) {
-                    return (
-                      <div
-                        key={`other-${wi}-${ci}`}
-                        className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start bg-gray-50/70"
-                      >
-                        <span className="text-xs font-bold text-gray-300 mb-1">
-                          {cell.otherMonthDate}
-                        </span>
-                      </div>
-                    );
-                  }
-                  if (!cell.date) {
-                    return (
-                      <div
-                        key={`empty-${wi}-${ci}`}
-                        className="border-r border-gray-300 last:border-r-0 min-h-[60px] bg-gray-50/50"
-                      />
-                    );
-                  }
-                  const idx = dayIndexFromDate(cell.date);
-                  const code = schedule[idx] ?? null;
-                  const specialDayCode = specialDaysMap[idx];
-                  const shiftInfo =
-                    code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
-                  const isSunday = ci === 6;
-
-                  let cellLabel: string | null = null;
-                  let cellColor = 'text-gray-500';
-
-                  if (specialDayCode) {
-                    const nwt = nonWorkingTypes.find((t) => t.code === specialDayCode);
-                    cellLabel = nwt ? nwt.label.toUpperCase() : specialDayCode;
-                    cellColor = 'text-yellow-700';
-                  } else if (code === 'DESC') {
-                    cellLabel = 'DESCANSO';
-                    cellColor = 'text-gray-500';
-                  } else if (!code) {
-                    cellLabel = 'DESCANSO';
-                    cellColor = 'text-gray-400';
-                  }
-
-                  return (
-                    <div
-                      key={`cell-${wi}-${ci}`}
-                      className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
-                    >
-                      <span className="text-xs font-bold text-gray-700 mb-1">{cell.date}</span>
-                      {shiftInfo ? (
-                        <>
-                          <span className="hidden lg:block print:block text-[10px] font-bold text-blue-700 text-center leading-tight">
-                            {shiftInfo.label.toUpperCase()}
-                          </span>
-                          <span className="text-[10px] lg:text-[9px] print:text-[9px] font-bold lg:font-semibold print:font-semibold text-blue-600 text-center leading-tight [overflow-wrap:anywhere]">
-                            {shiftInfo.start} - {shiftInfo.end}
-                          </span>
-                          {shiftInfo.colacion > 0 && (
-                            <span className="text-[8px] font-semibold text-amber-700 text-center leading-tight flex items-center gap-0.5 mt-0.5">
-                              <Coffee size={7} className="text-amber-700 flex-shrink-0" />
-                              {shiftInfo.colacion}m
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span
-                          className={`text-[9px] lg:text-[10px] print:text-[10px] font-semibold text-center leading-tight [overflow-wrap:anywhere] ${cellColor}`}
-                        >
-                          {/* Celular: palabras largas abreviadas (DESCANSO → DESC.) */}
-                          <span className="lg:hidden print:hidden">
-                            {cellLabel && cellLabel.length > 7
-                              ? `${cellLabel.slice(0, 4)}.`
-                              : cellLabel}
-                          </span>
-                          <span className="hidden lg:inline print:inline">{cellLabel}</span>
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-
-          {/* Resumen de turno */}
-          <div className="border-2 border-gray-400 rounded overflow-hidden">
-            <div className="bg-gray-100 border-b-2 border-gray-400 py-2 text-center">
-              <span className="text-sm font-black text-gray-800 uppercase tracking-wider">
-                RESUMEN DE TURNO
-              </span>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center gap-8 mb-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-black text-gray-800 underline">JORNADA</span>
-                  <span className="text-2xl font-black text-gray-900 underline">
-                    {worker.horasContratadas}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-black text-gray-800 underline">
-                    DOMINGOS TRABAJADOS
-                  </span>
-                  <span className="text-2xl font-black text-gray-900 underline">
-                    {summary?.sundaysWorked ?? 0}
-                  </span>
-                </div>
-              </div>
-
-              {(() => {
-                const weekHours = summary?.weeklyHours || [];
-                const totalWeeks = Math.max(weekHours.length, monthCalendarWeeks.length);
-                const colsClass =
-                  totalWeeks === 6
-                    ? 'grid-cols-6'
-                    : totalWeeks === 4
-                      ? 'grid-cols-4'
-                      : 'grid-cols-5';
-                return (
-                  <div className={`grid ${colsClass} gap-3`}>
-                    {Array.from({ length: totalWeeks }).map((_, wi) => (
-                      <div key={`week-sum-${wi}`} className="text-center">
-                        <p className="text-xs font-bold text-gray-700 mb-1">Semana {wi + 1}</p>
-                        <p className="text-xl font-black text-gray-900">{weekHours[wi] ?? 0}</p>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
+          )}
         </div>
-      )}
-
-      {/* ── COPY 2: Signature copy ── */}
-      <div
-        className={`pdf-page bg-white p-3 lg:p-8 print:p-8 rounded-xl border border-border shadow-sm ${printVersion === 'trabajador' || breakBefore ? 'pdf-page-break mt-8' : ''}`}
-      >
-        {/* Copy label */}
-        <div className="text-right mb-2">
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
-            Copia empresa — para firmar
+        <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
+          <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
+            {monthName} {monthYear}
           </span>
         </div>
+      </div>
 
-        {/* Logos */}
-        <div className="flex justify-center items-center gap-3 lg:gap-6 print:gap-6 mb-6">
-          <img
-            src="/assets/images/descarga-1784608578238.png"
-            alt="Mayorista DyL"
-            className="h-14 lg:h-24 print:h-24 object-contain"
-          />
-          <img
-            src="/assets/images/descarga__2_-1784608577889.png"
-            alt="Envases DyL"
-            className="h-14 lg:h-24 print:h-24 object-contain"
-          />
-          <img
-            src="/assets/images/descarga__1_-1784608578251.png"
-            alt="Distribuidora DyL"
-            className="h-14 lg:h-24 print:h-24 object-contain"
-          />
-        </div>
-
-        <h1 className="text-center text-2xl font-black tracking-widest text-gray-900 mb-6 uppercase">
-          MALLA MENSUAL
-        </h1>
-
-        <div className="flex gap-3 lg:gap-6 print:gap-6 mb-6">
-          <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
-            <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
-              {worker.name}
-            </span>
-          </div>
-          <div className="flex-1 border-2 border-gray-400 rounded bg-orange-50 px-3 lg:px-6 print:px-6 py-3 flex items-center justify-center text-center">
-            <span className="text-base lg:text-xl print:text-xl font-bold text-gray-800">
-              {monthName} {monthYear}
-            </span>
-          </div>
-        </div>
-
-        <div className="border-2 border-gray-400 rounded overflow-hidden mb-6">
-          <div className="grid grid-cols-7 border-b-2 border-gray-400">
-            {['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'].map(
-              (day) => (
-                <div
-                  key={day}
-                  className="text-center py-2 text-[11px] lg:text-xs print:text-xs font-black text-gray-800 border-r border-gray-300 last:border-r-0 bg-gray-50"
-                >
-                  {/* Celular: día abreviado (LUN, MAR…) para que quepa */}
-                  <span className="lg:hidden print:hidden">{day.slice(0, 3)}</span>
-                  <span className="hidden lg:inline print:inline">{day}</span>
-                </div>
-              )
-            )}
-          </div>
-          {calendarWeeks.map((week, wi) => (
+      {/* Calendar grid */}
+      <div className="border-2 border-gray-400 rounded overflow-hidden mb-6">
+        <div className="grid grid-cols-7 border-b-2 border-gray-400">
+          {['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'].map((day) => (
             <div
-              key={`week2-${wi}`}
-              className="grid grid-cols-7 border-b border-gray-300 last:border-b-0"
+              key={day}
+              className={`text-center py-2 text-[11px] lg:text-xs print:text-xs font-black border-r border-gray-300 last:border-r-0 ${day === 'DOMINGO' ? 'bg-red-50 text-red-800' : 'bg-gray-50 text-gray-800'}`}
             >
-              {week.map((cell, ci) => {
-                if (cell.isOtherMonth) {
-                  return (
-                    <div
-                      key={`other2-${wi}-${ci}`}
-                      className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start bg-gray-50/70"
-                    >
-                      <span className="text-xs font-bold text-gray-300 mb-1">
-                        {cell.otherMonthDate}
-                      </span>
-                    </div>
-                  );
-                }
-                if (!cell.date) {
-                  return (
-                    <div
-                      key={`empty2-${wi}-${ci}`}
-                      className="border-r border-gray-300 last:border-r-0 min-h-[60px] bg-gray-50/50"
-                    />
-                  );
-                }
-                const idx = dayIndexFromDate(cell.date);
-                const code = schedule[idx] ?? null;
-                const specialDayCode = specialDaysMap[idx];
-                const shiftInfo = code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
-                const isSunday = ci === 6;
-
-                let cellLabel: string | null = null;
-                let cellColor = 'text-gray-500';
-
-                if (specialDayCode) {
-                  const nwt = nonWorkingTypes.find((t) => t.code === specialDayCode);
-                  cellLabel = nwt ? nwt.label.toUpperCase() : specialDayCode;
-                  cellColor = 'text-yellow-700';
-                } else if (code === 'DESC') {
-                  cellLabel = 'DESCANSO';
-                  cellColor = 'text-gray-500';
-                } else if (!code) {
-                  cellLabel = 'DESCANSO';
-                  cellColor = 'text-gray-400';
-                }
-
-                return (
-                  <div
-                    key={`cell2-${wi}-${ci}`}
-                    className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/30' : ''}`}
-                  >
-                    <span className="text-xs font-bold text-gray-700 mb-1">{cell.date}</span>
-                    {shiftInfo ? (
-                      <>
-                        <span className="hidden lg:block print:block text-[10px] font-bold text-blue-700 text-center leading-tight">
-                          {shiftInfo.label.toUpperCase()}
-                        </span>
-                        <span className="text-[10px] lg:text-[9px] print:text-[9px] font-bold lg:font-semibold print:font-semibold text-blue-600 text-center leading-tight [overflow-wrap:anywhere]">
-                          {shiftInfo.start} - {shiftInfo.end}
-                        </span>
-                        {shiftInfo.colacion > 0 && (
-                          <span className="text-[8px] font-semibold text-amber-700 text-center leading-tight flex items-center gap-0.5 mt-0.5">
-                            <Coffee size={7} className="text-amber-700 flex-shrink-0" />
-                            {shiftInfo.colacion}m
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span
-                        className={`text-[9px] lg:text-[10px] print:text-[10px] font-semibold text-center leading-tight [overflow-wrap:anywhere] ${cellColor}`}
-                      >
-                        {/* Celular: palabras largas abreviadas (DESCANSO → DESC.) */}
-                        <span className="lg:hidden print:hidden">
-                          {cellLabel && cellLabel.length > 7
-                            ? `${cellLabel.slice(0, 4)}.`
-                            : cellLabel}
-                        </span>
-                        <span className="hidden lg:inline print:inline">{cellLabel}</span>
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+              {/* Celular: día abreviado (LUN, MAR…) para que quepa */}
+              <span className="lg:hidden print:hidden">{day.slice(0, 3)}</span>
+              <span className="hidden lg:inline print:inline">{day}</span>
             </div>
           ))}
         </div>
 
-        <div className="border-2 border-gray-400 rounded overflow-hidden mb-8">
-          <div className="bg-gray-100 border-b-2 border-gray-400 py-2 text-center">
-            <span className="text-sm font-black text-gray-800 uppercase tracking-wider">
-              RESUMEN DE TURNO
-            </span>
-          </div>
-          <div className="p-4">
-            <div className="flex items-center gap-8 mb-4">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-black text-gray-800 underline">JORNADA</span>
-                <span className="text-2xl font-black text-gray-900 underline">
-                  {worker.horasContratadas}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-black text-gray-800 underline">
-                  DOMINGOS TRABAJADOS
-                </span>
-                <span className="text-2xl font-black text-gray-900 underline">
-                  {summary?.sundaysWorked ?? 0}
-                </span>
-              </div>
-            </div>
-            {(() => {
-              const weekHours = summary?.weeklyHours || [];
-              const totalWeeks = Math.max(weekHours.length, monthCalendarWeeks.length);
-              const colsClass =
-                totalWeeks === 6 ? 'grid-cols-6' : totalWeeks === 4 ? 'grid-cols-4' : 'grid-cols-5';
+        {calendarWeeks.map((week, wi) => (
+          <div
+            key={`week-${wi}`}
+            className="grid grid-cols-7 border-b border-gray-300 last:border-b-0"
+          >
+            {week.map((cell, ci) => {
+              if (cell.isOtherMonth) {
+                // Días del mes anterior / siguiente: se ven en gris para completar la semana
+                const other = cell.otherMonthDate ?? 0;
+                const isPrev = wi === 0;
+                const otherSched = isPrev ? prevSchedule : nextSchedule;
+                const otherSpecial = isPrev ? prevSpecialDays : nextSpecialDays;
+                return (
+                  <div
+                    key={`other-${wi}-${ci}`}
+                    className="border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start bg-gray-50/70"
+                  >
+                    <span className="text-xs font-bold text-gray-300 mb-1">{other}</span>
+                    {otherSched &&
+                      renderDayContent(otherSched[other - 1], otherSpecial?.[other - 1], true)}
+                  </div>
+                );
+              }
+              const idx = dayIndexFromDate(cell.date);
+              const isSunday = ci === 6;
               return (
-                <div className={`grid ${colsClass} gap-3`}>
-                  {Array.from({ length: totalWeeks }).map((_, wi) => (
-                    <div key={`week-sum2-${wi}`} className="text-center">
-                      <p className="text-xs font-bold text-gray-700 mb-1">Semana {wi + 1}</p>
-                      <p className="text-xl font-black text-gray-900">{weekHours[wi] ?? 0}</p>
-                    </div>
-                  ))}
+                <div
+                  key={`cell-${wi}-${ci}`}
+                  className={`border-r border-gray-300 last:border-r-0 min-h-[60px] p-0.5 lg:p-1.5 print:p-1.5 min-w-0 flex flex-col items-center justify-start ${isSunday ? 'bg-red-50/40' : ''}`}
+                >
+                  <span
+                    className={`text-xs font-bold mb-1 ${isSunday ? 'text-red-700' : 'text-gray-700'}`}
+                  >
+                    {cell.date}
+                  </span>
+                  {renderDayContent(schedule[idx] ?? null, specialDaysMap[idx], false)}
                 </div>
               );
-            })()}
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Resumen de turno */}
+      <div
+        className={`border-2 border-gray-400 rounded overflow-hidden ${copy === 'empresa' ? 'mb-8' : ''}`}
+      >
+        <div className="bg-gray-100 border-b-2 border-gray-400 py-2 text-center">
+          <span className="text-sm font-black text-gray-800 uppercase tracking-wider">
+            RESUMEN DE TURNO
+          </span>
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 print:grid-cols-4 gap-x-6 gap-y-2 mb-4">
+            {[
+              { label: 'Jornada', value: `${worker.horasContratadas}h/sem` },
+              { label: 'Horas del mes', value: `${summary.monthHours}h` },
+              { label: 'Días trabajados', value: summary.workDays },
+              { label: 'Domingos trabajados', value: summary.sundaysWorked },
+            ].map((item) => (
+              <div key={item.label} className="flex items-baseline gap-2">
+                <span className="text-xs lg:text-sm print:text-xs font-black text-gray-800 uppercase">
+                  {item.label}
+                </span>
+                <span className="text-xl lg:text-2xl print:text-2xl font-black text-gray-900">
+                  {item.value}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div
+            className="grid grid-cols-3 gap-2 lg:gap-3 lg:[grid-template-columns:repeat(var(--weeks),minmax(0,1fr))] print:[grid-template-columns:repeat(var(--weeks),minmax(0,1fr))]"
+            style={{ '--weeks': summary.weeks.length } as React.CSSProperties}
+          >
+            {summary.weeks.map((w, wi) => (
+              <div key={`week-sum-${wi}`} className="text-center">
+                <p className="text-xs font-bold text-gray-700">Semana {wi + 1}</p>
+                <p className="text-[10px] text-gray-500 mb-0.5">{w.range}</p>
+                <p className="text-xl font-black text-gray-900">{w.hours}h</p>
+                {w.partial && (
+                  <p className="text-[9px] text-gray-500 leading-tight">parte en otro mes</p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
+      </div>
 
-        {/* Signature section */}
+      {/* Firma (solo copia empresa) */}
+      {copy === 'empresa' && (
         <div className="border-2 border-gray-400 rounded p-6">
           <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-6 text-center">
             Declaro haber recibido conforme la presente malla de turnos
@@ -832,12 +728,21 @@ function MallaDocument({
               <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
                 Firma trabajador/a
               </p>
-              <p className="text-xs text-gray-500 mt-1">{worker.name}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {worker.name}
+                {worker.rut ? ` · ${worker.rut}` : ''}
+              </p>
+            </div>
+            <div className="flex-1 text-center">
+              <div className="border-b-2 border-gray-700 mb-2 h-12" />
+              <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                Fecha de recepción
+              </p>
             </div>
           </div>
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 }
 
@@ -845,7 +750,13 @@ function computeSummary(
   monthLabel: string,
   sched: (string | null)[],
   specialDaysMap: Record<number, string>,
-  shifts: Record<string, import('@/context/AppContext').Shift>
+  shifts: Record<string, import('@/context/AppContext').Shift>,
+  adjacent: {
+    prevSchedule?: (string | null)[];
+    prevSpecialDays?: Record<number, string>;
+    nextSchedule?: (string | null)[];
+    nextSpecialDays?: Record<number, string>;
+  }
 ) {
   const daysInMonth = getDaysInMonth(monthLabel);
   let workDays = 0;
@@ -861,22 +772,51 @@ function computeSummary(
     }
   }
 
+  // Semanas de lunes a domingo; las que cruzan de mes suman también los días del otro mes
+  const { year, monthIdx } = parseMonthLabel(monthLabel);
+  const prevDays = new Date(year, monthIdx, 0).getDate();
+  const fmt = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`;
   const clippedWeeks = buildMonthClippedWeeks(monthLabel, daysInMonth);
-  const weeklyHours = clippedWeeks.map((w) =>
-    calcClippedWeekHours(w.startDay, w.endDay, sched, specialDaysMap, shifts)
-  );
-
-  // Compute primary shift colación
-  const counts: Record<string, number> = {};
-  sched.forEach((code) => {
-    if (code && code !== 'DESC' && shifts[code]) {
-      counts[code] = (counts[code] || 0) + 1;
+  const weeks = clippedWeeks.map((w) => {
+    let hours = calcClippedWeekHours(w.startDay, w.endDay, sched, specialDaysMap, shifts);
+    const first = new Date(year, monthIdx, w.startDay);
+    const monday = new Date(year, monthIdx, w.startDay - ((first.getDay() + 6) % 7));
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    const daysBefore = (first.getDay() + 6) % 7;
+    const daysAfter = 7 - (w.endDay - w.startDay + 1) - daysBefore;
+    let partial = false;
+    if (daysBefore > 0) {
+      if (adjacent.prevSchedule) {
+        hours += calcClippedWeekHours(
+          prevDays - daysBefore + 1,
+          prevDays,
+          adjacent.prevSchedule,
+          adjacent.prevSpecialDays ?? {},
+          shifts
+        );
+      } else partial = true;
     }
+    if (daysAfter > 0) {
+      if (adjacent.nextSchedule) {
+        hours += calcClippedWeekHours(
+          1,
+          daysAfter,
+          adjacent.nextSchedule,
+          adjacent.nextSpecialDays ?? {},
+          shifts
+        );
+      } else partial = true;
+    }
+    return {
+      range: `${fmt(monday)}–${fmt(sunday)}`,
+      hours: Math.round(hours * 10) / 10,
+      partial,
+    };
   });
-  const topCode = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-  const colacion = topCode && shifts[topCode] ? shifts[topCode].colacion || 0 : 0;
+  const monthHours =
+    Math.round(calcClippedWeekHours(1, daysInMonth, sched, specialDaysMap, shifts) * 10) / 10;
 
-  return { workDays, sundaysWorked, weeklyHours, colacion };
+  return { workDays, sundaysWorked, weeks, monthHours };
 }
 
 export default function VistaPreviaContent() {
@@ -916,7 +856,8 @@ export default function VistaPreviaContent() {
 
   // El mes elegido puede no estar cargado todavía (solo se cargan los cercanos)
   React.useEffect(() => {
-    ensureMonths([monthLabelToKey(exportMes)]);
+    const key = monthLabelToKey(exportMes);
+    ensureMonths([shiftMonthKey(key, -1), key, shiftMonthKey(key, 1)]);
   }, [exportMes, ensureMonths]);
 
   const cargoOptions = useCargoOptions(selectedAreas, selectedCargos, setSelectedCargos);
@@ -957,6 +898,27 @@ export default function VistaPreviaContent() {
     return (specialDays[monthKey] || {})[selectedWorkerId] || {};
   }, [specialDays, selectedWorkerId, exportMes]);
 
+  // Mes anterior y siguiente: completan las semanas que cruzan de mes
+  const adjacentFor = (workerId: string) => {
+    const monthKey = monthLabelToKey(exportMes);
+    const prevKey = shiftMonthKey(monthKey, -1);
+    const nextKey = shiftMonthKey(monthKey, 1);
+    return {
+      prevSchedule: scheduleData[prevKey]?.[workerId],
+      prevSpecialDays: specialDays[prevKey]?.[workerId],
+      nextSchedule: scheduleData[nextKey]?.[workerId],
+      nextSpecialDays: specialDays[nextKey]?.[workerId],
+    };
+  };
+
+  // El nombre del PDF al guardar sale del título de la página
+  const printWithTitle = (title: string) => {
+    const previous = document.title;
+    document.title = title;
+    window.addEventListener('afterprint', () => (document.title = previous), { once: true });
+    window.print();
+  };
+
   // Imprimir todas: se dibujan las mallas de todas las trabajadoras filtradas (solo en
   // la impresión) y se manda a imprimir cuando cargan los logos
   const [printingAll, setPrintingAll] = useState(false);
@@ -978,7 +940,7 @@ export default function VistaPreviaContent() {
     ).then(() => {
       if (cancelled) return;
       window.addEventListener('afterprint', () => setPrintingAll(false), { once: true });
-      window.print();
+      printWithTitle(`Mallas ${exportMes}`);
     });
     return () => {
       cancelled = true;
@@ -996,10 +958,11 @@ export default function VistaPreviaContent() {
   };
 
   const handlePrint = () => {
-    window.print();
-  };
-  const handleExportPDF = () => {
-    window.print();
+    if (activeTab === 'individual' && selectedWorker) {
+      printWithTitle(`Malla ${exportMes} - ${selectedWorker.name}`);
+    } else {
+      printWithTitle(`Listado de turnos ${exportMes}`);
+    }
   };
 
   return (
@@ -1040,11 +1003,12 @@ export default function VistaPreviaContent() {
               )}
               {activeTab === 'individual' && selectedWorker && (
                 <button
-                  onClick={handleExportPDF}
+                  onClick={handlePrint}
+                  title="En la ventana de impresión elige «Guardar como PDF»"
                   className="flex items-center gap-2 bg-secondary text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all duration-150 shadow-sm"
                 >
                   <Download size={15} />
-                  Exportar PDF por Cajera
+                  Guardar PDF
                 </button>
               )}
             </div>
@@ -1260,6 +1224,7 @@ export default function VistaPreviaContent() {
                   monthLabel={exportMes}
                   schedule={workerSchedule}
                   specialDaysMap={workerSpecialDays}
+                  {...adjacentFor(selectedWorker.id)}
                   shifts={shifts}
                   nonWorkingTypes={nonWorkingTypes}
                   printVersion={printVersion}
@@ -1283,6 +1248,7 @@ export default function VistaPreviaContent() {
                 monthLabel={exportMes}
                 schedule={(scheduleData[monthKey] || {})[w.id] || Array(31).fill(null)}
                 specialDaysMap={(specialDays[monthKey] || {})[w.id] || {}}
+                {...adjacentFor(w.id)}
                 shifts={shifts}
                 nonWorkingTypes={nonWorkingTypes}
                 printVersion={printVersion}
@@ -1298,6 +1264,7 @@ export default function VistaPreviaContent() {
         @media screen { .print-only { display: none !important; } }
         @media print {
           html, body { width: 215.9mm; height: 279.4mm; }
+          .print-area, .print-area * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body * { visibility: hidden; }
           .print-area, .print-area * { visibility: visible; }
           .print-area { position: absolute; left: 0; top: 0; width: 100%; }
