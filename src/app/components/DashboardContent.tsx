@@ -14,6 +14,7 @@ import AppImage from '@/components/ui/AppImage';
 import { useAppContext, monthLabelToKey } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
 import { useCargoOptions } from '@/hooks/useCargoOptions';
+import CoberturaPasillos from './CoberturaPasillos';
 
 const MULTI_LABEL =
   'block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5';
@@ -243,6 +244,21 @@ export default function DashboardContent() {
     cajasCount,
     isCajeras,
   ]);
+
+  // Gente por pasillo: una tabla por cada sucursal con pasillos donde haya alguien con pasillo
+  const pasilloSucursales = useMemo(
+    () =>
+      sucursales.filter(
+        (s) =>
+          sucursalList.includes(s.name) &&
+          filteredWorkers.some((w) => w.sucursal === s.name && w.pasillo)
+      ),
+    [sucursales, sucursalList, filteredWorkers]
+  );
+  const monthSched = useMemo(
+    () => scheduleData[monthLabelToKey(`${MONTH_NAMES[selectedMonth]} ${selectedYear}`)] || {},
+    [scheduleData, selectedMonth, selectedYear]
+  );
 
   const totalWorkers = useMemo(() => {
     const monthLabel = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
@@ -657,6 +673,18 @@ export default function DashboardContent() {
             No hay turnos asignados para esta fecha y sucursal.
           </div>
         )}
+
+        {pasilloSucursales.map((s) => (
+          <CoberturaPasillos
+            key={s.name}
+            sucursal={s.name}
+            pasillos={s.pasillos}
+            workers={filteredWorkers}
+            monthSched={monthSched}
+            shifts={shifts}
+            dayIndex={dayIndex}
+          />
+        ))}
       </div>
     </div>
   );
