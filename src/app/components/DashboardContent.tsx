@@ -14,7 +14,7 @@ import AppImage from '@/components/ui/AppImage';
 import { useAppContext, monthLabelToKey } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
 import { useCargoOptions } from '@/hooks/useCargoOptions';
-import CoberturaPasillos from './CoberturaPasillos';
+import CoberturaLugares from './CoberturaLugares';
 
 const MULTI_LABEL =
   'block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5';
@@ -245,13 +245,22 @@ export default function DashboardContent() {
     isCajeras,
   ]);
 
-  // Gente por pasillo: una tabla por cada sucursal con pasillos donde haya alguien con pasillo
-  const pasilloSucursales = useMemo(
+  // Gente por pasillo y por bodega: una tabla por sucursal, solo si según los filtros hay
+  // alguien con pasillo (o bodega) en ella. Así cada cargo ve lo suyo.
+  const lugarTablas = useMemo(
     () =>
-      sucursales.filter(
-        (s) =>
-          sucursalList.includes(s.name) &&
-          filteredWorkers.some((w) => w.sucursal === s.name && w.pasillo)
+      (['pasillo', 'bodega'] as const).flatMap((tipo) =>
+        sucursales
+          .filter(
+            (s) =>
+              sucursalList.includes(s.name) &&
+              filteredWorkers.some((w) => w.sucursal === s.name && w[tipo])
+          )
+          .map((s) => ({
+            tipo,
+            sucursal: s.name,
+            lugares: tipo === 'pasillo' ? s.pasillos : s.bodegas,
+          }))
       ),
     [sucursales, sucursalList, filteredWorkers]
   );
@@ -674,11 +683,12 @@ export default function DashboardContent() {
           </div>
         )}
 
-        {pasilloSucursales.map((s) => (
-          <CoberturaPasillos
-            key={s.name}
-            sucursal={s.name}
-            pasillos={s.pasillos}
+        {lugarTablas.map((t) => (
+          <CoberturaLugares
+            key={`${t.tipo}-${t.sucursal}`}
+            tipo={t.tipo}
+            sucursal={t.sucursal}
+            lugares={t.lugares}
             workers={filteredWorkers}
             monthSched={monthSched}
             shifts={shifts}

@@ -283,11 +283,19 @@ const TOTAL_ROW_STYLE: React.CSSProperties = {
   borderBottom: '1px solid #d1d5db',
 };
 
-function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
+function DaySheet({
+  workerDetails,
+  showCajas,
+}: {
+  workerDetails: WorkerShiftDetail[];
+  /** Recuadros de N° de caja: solo cuando el filtro es de cajeras */
+  showCajas: boolean;
+}) {
   // Columna de sucursal solo si la hoja mezcla varias sucursales
   const multiSucursal = new Set(workerDetails.map((w) => w.sucursal)).size > 1;
-  // Orden, Nombre, (Sucursal), Cajas, 3 × (hora + casilla), HE
-  const dayColumnCount = 3 + (multiSucursal ? 1 : 0) + TIME_GROUPS.length * 2 + 1;
+  // Orden, Nombre, (Sucursal), (Cajas), 3 × (hora + casilla), HE
+  const dayColumnCount =
+    2 + (multiSucursal ? 1 : 0) + (showCajas ? 1 : 0) + TIME_GROUPS.length * 2 + 1;
   // Totales de mañana y tarde (la lista viene ordenada por hora de entrada)
   const mananaCount = workerDetails.filter((w) => !isTardeShift(w)).length;
   const tardeCount = workerDetails.length - mananaCount;
@@ -307,9 +315,11 @@ function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
                 Sucursal
               </th>
             )}
-            <th rowSpan={2} style={{ ...TH, borderLeft: GROUP_BORDER }}>
-              N° de caja
-            </th>
+            {showCajas && (
+              <th rowSpan={2} style={{ ...TH, borderLeft: GROUP_BORDER }}>
+                N° de caja
+              </th>
+            )}
             {TIME_GROUPS.map((g) => (
               <th
                 key={`grp-${g.key}`}
@@ -381,18 +391,20 @@ function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
                   {multiSucursal && (
                     <td style={{ ...TD, fontSize: '10px', color: '#4b5563' }}>{wd.sucursal}</td>
                   )}
-                  <td
-                    style={{
-                      ...TD,
-                      borderLeft: GROUP_BORDER,
-                      whiteSpace: 'nowrap',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {Array.from({ length: CAJA_BOXES }, (_, k) => (
-                      <span key={k} style={CAJA_BOX_STYLE} />
-                    ))}
-                  </td>
+                  {showCajas && (
+                    <td
+                      style={{
+                        ...TD,
+                        borderLeft: GROUP_BORDER,
+                        whiteSpace: 'nowrap',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {Array.from({ length: CAJA_BOXES }, (_, k) => (
+                        <span key={k} style={CAJA_BOX_STYLE} />
+                      ))}
+                    </td>
+                  )}
                   {TIME_GROUPS.map((g) => (
                     <React.Fragment key={`t-${i}-${g.key}`}>
                       <td
@@ -914,7 +926,7 @@ export default function MallaSummary({
                   No hay turnos asignados para este día.
                 </p>
               ) : (
-                <DaySheet workerDetails={workerDetails} />
+                <DaySheet workerDetails={workerDetails} showCajas={cajasOnlyCargo} />
               )}
             </>
           ) : (
@@ -942,7 +954,7 @@ export default function MallaSummary({
                         Sin turnos asignados
                       </p>
                     ) : (
-                      <DaySheet workerDetails={dayWorkers} />
+                      <DaySheet workerDetails={dayWorkers} showCajas={cajasOnlyCargo} />
                     )}
                   </div>
                 );

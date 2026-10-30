@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { LayoutGrid } from 'lucide-react';
 import {
+  bodegaLabel,
   pasilloLabel,
   sortPasillos,
   type Shift,
@@ -9,14 +10,25 @@ import {
   type Worker,
 } from '@/context/AppContext';
 
-// Cuánta gente hay en cada pasillo a cada hora del día, como las cajas vacías pero por pasillo.
+// Cuánta gente hay en cada pasillo (o bodega) a cada hora del día, como las cajas vacías.
 // Cuenta igual que la tabla por hora del Dashboard: a las 13:00 está quien entró a las 13 o antes
 // y sale después de las 13.
 
+type Tipo = 'pasillo' | 'bodega';
+
+const TIPOS: Record<
+  Tipo,
+  { titulo: string; plural: string; corto: string; label: (v: string) => string }
+> = {
+  pasillo: { titulo: 'Gente por pasillo', plural: 'pasillos', corto: 'P', label: pasilloLabel },
+  bodega: { titulo: 'Gente por bodega', plural: 'bodegas', corto: 'B', label: bodegaLabel },
+};
+
 interface Props {
+  tipo: Tipo;
   sucursal: string;
-  /** Pasillos de la sucursal (Ajustes) */
-  pasillos: string[];
+  /** Pasillos o bodegas de la sucursal (Ajustes) */
+  lugares: string[];
   /** Trabajadoras ya filtradas (sucursal, área, cargo, activas) */
   workers: Worker[];
   monthSched: Record<string, ShiftCode[]>;
@@ -28,27 +40,30 @@ const slotHour = (time: string) => parseInt(time.split(':')[0], 10);
 const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
 const shortName = (name: string) => name.split(' ').slice(0, 2).join(' ');
 
-export default function CoberturaPasillos({
+export default function CoberturaLugares({
+  tipo,
   sucursal,
-  pasillos,
+  lugares,
   workers,
   monthSched,
   shifts,
   dayIndex,
 }: Props) {
-  const [picked, setPicked] = useState<{ hour: number; pasillo: string } | null>(null);
+  const [picked, setPicked] = useState<{ hour: number; lugar: string } | null>(null);
+  const { titulo, plural, corto, label } = TIPOS[tipo];
 
-  // Quiénes trabajan hoy en un pasillo de esta sucursal, con su hora de entrada y salida
+  // Quiénes trabajan hoy en un pasillo (o bodega) de esta sucursal, con su hora de entrada y salida
   const turnos = useMemo(() => {
     const list: {
       name: string;
-      pasillo: string;
+      lugar: string;
       start: number;
       end: number;
       horario: string;
     }[] = [];
     workers.forEach((w) => {
-      if (w.sucursal !== sucursal || !w.pasillo) return;
+      const lugar = w[tipo];
+      if (w.sucursal !== sucursal || !lugar) return;
       const code = monthSched[w.id]?.[dayIndex];
       if (!code || code === 'DESC') return;
       const shift = shifts[code];
@@ -58,21 +73,21 @@ export default function CoberturaPasillos({
       if (!Number.isFinite(start) || !Number.isFinite(end)) return;
       list.push({
         name: w.name,
-        pasillo: w.pasillo,
+        lugar,
         start,
         end,
         horario: `${shift.start}–${shift.end}`,
       });
     });
     return list;
-  }, [workers, sucursal, monthSched, shifts, dayIndex]);
+  }, [workers, tipo, sucursal, monthSched, shifts, dayIndex]);
 
   // Los de Ajustes y, por si acaso, los que tenga alguna trabajadora y no estén en la lista
   const columnas = useMemo(() => {
-    const set = new Set(pasillos);
-    workers.forEach((w) => w.sucursal === sucursal && w.pasillo && set.add(w.pasillo));
+    const set = new Set(lugares);
+    workers.forEach((w) => w.sucursal === sucursal && w[tipo] && set.add(w[tipo]!));
     return sortPasillos([...set]);
-  }, [pasillos, workers, sucursal]);
+  }, [lugares, workers, tipo, sucursal]);
 
   const rows = useMemo(() => {
     if (turnos.length === 0) return [];
@@ -83,7 +98,7 @@ export default function CoberturaPasillos({
       const counts: Record<string, number> = {};
       columnas.forEach((p) => (counts[p] = 0));
       turnos.forEach((t) => {
-        if (t.start <= h && t.end > h) counts[t.pasillo] = (counts[t.pasillo] ?? 0) + 1;
+        if (t.start <= h && t.end > h) counts[t.lugar] = (counts[t.lugar] ?? 0) + 1;
       });
       const vacios = columnas.filter((p) => counts[p] === 0).length;
       result.push({ hour: h, counts, vacios });
@@ -95,9 +110,7 @@ export default function CoberturaPasillos({
 
   const pickedNames = picked
     ? turnos
-        .filter(
-          (t) => t.pasillo === picked.pasillo && t.start <= picked.hour && t.end > picked.hour
-        )
+        .filter((t) => t.lugar === picked.lugar && t.start <= picked.hour && t.end > picked.hour)
         .map((t) => `${shortName(t.name)} (${t.horario})`)
     : [];
 
@@ -118,15 +131,13 @@ export default function CoberturaPasillos({
         style={{ background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)' }}
       >
         <LayoutGrid size={15} className="text-secondary" />
-        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-          Gente por pasillo
-        </h3>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">{titulo}</h3>
         <span className="text-xs text-muted-foreground">· {sucursal}</span>
       </div>
 
       {rows.length === 0 ? (
         <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-          Nadie con pasillo trabaja este día.
+          Nadie con {tipo} trabaja este día.
         </p>
       ) : (
         <>
@@ -143,10 +154,10 @@ export default function CoberturaPasillos({
                   {columnas.map((p) => (
                     <th
                       key={p}
-                      title={pasilloLabel(p)}
+                      title={label(p)}
                       className="px-1 py-2 text-[11px] font-bold text-muted-foreground border-b border-border whitespace-nowrap"
                     >
-                      {/^\d+$/.test(p) ? `P${p}` : p}
+                      {/^\d+$/.test(p) ? `${corto}${p}` : p}
                     </th>
                   ))}
                 </tr>
@@ -170,14 +181,14 @@ export default function CoberturaPasillos({
                     </td>
                     {columnas.map((p) => {
                       const n = r.counts[p];
-                      const active = picked?.hour === r.hour && picked.pasillo === p;
+                      const active = picked?.hour === r.hour && picked.lugar === p;
                       return (
                         <td key={p} className="px-0.5 py-1 text-center border-b border-border/50">
                           <button
                             type="button"
                             disabled={n === 0}
-                            onClick={() => setPicked(active ? null : { hour: r.hour, pasillo: p })}
-                            aria-label={`${pasilloLabel(p)} a las ${hh(r.hour)}: ${n}`}
+                            onClick={() => setPicked(active ? null : { hour: r.hour, lugar: p })}
+                            aria-label={`${label(p)} a las ${hh(r.hour)}: ${n}`}
                             className={`w-8 h-7 rounded-md font-bold text-xs tabular-nums disabled:cursor-default ${cellClass(n)} ${
                               active ? 'ring-2 ring-blue-500' : ''
                             }`}
@@ -196,14 +207,15 @@ export default function CoberturaPasillos({
             {picked && (
               <p className="text-xs text-foreground">
                 <span className="font-semibold">
-                  {pasilloLabel(picked.pasillo)} a las {hh(picked.hour)}:
+                  {label(picked.lugar)} a las {hh(picked.hour)}:
                 </span>{' '}
                 {pickedNames.join(', ')}
               </p>
             )}
             <p>
-              Cada número es cuánta gente hay en ese pasillo a esa hora; en naranja, pasillos sin
-              nadie. Toca un número para ver quiénes son. No descuenta la colación.
+              Cada número es cuánta gente hay en {tipo === 'bodega' ? 'esa bodega' : 'ese pasillo'}{' '}
+              a esa hora; en naranja, {plural} sin nadie. Toca un número para ver quiénes son. No
+              descuenta la colación.
             </p>
           </div>
         </>
