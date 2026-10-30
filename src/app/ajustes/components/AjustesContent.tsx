@@ -36,7 +36,14 @@ import {
   timeToMinutes,
 } from '@/context/AppContext';
 import { useAuth, type UserRole } from '@/context/AuthContext';
-import { ALL_PERMS, PERM_GROUPS, permsFor, type Perm } from '@/lib/permisos';
+import {
+  ALL_PERMS,
+  PERM_GROUPS,
+  TIPOS_CUENTA,
+  permsFor,
+  type Perm,
+  type TipoCuenta,
+} from '@/lib/permisos';
 import { getSupabase } from '@/lib/supabase/client';
 import ExcelImportPanel from './ExcelImportPanel';
 import BackupPanel from './BackupPanel';
@@ -1879,12 +1886,14 @@ interface UserRoleRow {
   cargos?: string[] | null;
   /** Solo rol personalizado: qué puede hacer */
   permisos?: string[] | null;
+  /** Gerente de sucursal, jefe de área o solo hace turnos (null = sin tipo) */
+  tipo?: TipoCuenta | null;
   nombre?: string;
   created_at: string;
 }
 
 type UserChanges = Partial<
-  Pick<UserRoleRow, 'role' | 'sucursales' | 'areas' | 'cargos' | 'permisos' | 'nombre'>
+  Pick<UserRoleRow, 'role' | 'sucursales' | 'areas' | 'cargos' | 'permisos' | 'tipo' | 'nombre'>
 >;
 
 const emptyToNull = (list: string[] | null | undefined) => (list && list.length > 0 ? list : null);
@@ -1971,6 +1980,18 @@ function UsersPanel() {
     } else {
       saveUser(row.user_id, { role: 'admin', areas: null, cargos: null });
     }
+  }
+
+  // El tipo marca sus casillas (se pueden ajustar después). Tocar el tipo elegido lo quita
+  // y deja las casillas como están.
+  function chooseTipo(row: UserRoleRow, tipo: TipoCuenta) {
+    if (row.tipo === tipo) {
+      saveUser(row.user_id, { tipo: null });
+      return;
+    }
+    const preset = TIPOS_CUENTA.find((t) => t.tipo === tipo);
+    if (!preset) return;
+    saveUser(row.user_id, { tipo, role: 'personalizado', permisos: [...preset.perms] });
   }
 
   function togglePerm(row: UserRoleRow, perm: Perm) {
@@ -2065,7 +2086,9 @@ function UsersPanel() {
                         cls: 'text-secondary bg-blue-50 border-blue-200',
                       }
                     : {
-                        text: perms.size === 1 ? '1 permiso' : `${perms.size} permisos`,
+                        text:
+                          TIPOS_CUENTA.find((t) => t.tipo === r.tipo)?.label ??
+                          (perms.size === 1 ? '1 permiso' : `${perms.size} permisos`),
                         cls: 'text-muted-foreground bg-muted border-border',
                       };
               const isOpen = openId === r.user_id;
@@ -2218,6 +2241,26 @@ function UsersPanel() {
                             ))}
                           </div>
                         </>
+                      )}
+
+                      {!isAdminRow && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs text-muted-foreground mr-1 w-[60px]">Tipo:</span>
+                          {TIPOS_CUENTA.map((t) => (
+                            <button
+                              key={t.tipo}
+                              type="button"
+                              disabled={busy}
+                              onClick={() => chooseTipo(r, t.tipo)}
+                              className={chip(r.tipo === t.tipo)}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                          <span className="text-xs text-muted-foreground">
+                            Marca sus casillas; después puedes cambiarlas.
+                          </span>
+                        </div>
                       )}
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
