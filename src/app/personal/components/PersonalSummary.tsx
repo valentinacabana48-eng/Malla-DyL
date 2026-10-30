@@ -1,5 +1,5 @@
-import React from 'react';
-import { Users, UserCheck, UserX, Clock, Briefcase } from 'lucide-react';
+import React, { useState } from 'react';
+import { Users, UserCheck, UserX, Clock, Briefcase, ChevronDown } from 'lucide-react';
 
 interface Summary {
   total: number;
@@ -73,6 +73,10 @@ export default function PersonalSummary({
   );
   const cargoEntries = Object.entries(summary.cargoBreakdown || {}).sort((a, b) => b[1] - a[1]);
 
+  // En el celular las distribuciones van cerradas, para llegar rápido a la lista
+  const [showDist, setShowDist] = useState(false);
+  const distSelected = selectedCargos.length + selectedHoras.length;
+
   return (
     <div className="space-y-3">
       {/* Top KPI cards */}
@@ -100,79 +104,104 @@ export default function PersonalSummary({
         })}
       </div>
 
-      {/* Cargo breakdown */}
-      {cargoEntries.length > 0 && (
-        <div className="bg-card rounded-xl border border-border px-5 py-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
+      {(cargoEntries.length > 0 || horasEntries.length > 0) && (
+        <button
+          type="button"
+          onClick={() => setShowDist((v) => !v)}
+          aria-expanded={showDist}
+          className="lg:hidden w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground"
+        >
+          <span className="flex items-center gap-2">
             <Briefcase size={15} className="text-secondary" />
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-              Distribución por cargo
-            </h3>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {cargoEntries.map(([cargo, count], idx) => {
-              const colors = CARGO_COLORS[idx % CARGO_COLORS.length];
-              const isSelected = selectedCargos.includes(cargo);
-              const isDimmed = selectedCargos.length > 0 && !isSelected;
-              // Tocar un cargo lo suma al filtro; tocarlo de nuevo lo quita
-              return (
-                <button
-                  type="button"
-                  key={`cargo-${cargo}`}
-                  onClick={() => onToggleCargo(cargo)}
-                  aria-pressed={isSelected}
-                  title={isSelected ? `Quitar ${cargo} del filtro` : `Ver ${cargo}`}
-                  className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all ${colors.bg} ${colors.border} ${isSelected ? 'ring-2 ring-secondary' : ''} ${isDimmed ? 'opacity-50 hover:opacity-80' : 'hover:shadow-sm'}`}
-                >
-                  <div className={`text-2xl font-extrabold ${colors.text}`}>{count}</div>
-                  <p className={`text-sm font-semibold ${colors.text}`}>{cargo}</p>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+            Por cargo y horas
+            {distSelected > 0 && (
+              <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-secondary text-white text-[11px] font-bold flex items-center justify-center">
+                {distSelected}
+              </span>
+            )}
+          </span>
+          <ChevronDown
+            size={16}
+            className={`transition-transform ${showDist ? 'rotate-180' : ''}`}
+          />
+        </button>
       )}
 
-      {/* Horas contratadas breakdown */}
-      {horasEntries.length > 0 && (
-        <div className="bg-card rounded-xl border border-border px-5 py-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock size={15} className="text-secondary" />
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-              Distribución por horas contratadas
-            </h3>
+      <div className={`${showDist ? 'block' : 'hidden'} lg:block space-y-3`}>
+        {/* Cargo breakdown */}
+        {cargoEntries.length > 0 && (
+          <div className="bg-card rounded-xl border border-border px-5 py-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <Briefcase size={15} className="text-secondary" />
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                Distribución por cargo
+              </h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {cargoEntries.map(([cargo, count], idx) => {
+                const colors = CARGO_COLORS[idx % CARGO_COLORS.length];
+                const isSelected = selectedCargos.includes(cargo);
+                const isDimmed = selectedCargos.length > 0 && !isSelected;
+                // Tocar un cargo lo suma al filtro; tocarlo de nuevo lo quita
+                return (
+                  <button
+                    type="button"
+                    key={`cargo-${cargo}`}
+                    onClick={() => onToggleCargo(cargo)}
+                    aria-pressed={isSelected}
+                    title={isSelected ? `Quitar ${cargo} del filtro` : `Ver ${cargo}`}
+                    className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all ${colors.bg} ${colors.border} ${isSelected ? 'ring-2 ring-secondary' : ''} ${isDimmed ? 'opacity-50 hover:opacity-80' : 'hover:shadow-sm'}`}
+                  >
+                    <div className={`text-2xl font-extrabold ${colors.text}`}>{count}</div>
+                    <p className={`text-sm font-semibold ${colors.text}`}>{cargo}</p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            {horasEntries.map(([horas, count]) => {
-              const h = Number(horas);
-              const colors = HORAS_COLORS[h] || {
-                bg: 'bg-slate-50',
-                text: 'text-slate-700',
-                border: 'border-slate-200',
-              };
-              const isSelected = selectedHoras.includes(h);
-              const isDimmed = selectedHoras.length > 0 && !isSelected;
-              // Tocar unas horas las suma al filtro; tocarlas de nuevo las quita
-              return (
-                <button
-                  type="button"
-                  key={`horas-${horas}`}
-                  onClick={() => onToggleHoras(h)}
-                  aria-pressed={isSelected}
-                  title={isSelected ? `Quitar ${horas}h del filtro` : `Ver ${horas}h`}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${colors.bg} ${colors.border} ${isSelected ? 'ring-2 ring-secondary' : ''} ${isDimmed ? 'opacity-50 hover:opacity-80' : 'hover:shadow-sm'}`}
-                >
-                  <div className={`text-3xl font-extrabold ${colors.text}`}>{count}</div>
-                  <div>
-                    <p className={`text-sm font-bold ${colors.text}`}>{horas}h</p>
-                    <p className="text-xs text-muted-foreground">contratadas</p>
-                  </div>
-                </button>
-              );
-            })}
+        )}
+
+        {/* Horas contratadas breakdown */}
+        {horasEntries.length > 0 && (
+          <div className="bg-card rounded-xl border border-border px-5 py-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock size={15} className="text-secondary" />
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                Distribución por horas contratadas
+              </h3>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {horasEntries.map(([horas, count]) => {
+                const h = Number(horas);
+                const colors = HORAS_COLORS[h] || {
+                  bg: 'bg-slate-50',
+                  text: 'text-slate-700',
+                  border: 'border-slate-200',
+                };
+                const isSelected = selectedHoras.includes(h);
+                const isDimmed = selectedHoras.length > 0 && !isSelected;
+                // Tocar unas horas las suma al filtro; tocarlas de nuevo las quita
+                return (
+                  <button
+                    type="button"
+                    key={`horas-${horas}`}
+                    onClick={() => onToggleHoras(h)}
+                    aria-pressed={isSelected}
+                    title={isSelected ? `Quitar ${horas}h del filtro` : `Ver ${horas}h`}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${colors.bg} ${colors.border} ${isSelected ? 'ring-2 ring-secondary' : ''} ${isDimmed ? 'opacity-50 hover:opacity-80' : 'hover:shadow-sm'}`}
+                  >
+                    <div className={`text-3xl font-extrabold ${colors.text}`}>{count}</div>
+                    <div>
+                      <p className={`text-sm font-bold ${colors.text}`}>{horas}h</p>
+                      <p className="text-xs text-muted-foreground">contratadas</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

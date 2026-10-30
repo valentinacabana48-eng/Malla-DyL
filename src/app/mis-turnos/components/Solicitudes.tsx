@@ -236,7 +236,7 @@ export default function Solicitudes({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl px-3.5 py-3 flex flex-col gap-3">
+    <div className="bg-white border border-slate-100 shadow-sm rounded-3xl p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[15px] font-extrabold">Solicitudes</span>
         {!open && (

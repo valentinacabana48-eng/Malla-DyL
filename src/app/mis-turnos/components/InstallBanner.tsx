@@ -36,7 +36,7 @@ export default function InstallBanner() {
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-blue-100 shadow-sm px-4 py-3 flex items-center gap-3">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
           <Smartphone size={20} className="text-blue-700" />
         </div>

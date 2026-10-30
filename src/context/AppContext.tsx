@@ -815,6 +815,29 @@ function loadSelectedMes(): string {
   return currentMonthLabel();
 }
 
+// La sucursal y el área elegidas también son de cada dispositivo: así no se vuelven a pedir
+// cada vez que se abre la app.
+const SUCURSAL_KEY = 'dyl_sucursal';
+const AREA_KEY = 'dyl_area';
+
+function loadSaved(key: string): string {
+  if (typeof window === 'undefined') return 'Todas';
+  try {
+    return localStorage.getItem(key) || 'Todas';
+  } catch {
+    return 'Todas';
+  }
+}
+
+function saveChoice(key: string, value: string) {
+  try {
+    if (value === 'Todas') localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // localStorage no disponible: la elección dura solo esta sesión
+  }
+}
+
 export interface MisTurnosLimites {
   sucursales: string[] | null;
   cargos: string[] | null;
@@ -838,8 +861,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [selectedMes, setSelectedMesState] = useState<string>(() =>
     typeof window === 'undefined' ? currentMonthLabel() : loadSelectedMes()
   );
-  const [globalSucursal, setGlobalSucursal] = useState<string>('Todas');
-  const [globalArea, setGlobalArea] = useState<string>('Todas');
+  const [globalSucursal, setGlobalSucursalState] = useState<string>(() => loadSaved(SUCURSAL_KEY));
+  const [globalArea, setGlobalAreaState] = useState<string>(() => loadSaved(AREA_KEY));
+  const setGlobalSucursal = useCallback((s: string) => {
+    setGlobalSucursalState(s);
+    saveChoice(SUCURSAL_KEY, s);
+  }, []);
+  const setGlobalArea = useCallback((a: string) => {
+    setGlobalAreaState(a);
+    saveChoice(AREA_KEY, a);
+  }, []);
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [specialDays, setSpecialDaysState] = useState<SpecialDaysData>({});
   const [customNonWorkingTypes, setCustomNonWorkingTypes] = useState<NonWorkingType[]>([]);
@@ -923,6 +954,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }),
     [visibleAreas, areaSucursales]
   );
+
+  // La sucursal y el área guardadas en el dispositivo se usan solo si esta persona todavía
+  // puede verlas (pudieron borrarse o cambiarle los permisos); si no, se vuelven a pedir.
+  useEffect(() => {
+    if (loading) return;
+    if (globalSucursal !== 'Todas' && !visibleSucursales.some((s) => s.name === globalSucursal)) {
+      setGlobalSucursal('Todas');
+      return;
+    }
+    if (
+      globalArea !== 'Todas' &&
+      !areasDeSucursales(globalSucursal === 'Todas' ? [] : [globalSucursal]).includes(globalArea)
+    )
+      setGlobalArea('Todas');
+  }, [
+    loading,
+    globalSucursal,
+    globalArea,
+    visibleSucursales,
+    areasDeSucursales,
+    setGlobalSucursal,
+    setGlobalArea,
+  ]);
 
   // Igual que mis_turnos_permitido en la base
   const motivoSinMisTurnos = useCallback(

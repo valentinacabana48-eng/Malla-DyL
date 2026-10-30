@@ -2404,15 +2404,15 @@ export default function AjustesContent() {
   const TABS = isGlobalAdmin ? ALL_TABS : ALL_TABS.filter((t) => t.id === 'turnos');
 
   return (
-    <div className="p-6 xl:p-8 max-w-3xl mx-auto">
+    <div className="p-4 lg:p-6 xl:p-8 max-w-3xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+      <div className="flex items-start justify-between mb-5 lg:mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-wide text-foreground uppercase flex items-center gap-2">
+          <h1 className="text-xl lg:text-2xl font-bold tracking-wide text-foreground uppercase flex items-center gap-2">
             <Settings size={24} className="text-secondary" />
             Ajustes
           </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
+          <p className="hidden lg:block text-muted-foreground text-sm mt-0.5">
             {isGlobalAdmin
               ? 'Configura turnos, días especiales, sucursales y áreas de tu organización.'
               : 'Crea y edita los turnos de tu sucursal.'}
@@ -2429,9 +2429,9 @@ export default function AjustesContent() {
         )}
       </div>
 
-      {/* Tabs */}
+      {/* Tabs: en el celular una sola fila que se desliza con el dedo */}
       {TABS.length > 1 && (
-        <div className="flex gap-1 bg-muted/30 rounded-xl p-1 mb-6 border border-border flex-wrap">
+        <div className="flex gap-1 bg-muted/30 rounded-xl p-1 mb-6 border border-border overflow-x-auto lg:overflow-visible lg:flex-wrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -2440,7 +2440,7 @@ export default function AjustesContent() {
                 setShowForm(false);
                 setEditingCode(null);
               }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold transition-all min-w-[80px] ${
+              className={`shrink-0 lg:shrink lg:flex-1 flex items-center justify-center gap-1.5 px-3 lg:px-0 py-2.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all lg:min-w-[80px] ${
                 activeTab === tab.id
                   ? 'bg-card text-secondary shadow-sm border border-border'
                   : 'text-muted-foreground hover:text-foreground'
