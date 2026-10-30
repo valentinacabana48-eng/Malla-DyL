@@ -89,6 +89,7 @@ interface HourRow {
 interface WorkerShiftDetail {
   name: string;
   sucursal: string;
+  area: string;
   shiftLabel: string;
   start: string;
   end: string;
@@ -283,14 +284,9 @@ const TOTAL_ROW_STYLE: React.CSSProperties = {
   borderBottom: '1px solid #d1d5db',
 };
 
-function DaySheet({
-  workerDetails,
-  showCajas,
-}: {
-  workerDetails: WorkerShiftDetail[];
-  /** Recuadros de N° de caja: solo cuando el filtro es de cajeras */
-  showCajas: boolean;
-}) {
+function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
+  // Recuadros de N° de caja solo en la hoja de Cajas; en Sala o Bodega no van
+  const showCajas = workerDetails.length > 0 && workerDetails.every((w) => w.area === 'Cajas');
   // Columna de sucursal solo si la hoja mezcla varias sucursales
   const multiSucursal = new Set(workerDetails.map((w) => w.sucursal)).size > 1;
   // Orden, Nombre, (Sucursal), (Cajas), 3 × (hora + casilla), HE
@@ -737,6 +733,7 @@ export default function MallaSummary({
       details.push({
         name: w.name,
         sucursal: w.sucursal,
+        area: w.area,
         shiftLabel: shift.label,
         start: shift.start,
         end: shift.end,
@@ -774,6 +771,7 @@ export default function MallaSummary({
         dayWorkers.push({
           name: w.name,
           sucursal: w.sucursal,
+          area: w.area,
           shiftLabel: shift.label,
           start: shift.start,
           end: shift.end,
@@ -926,7 +924,7 @@ export default function MallaSummary({
                   No hay turnos asignados para este día.
                 </p>
               ) : (
-                <DaySheet workerDetails={workerDetails} showCajas={cajasOnlyCargo} />
+                <DaySheet workerDetails={workerDetails} />
               )}
             </>
           ) : (
@@ -954,7 +952,7 @@ export default function MallaSummary({
                         Sin turnos asignados
                       </p>
                     ) : (
-                      <DaySheet workerDetails={dayWorkers} showCajas={cajasOnlyCargo} />
+                      <DaySheet workerDetails={dayWorkers} />
                     )}
                   </div>
                 );
