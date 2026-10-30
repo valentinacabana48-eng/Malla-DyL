@@ -1336,13 +1336,10 @@ export default function RRHHContent() {
                     </div>
                     <div className="bg-purple-50 border border-purple-100 rounded-lg px-3 py-2">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                        Domingos con recargo (30%)
+                        Total domingos con recargo
                       </p>
                       <p className="text-lg font-bold text-purple-600">
                         {stats.domingosConRecargo}h
-                      </p>
-                      <p className="text-[10px] text-purple-600">
-                        {stats.sundayHours}h + {stats.recargoDominical}h recargo
                       </p>
                     </div>
                     {stats.totalOvertimeHours > 0 && (
