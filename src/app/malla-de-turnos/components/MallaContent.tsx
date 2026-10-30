@@ -34,6 +34,7 @@ import MallaSummary from './MallaSummary';
 import { CoberturaHorasDia } from './CoberturaHoras';
 import LockToggle from '@/components/LockToggle';
 import { useSharedLock } from '@/hooks/useSharedLock';
+import { useMesSinPublicar } from '@/hooks/useMesSinPublicar';
 import BulkShiftModal from './BulkShiftModal';
 import MallaExcelPanel from './MallaExcelPanel';
 import MallaDownloadModal from './MallaDownloadModal';
@@ -275,9 +276,13 @@ export default function MallaContent() {
     currentMonthSpecialDays
   );
 
+  // Sin «Publicar»: un mes que viene solo se ve en las sucursales donde ya está publicado
+  const sucursalesPublicadas = useMesSinPublicar(monthLabelToKey(selectedMes));
+
   const filteredWorkers = useMemo(() => {
     return workers.filter((w) => {
       if (w.estado !== 'Activo') return false;
+      if (sucursalesPublicadas && !sucursalesPublicadas.has(w.sucursal)) return false;
       if (selectedAreas.length > 0 && !selectedAreas.includes(w.area)) return false;
       if (selectedSucursales.length > 0 && !selectedSucursales.includes(w.sucursal)) return false;
       if (selectedCargos.length > 0 && !selectedCargos.includes(w.cargo)) return false;
@@ -320,6 +325,7 @@ export default function MallaContent() {
     scheduleData,
     shifts,
     selectedMes,
+    sucursalesPublicadas,
   ]);
 
   // ── Reglas de cumplimiento (una sola fuente: src/lib/compliance.ts) ──
@@ -633,6 +639,10 @@ export default function MallaContent() {
         <div className="mt-4 flex items-center justify-center gap-3 py-16 bg-card rounded-2xl border border-border text-sm text-muted-foreground">
           <div className="w-6 h-6 rounded-full border-[3px] border-secondary/20 border-t-secondary animate-spin" />
           Cargando la malla de {selectedMes}…
+        </div>
+      ) : sucursalesPublicadas && filteredWorkers.length === 0 ? (
+        <div className="mt-4 py-16 px-4 bg-card rounded-2xl border border-border text-center text-sm text-muted-foreground">
+          La malla de {selectedMes} todavía no está publicada. La verás cuando se publique.
         </div>
       ) : (
         <>
