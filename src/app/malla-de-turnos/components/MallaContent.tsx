@@ -276,7 +276,7 @@ export default function MallaContent() {
     currentMonthSpecialDays
   );
 
-  // Sin «Publicar»: un mes que viene solo se ve en las sucursales donde ya está publicado
+  // Sin «Publicar»: un mes que viene solo se ve en las sucursales donde ya es definitivo
   const sucursalesPublicadas = useMesSinPublicar(monthLabelToKey(selectedMes));
 
   const filteredWorkers = useMemo(() => {
@@ -642,7 +642,8 @@ export default function MallaContent() {
         </div>
       ) : sucursalesPublicadas && filteredWorkers.length === 0 ? (
         <div className="mt-4 py-16 px-4 bg-card rounded-2xl border border-border text-center text-sm text-muted-foreground">
-          La malla de {selectedMes} todavía no está publicada. La verás cuando se publique.
+          La malla de {selectedMes} todavía no está publicada como definitiva. La verás cuando lo
+          esté.
         </div>
       ) : (
         <>

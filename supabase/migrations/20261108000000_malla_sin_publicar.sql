@@ -7,7 +7,8 @@
 --
 -- Qué hace:
 --   • Los meses que vienen (después del mes actual) solo se ven en la Malla, la Vista
---     previa y el Dashboard cuando ya están publicados para la sucursal de la trabajadora.
+--     previa y el Dashboard cuando ya están publicados como definitivos para la sucursal
+--     de la trabajadora. El borrador publicado no les aparece.
 --   • Quien tiene la casilla «Malla: Publicar» (y las cuentas admin) sigue viendo todo.
 --   • El mes actual y los anteriores se ven como siempre.
 --   • Lo que no se ve tampoco se puede editar.
@@ -24,7 +25,7 @@ AS $$
     OR EXISTS (
       SELECT 1 FROM public.published_schedules p
       JOIN public.workers w ON w.sucursal = p.sucursal
-      WHERE w.id = p_worker_id AND p.month_key = p_month_key
+      WHERE w.id = p_worker_id AND p.month_key = p_month_key AND p.definitiva
     )
 $$;
 REVOKE ALL ON FUNCTION public.can_see_month(TEXT, TEXT) FROM PUBLIC, anon;

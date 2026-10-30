@@ -15,9 +15,10 @@ function mesActualChile(): string {
 }
 
 /**
- * Quien no tiene «Malla: Publicar» solo ve un mes que viene cuando ya está publicado para
- * la sucursal (la base de datos no le entrega lo demás). Devuelve null si esta cuenta ve
- * el mes completo, o las sucursales donde ya está publicado (vacío mientras se lee).
+ * Quien no tiene «Malla: Publicar» solo ve un mes que viene cuando ya está publicado como
+ * definitivo para la sucursal (la base de datos no le entrega lo demás). Devuelve null si
+ * esta cuenta ve el mes completo, o las sucursales donde ya es definitivo (vacío mientras
+ * se lee).
  */
 export function useMesSinPublicar(monthKey: string): Set<string> | null {
   const { can } = useAuth();
@@ -32,6 +33,7 @@ export function useMesSinPublicar(monthKey: string): Set<string> | null {
       .from('published_schedules')
       .select('sucursal')
       .eq('month_key', monthKey)
+      .eq('definitiva', true)
       .then(({ data }) => {
         if (active) setPublicadas(new Set((data || []).map((r) => r.sucursal as string)));
       });
