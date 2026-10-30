@@ -77,45 +77,6 @@ export const PERM_GROUPS: { modulo: string; perms: { perm: Perm; label: string }
 
 export const ALL_PERMS: Perm[] = PERM_GROUPS.flatMap((g) => g.perms.map((p) => p.perm));
 
-export type TipoCuenta = 'gerente_sucursal' | 'jefe_area' | 'edita_turnos';
-
-/**
- * Tipos de cuenta de Ajustes → Usuarios. Elegir uno marca sus casillas; después se pueden
- * ajustar una por una. El jefe de área publica porque es quien hace el turno de su área.
- */
-export const TIPOS_CUENTA: { tipo: TipoCuenta; label: string; perms: Perm[] }[] = [
-  {
-    tipo: 'gerente_sucursal',
-    label: 'Gerente de sucursal',
-    perms: ALL_PERMS.filter((p) => p !== 'malla_publicar'),
-  },
-  {
-    tipo: 'jefe_area',
-    label: 'Jefe de área',
-    perms: [
-      'dashboard',
-      'malla_ver',
-      'malla_editar',
-      'malla_publicar',
-      'malla_borrador',
-      'cumplimiento',
-      'personal_ver',
-      'asistencia_ver',
-      'asistencia_marcar',
-      'horas_extra',
-      'solicitudes',
-      'solicitudes_responder',
-      'vista_previa',
-      'vista_previa_imprimir',
-    ],
-  },
-  {
-    tipo: 'edita_turnos',
-    label: 'Solo hace turnos',
-    perms: ['malla_ver', 'malla_editar', 'malla_borrador', 'vista_previa', 'vista_previa_imprimir'],
-  },
-];
-
 /** Igual que has_perm() en la base de datos */
 export function permsFor(role: UserRole | null, permisos: string[] | null): Set<Perm> {
   switch (role) {

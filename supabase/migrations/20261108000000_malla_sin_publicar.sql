@@ -15,11 +15,7 @@
 --   • El mes actual y los anteriores se ven como siempre.
 --   • Lo que no se ve tampoco se puede editar.
 --   • Mis turnos no cambia.
---   • Ajustes → Usuarios: cada cuenta puede tener un tipo (gerente de sucursal, jefe de
---     área o solo hace turnos), que se guarda en user_roles.tipo.
--- Solo agrega una columna y reemplaza funciones y reglas. Se puede volver a ejecutar sin error.
-
-ALTER TABLE public.user_roles ADD COLUMN IF NOT EXISTS tipo TEXT;
+-- Solo reemplaza funciones y reglas de lectura. Se puede volver a ejecutar sin error.
 
 -- ¿Puede esta cuenta ver la malla de esa trabajadora en ese mes?
 CREATE OR REPLACE FUNCTION public.can_see_month(p_worker_id TEXT, p_month_key TEXT)
