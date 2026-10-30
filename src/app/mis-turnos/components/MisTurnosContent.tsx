@@ -639,6 +639,15 @@ function MonthScreen({
                               {dayShort(d)}
                             </span>
                           )}
+                          {k !== 'especial' && k !== 'libre' && d?.col ? (
+                            <span
+                              className={`flex items-center gap-0.5 whitespace-nowrap text-[9px] lg:text-[11px] font-semibold leading-none ${isToday ? 'text-white/80' : 'opacity-70'}`}
+                              title={`Colación ${d.col} min`}
+                            >
+                              <Coffee size={9} className="shrink-0" aria-hidden="true" />
+                              {d.col}m
+                            </span>
+                          ) : null}
                           {wasChanged && (
                             <span
                               className="absolute top-1 right-1 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white"
@@ -667,6 +676,9 @@ function MonthScreen({
               </span>
               <span className="px-2 py-1 rounded-full bg-violet-50 text-violet-800">
                 🌴 Vacaciones y permisos
+              </span>
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-50 text-slate-600">
+                <Coffee size={11} aria-hidden="true" /> 60m = colación en minutos
               </span>
             </div>
           </div>
