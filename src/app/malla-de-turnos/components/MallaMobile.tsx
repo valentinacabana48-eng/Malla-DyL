@@ -7,6 +7,7 @@ import {
   monthLabelToKey,
   shiftsForSucursales,
   pasilloLabel,
+  bodegaLabel,
   type Shift,
   type ShiftCode,
   type Worker,
@@ -304,6 +305,7 @@ export default function MallaMobile({
                       <p className="text-sm text-muted-foreground truncate">
                         {w.cargo || w.role}
                         {w.pasillo ? ` · ${pasilloLabel(w.pasillo)}` : ''}
+                        {w.bodega ? ` · ${bodegaLabel(w.bodega)}` : ''}
                       </p>
                       {requestMarks[`${w.id}-${dayIndex}`] && (
                         <p className="text-xs font-medium text-blue-700">
@@ -351,6 +353,7 @@ export default function MallaMobile({
                         <p className="text-sm text-muted-foreground truncate">
                           {w.cargo || w.role}
                           {w.pasillo ? ` · ${pasilloLabel(w.pasillo)}` : ''}
+                          {w.bodega ? ` · ${bodegaLabel(w.bodega)}` : ''}
                         </p>
                         {requestMarks[`${w.id}-${dayIndex}`] && (
                           <p className="text-xs font-medium text-blue-700">

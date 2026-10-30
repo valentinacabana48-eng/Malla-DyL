@@ -26,6 +26,7 @@ interface FormData {
   birthday: string;
   exentoDomingos: boolean;
   pasillo: string;
+  bodega: string;
 }
 
 const AVATAR_COLORS = [
@@ -59,6 +60,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
       birthday: worker.birthday || '',
       exentoDomingos: !!worker.exentoDomingos,
       pasillo: worker.pasillo || '',
+      bodega: worker.bodega || '',
     },
   });
 
@@ -74,6 +76,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
       birthday: worker.birthday || '',
       exentoDomingos: !!worker.exentoDomingos,
       pasillo: worker.pasillo || '',
+      bodega: worker.bodega || '',
     });
   }, [worker.id, reset]);
 
@@ -94,6 +97,13 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
     const list = sucursales.find((s) => s.name === selectedSucursal)?.pasillos || [];
     return selectedPasillo && !list.includes(selectedPasillo) ? [...list, selectedPasillo] : list;
   }, [sucursales, selectedSucursal, selectedPasillo]);
+
+  // Bodegas de la sucursal (Ajustes), igual que los pasillos
+  const selectedBodega = watch('bodega');
+  const bodegaOptions = useMemo(() => {
+    const list = sucursales.find((s) => s.name === selectedSucursal)?.bodegas || [];
+    return selectedBodega && !list.includes(selectedBodega) ? [...list, selectedBodega] : list;
+  }, [sucursales, selectedSucursal, selectedBodega]);
 
   // Get cargos for the selected area; if none configured, show a free text input
   const cargosForArea =
@@ -116,6 +126,7 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
       birthday: data.birthday || '',
       exentoDomingos: !!data.exentoDomingos,
       pasillo: data.pasillo || '',
+      bodega: data.bodega || '',
     };
     onSave(saved);
   };
@@ -263,6 +274,29 @@ export default function AddWorkerPanel({ worker, isNew, onSave, onCancel }: Prop
               {pasilloOptions.map((p) => (
                 <option key={`pasillo-${p}`} value={p}>
                   {p}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Bodega — opcional, solo si la sucursal tiene bodegas */}
+        {bodegaOptions.length > 0 && (
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1">
+              Bodega
+              <span className="ml-1 text-[10px] text-muted-foreground font-normal">
+                (opcional, p. ej. bodegueros)
+              </span>
+            </label>
+            <select
+              {...register('bodega')}
+              className="w-full px-3 py-3 lg:py-2 bg-input border border-border rounded-lg text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+            >
+              <option value="">Sin bodega</option>
+              {bodegaOptions.map((b) => (
+                <option key={`bodega-${b}`} value={b}>
+                  {b}
                 </option>
               ))}
             </select>

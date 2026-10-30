@@ -98,6 +98,7 @@ export default function MallaContent() {
   const [selectedTurno, setSelectedTurno] = useState('Todos');
   const [selectedCargos, setSelectedCargos] = useState<string[]>([]);
   const [selectedPasillos, setSelectedPasillos] = useState<string[]>([]);
+  const [selectedBodegas, setSelectedBodegas] = useState<string[]>([]);
   const [selectedHoras, setSelectedHoras] = useState<string[]>([]);
   const [nameSearch, setNameSearch] = useState('');
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -287,6 +288,7 @@ export default function MallaContent() {
       if (selectedSucursales.length > 0 && !selectedSucursales.includes(w.sucursal)) return false;
       if (selectedCargos.length > 0 && !selectedCargos.includes(w.cargo)) return false;
       if (selectedPasillos.length > 0 && !selectedPasillos.includes(w.pasillo || '')) return false;
+      if (selectedBodegas.length > 0 && !selectedBodegas.includes(w.bodega || '')) return false;
       // Contracted hours multi-select filter
       if (selectedHoras.length > 0) {
         const workerHrs = contractedHoursOverride[w.id] ?? w.horasContratadas ?? 42;
@@ -318,6 +320,7 @@ export default function MallaContent() {
     selectedSucursales,
     selectedCargos,
     selectedPasillos,
+    selectedBodegas,
     selectedTurno,
     selectedHoras,
     nameSearch,
@@ -632,6 +635,8 @@ export default function MallaContent() {
           setSelectedCargos={setSelectedCargos}
           selectedPasillos={selectedPasillos}
           setSelectedPasillos={setSelectedPasillos}
+          selectedBodegas={selectedBodegas}
+          setSelectedBodegas={setSelectedBodegas}
           selectedHoras={selectedHoras}
           setSelectedHoras={setSelectedHoras}
           nameSearch={nameSearch}
