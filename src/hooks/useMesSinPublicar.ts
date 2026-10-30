@@ -15,14 +15,15 @@ function mesActualChile(): string {
 }
 
 /**
- * Quien no tiene «Malla: Publicar» solo ve un mes que viene cuando ya está publicado como
- * definitivo para la sucursal (la base de datos no le entrega lo demás). Devuelve null si
+ * Quien no tiene «Malla: Publicar» ni «Ver borrador» solo ve un mes que
+ * viene cuando ya está publicado como definitivo para la sucursal (la base de datos no le entrega lo demás). Devuelve null si
  * esta cuenta ve el mes completo, o las sucursales donde ya es definitivo (vacío mientras
  * se lee).
  */
 export function useMesSinPublicar(monthKey: string): Set<string> | null {
   const { can } = useAuth();
-  const restringido = !can('malla_publicar') && monthKey > mesActualChile();
+  const restringido =
+    !can('malla_publicar') && !can('malla_borrador') && monthKey > mesActualChile();
   const [publicadas, setPublicadas] = useState<Set<string>>(new Set());
 
   useEffect(() => {

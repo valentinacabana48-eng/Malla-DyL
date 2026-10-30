@@ -6,6 +6,7 @@ export type Perm =
   | 'malla_ver'
   | 'malla_editar'
   | 'malla_publicar'
+  | 'malla_borrador'
   | 'cumplimiento'
   | 'personal_ver'
   | 'personal_editar'
@@ -31,6 +32,7 @@ export const PERM_GROUPS: { modulo: string; perms: { perm: Perm; label: string }
       { perm: 'malla_ver', label: 'Ver' },
       { perm: 'malla_editar', label: 'Editar' },
       { perm: 'malla_publicar', label: 'Publicar' },
+      { perm: 'malla_borrador', label: 'Ver borrador' },
     ],
   },
   { modulo: 'Cumplimiento', perms: [{ perm: 'cumplimiento', label: 'Ver' }] },

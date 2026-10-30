@@ -9,7 +9,9 @@
 --   • Los meses que vienen (después del mes actual) solo se ven en la Malla, la Vista
 --     previa y el Dashboard cuando ya están publicados como definitivos para la sucursal
 --     de la trabajadora. El borrador publicado no les aparece.
---   • Quien tiene la casilla «Malla: Publicar» (y las cuentas admin) sigue viendo todo.
+--   • Quien tiene la casilla «Malla: Publicar» o la nueva «Malla: Ver borrador» (y las
+--     cuentas admin) sigue viendo todo. Así se distingue a quien arma
+--     los turnos (con la casilla) del administrador de sucursal (sin ella).
 --   • El mes actual y los anteriores se ven como siempre.
 --   • Lo que no se ve tampoco se puede editar.
 --   • Mis turnos no cambia.
@@ -21,6 +23,7 @@ RETURNS BOOLEAN
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
   SELECT public.has_perm('malla_publicar')
+    OR public.has_perm('malla_borrador')
     OR p_month_key <= to_char(now() AT TIME ZONE 'America/Santiago', 'YYYY-MM')
     OR EXISTS (
       SELECT 1 FROM public.published_schedules p
