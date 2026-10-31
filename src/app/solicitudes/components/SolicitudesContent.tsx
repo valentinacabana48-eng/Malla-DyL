@@ -22,7 +22,8 @@ interface Request {
   worker_id: string;
   tipo: 'libre' | 'cambio' | 'intercambio';
   companera_id: string | null;
-  companera_status: '' | 'pendiente' | 'aceptada' | 'rechazada';
+  /** Cambio con compañera: por_preaprobar → elegir → pendiente (responde ella) → aceptada */
+  companera_status: '' | 'por_preaprobar' | 'elegir' | 'pendiente' | 'aceptada' | 'rechazada';
   fecha: string;
   turno_actual: string;
   turno_companera?: string;
@@ -253,6 +254,23 @@ export default function SolicitudesContent() {
     await load();
   };
 
+  // Cambio con compañera: al pre aprobar, ella puede ver quiénes tienen ese turno y elegir
+  const preapprove = async (r: Request) => {
+    setBusy(r.id);
+    const { error } = await supabase.rpc('preapprove_shift_request', {
+      p_id: r.id,
+      p_respuesta: (notes[r.id] ?? '').trim(),
+    });
+    setBusy(null);
+    if (error) {
+      toast.error(error.message || 'No se pudo pre aprobar.');
+      return;
+    }
+    toast.success('Pre aprobada. Ahora ella elige con qué compañera cambiar.');
+    window.dispatchEvent(new Event('solicitudes-cambiaron'));
+    await load();
+  };
+
   return (
     <div className="p-4 lg:p-6 xl:p-8 max-w-3xl mx-auto">
       <div className="mb-5">
@@ -303,6 +321,8 @@ export default function SolicitudesContent() {
             const comp = r.companera_id ? workerById.get(r.companera_id) : undefined;
             const pick = defaults(r);
             const waiting = r.tipo === 'intercambio' && r.companera_status !== 'aceptada';
+            // Antes de elegir compañera: solo se pre aprueba o se rechaza
+            const pre = r.companera_status === 'por_preaprobar' || r.companera_status === 'elegir';
             // Fila para elegir el turno que queda y ver cómo queda su semana
             const pickRow = (
               who: Worker | undefined,
@@ -372,26 +392,29 @@ export default function SolicitudesContent() {
                       ? 'Día libre'
                       : r.tipo === 'cambio'
                         ? 'Cambio de turno'
-                        : `Cambio con ${comp?.name ?? 'una compañera'}`}{' '}
+                        : comp
+                          ? `Cambio con ${comp.name}`
+                          : 'Cambio con compañera'}{' '}
                     · {fechaText(r.fecha)}
                   </span>
                   <p className="text-muted-foreground">
                     Tenía: {shiftText(r.turno_actual)}
-                    {r.tipo === 'intercambio' && r.status !== 'aprobada' && (
+                    {r.tipo === 'intercambio' && comp && r.status !== 'aprobada' && (
                       <>
                         {' '}
                         · {comp?.name?.split(' ')[0] ?? 'Ella'} tenía: {shiftText(r.turno_pedido)}
                       </>
                     )}
-                    {r.tipo === 'cambio' && r.status !== 'aprobada' && (
-                      <>
-                        {' '}
-                        · Pide:{' '}
-                        <span className="font-semibold text-foreground">
-                          {shiftText(r.turno_pedido)}
-                        </span>
-                      </>
-                    )}
+                    {(r.tipo === 'cambio' || (r.tipo === 'intercambio' && !comp)) &&
+                      r.status !== 'aprobada' && (
+                        <>
+                          {' '}
+                          · Pide:{' '}
+                          <span className="font-semibold text-foreground">
+                            {shiftText(r.turno_pedido)}
+                          </span>
+                        </>
+                      )}
                   </p>
                   {r.status === 'aprobada' && (
                     <p className="text-muted-foreground">
@@ -415,7 +438,15 @@ export default function SolicitudesContent() {
                   {r.motivo && <p className="text-muted-foreground mt-0.5">«{r.motivo}»</p>}
                 </div>
 
-                {r.status === 'pendiente' && (
+                {r.status === 'pendiente' && pre && (
+                  <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-2.5 py-1.5">
+                    {r.companera_status === 'por_preaprobar'
+                      ? 'Si la pre apruebas, ella verá quiénes tienen ese turno ese día y elegirá con quién cambiar. Después acepta la compañera y tú apruebas el cambio definitivo.'
+                      : 'Pre aprobada. Esperando que ella elija con qué compañera cambiar.'}
+                  </p>
+                )}
+
+                {r.status === 'pendiente' && !pre && (
                   <div className="flex flex-col gap-2 border-t border-border pt-2">
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                       Al aprobar queda
@@ -550,16 +581,28 @@ export default function SolicitudesContent() {
                             <X size={15} />
                             Rechazar
                           </button>
-                          <button
-                            type="button"
-                            disabled={busy === r.id || waiting}
-                            title={waiting ? 'Falta que la compañera acepte' : undefined}
-                            onClick={() => resolve(r, true)}
-                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
-                          >
-                            <Check size={15} />
-                            Aprobar
-                          </button>
+                          {r.companera_status === 'por_preaprobar' ? (
+                            <button
+                              type="button"
+                              disabled={busy === r.id}
+                              onClick={() => preapprove(r)}
+                              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
+                            >
+                              <Check size={15} />
+                              Pre aprobar
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={busy === r.id || waiting}
+                              title={waiting ? 'Falta que la compañera acepte' : undefined}
+                              onClick={() => resolve(r, true)}
+                              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
+                            >
+                              <Check size={15} />
+                              Aprobar
+                            </button>
+                          )}
                         </div>
                       </div>
                     )
