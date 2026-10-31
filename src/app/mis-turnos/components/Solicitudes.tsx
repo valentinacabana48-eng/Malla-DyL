@@ -13,7 +13,8 @@ interface Request {
   fecha: string;
   turno_actual: string;
   turno_pedido: string;
-  companera_status: '' | 'pendiente' | 'aceptada' | 'rechazada';
+  /** Cambio con compañera: por_preaprobar → elegir → pendiente (responde ella) → aceptada */
+  companera_status: '' | 'por_preaprobar' | 'elegir' | 'pendiente' | 'aceptada' | 'rechazada';
   turno_companera?: string;
   /** La hizo ella (si no, se la pidió una compañera) */
   mia: boolean;
@@ -30,7 +31,8 @@ interface ShiftOption {
   end: string;
 }
 
-interface Coworker extends ShiftOption {
+// De las compañeras solo llega el nombre: no se muestran sus horarios
+interface Coworker {
   id: string;
   name: string;
 }
@@ -95,9 +97,14 @@ export default function Solicitudes({
   const [shifts, setShifts] = useState<ShiftOption[]>([]);
   const [open, setOpen] = useState(false);
   const [tipo, setTipo] = useState<Tipo>('libre');
-  const [coworkers, setCoworkers] = useState<Coworker[] | null>(null);
+  // Turnos que hay ese día entre sus compañeras (sin nombres)
+  const [dayShifts, setDayShifts] = useState<ShiftOption[] | null>(null);
   const [mine, setMine] = useState('');
+  // Elegir compañera después de la pre aprobación
+  const [picking, setPicking] = useState<string | null>(null);
+  const [coworkers, setCoworkers] = useState<Coworker[] | null>(null);
   const [companera, setCompanera] = useState('');
+  const [pickError, setPickError] = useState('');
   const [day, setDay] = useState('');
   const [turno, setTurno] = useState('');
   const [motivo, setMotivo] = useState('');
@@ -123,30 +130,69 @@ export default function Solicitudes({
     loadShifts();
   }, [loadRequests, loadShifts]);
 
-  // Compañeras que trabajan ese día con otro horario
+  // Turnos que tienen ese día sus compañeras, distintos al suyo
   useEffect(() => {
     if (!open || tipo !== 'intercambio' || !day) return;
     let active = true;
-    setCoworkers(null);
-    setCompanera('');
+    setDayShifts(null);
+    setTurno('');
     getPublicSupabase()
-      .rpc('mis_turnos_coworkers', { p_token: token, p_fecha: day })
+      .rpc('mis_turnos_day_shifts', { p_token: token, p_fecha: day })
       .then(({ data }) => {
-        const r = data as { ok: boolean; mine?: string; coworkers?: Coworker[] } | null;
+        const r = data as { ok: boolean; mine?: string; shifts?: ShiftOption[] } | null;
         if (!active) return;
-        setCoworkers(
-          r?.ok
-            ? [...(r.coworkers ?? [])].sort(
-                (a, b) => byHour(a, b) || a.name.localeCompare(b.name, 'es')
-              )
-            : []
-        );
+        setDayShifts(r?.ok ? [...(r.shifts ?? [])].sort(byHour) : []);
         setMine(r?.mine ?? '');
       });
     return () => {
       active = false;
     };
   }, [open, tipo, day, token]);
+
+  // Ya pre aprobada: quiénes tienen ese turno ese día (solo nombres)
+  const openPick = async (id: string) => {
+    setPicking(id);
+    setCoworkers(null);
+    setCompanera('');
+    setPickError('');
+    const { data } = await getPublicSupabase().rpc('mis_turnos_coworkers', {
+      p_token: token,
+      p_id: id,
+    });
+    const r = data as { ok: boolean; error?: string; coworkers?: Coworker[] } | null;
+    if (r?.error === 'sesion') return onSessionEnd();
+    if (!r?.ok) setPickError(r?.error || 'No se pudo cargar.');
+    setCoworkers(
+      r?.ok ? [...(r.coworkers ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es')) : []
+    );
+  };
+
+  const pick = async (id: string) => {
+    if (!companera) return setPickError('Elige a la compañera.');
+    setSaving(true);
+    setPickError('');
+    try {
+      const { data, error: rpcError } = await getPublicSupabase().rpc('mis_turnos_request_pick', {
+        p_token: token,
+        p_id: id,
+        p_companera: companera,
+      });
+      if (rpcError) throw rpcError;
+      const r = data as { ok: boolean; error?: string };
+      if (!r.ok) {
+        if (r.error === 'sesion') return onSessionEnd();
+        setPickError(r.error || 'No se pudo enviar.');
+        return;
+      }
+      setPicking(null);
+      setSent('Listo. Ahora tiene que aceptar tu compañera y después la jefatura.');
+      await loadRequests();
+    } catch {
+      setPickError('No se pudo enviar. Revisa tu internet.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const openForm = async () => {
     const min = todayIso();
@@ -163,8 +209,7 @@ export default function Solicitudes({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!day) return setError('Elige el día.');
-    if (tipo === 'cambio' && !turno) return setError('Elige el turno que quieres.');
-    if (tipo === 'intercambio' && !companera) return setError('Elige a la compañera.');
+    if (tipo !== 'libre' && !turno) return setError('Elige el turno que quieres.');
     setSaving(true);
     setError('');
     try {
@@ -172,9 +217,8 @@ export default function Solicitudes({
         p_token: token,
         p_tipo: tipo,
         p_fecha: day,
-        p_turno: tipo === 'cambio' ? turno : null,
+        p_turno: tipo === 'libre' ? null : turno,
         p_motivo: motivo,
-        p_companera: tipo === 'intercambio' ? companera : null,
       });
       if (rpcError) throw rpcError;
       const r = data as { ok: boolean; error?: string };
@@ -186,7 +230,7 @@ export default function Solicitudes({
       setOpen(false);
       setSent(
         tipo === 'intercambio'
-          ? 'Solicitud enviada. Primero tiene que aceptarla tu compañera y después la jefatura.'
+          ? 'Solicitud enviada. Si la jefatura la pre aprueba, vas a poder elegir con quién cambiar.'
           : 'Solicitud enviada. Te avisamos aquí cuando la respondan.'
       );
       await loadRequests();
@@ -223,11 +267,17 @@ export default function Solicitudes({
       : r.tipo === 'cambio'
         ? `Turno ${shiftText(r.turno_pedido)}`
         : r.mia
-          ? `Cambio con ${r.otra ?? 'una compañera'}`
+          ? r.otra
+            ? `Cambio con ${r.otra}`
+            : 'Cambio con compañera'
           : `${r.otra ?? 'Una compañera'} te pide cambiar`;
 
-  // Estado que ve ella: en un cambio con compañera, primero acepta la compañera
+  // Estado que ve ella en un cambio con compañera: pre aprobación, elegir, que acepte la compañera
   const statusOf = (r: Request) => {
+    if (r.status === 'pendiente' && r.companera_status === 'por_preaprobar')
+      return { label: 'Esperando a la jefatura', cls: 'bg-amber-100 text-amber-900' };
+    if (r.status === 'pendiente' && r.companera_status === 'elegir')
+      return { label: 'Pre aprobada: elige compañera', cls: 'bg-blue-100 text-blue-800' };
     if (r.status === 'pendiente' && r.companera_status === 'pendiente')
       return r.mia
         ? { label: 'Esperando a tu compañera', cls: 'bg-amber-100 text-amber-900' }
@@ -311,38 +361,38 @@ export default function Solicitudes({
           {tipo === 'intercambio' && day && (
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-semibold text-gray-700">
-                ¿Con quién? {mine && <>Tú tienes {shiftText(mine)}.</>}
+                Turno que quieres {mine && <>(tú tienes {shiftText(mine)})</>}
               </span>
-              {coworkers === null ? (
-                <p className="text-sm text-gray-500">Buscando compañeras…</p>
-              ) : coworkers.length === 0 ? (
-                <p className="text-sm text-gray-500">Ese día no hay compañeras con otro horario.</p>
+              {dayShifts === null ? (
+                <p className="text-sm text-gray-500">Buscando turnos…</p>
+              ) : dayShifts.length === 0 ? (
+                <p className="text-sm text-gray-500">Ese día no hay otros turnos para cambiar.</p>
               ) : (
                 <div className="flex flex-col rounded-xl border border-gray-300 overflow-hidden max-h-64 overflow-y-auto">
-                  {coworkers.map((c) => (
+                  {dayShifts.map((sh) => (
                     <label
-                      key={c.id}
+                      key={sh.code}
                       className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 last:border-b-0 ${
-                        companera === c.id ? 'bg-blue-50' : 'bg-white'
+                        turno === sh.code ? 'bg-blue-50' : 'bg-white'
                       }`}
                     >
                       <input
                         type="radio"
-                        name="companera"
-                        checked={companera === c.id}
-                        onChange={() => setCompanera(c.id)}
+                        name="turno"
+                        checked={turno === sh.code}
+                        onChange={() => setTurno(sh.code)}
                         className="w-5 h-5 accent-blue-700"
                       />
-                      <span className="flex-1 min-w-0 text-sm font-semibold text-gray-900 truncate">
-                        {c.name}
-                      </span>
-                      <span className="text-sm text-gray-700">
-                        {c.start} a {c.end}
+                      <span className="text-sm font-semibold text-gray-900">
+                        {sh.start} a {sh.end}
                       </span>
                     </label>
                   ))}
                 </div>
               )}
+              <p className="text-[13px] text-gray-500">
+                Si la jefatura lo pre aprueba, después eliges con qué compañera cambiar.
+              </p>
             </div>
           )}
 
@@ -397,12 +447,11 @@ export default function Solicitudes({
                   {r.tipo === 'intercambio' && (
                     <p className="text-[13px] text-gray-600">
                       {(() => {
+                        // Solo su propio turno; el de la compañera no se muestra.
                         // Al aprobar, la jefa pudo ajustar el turno de la compañera
-                        const suyoFinal = r.turno_companera || r.turno_actual;
-                        const yo = r.mia ? r.turno_pedido : suyoFinal;
-                        const ella = r.mia ? suyoFinal : r.turno_pedido;
+                        const yo = r.mia ? r.turno_pedido : r.turno_companera || r.turno_actual;
                         const verbo = r.status === 'aprobada' ? 'Quedaste' : 'Quedarías';
-                        return `${verbo} ${shiftText(yo)} y ella ${shiftText(ella)}`;
+                        return `${verbo} ${shiftText(yo)}`;
                       })()}
                     </p>
                   )}
@@ -437,6 +486,73 @@ export default function Solicitudes({
                   </button>
                 </div>
               )}
+              {r.mia &&
+                r.status === 'pendiente' &&
+                r.companera_status === 'elegir' &&
+                (picking !== r.id ? (
+                  <button
+                    type="button"
+                    onClick={() => openPick(r.id)}
+                    className="self-start h-11 px-3.5 mt-1 rounded-xl bg-blue-700 text-white text-sm font-bold"
+                  >
+                    Elegir compañera
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-2 mt-1">
+                    <span className="text-sm font-semibold text-gray-700">
+                      Tienen {shiftText(r.turno_pedido)} ese día:
+                    </span>
+                    {coworkers === null ? (
+                      <p className="text-sm text-gray-500">Buscando compañeras…</p>
+                    ) : coworkers.length === 0 ? (
+                      <p className="text-sm text-gray-500">Ya nadie tiene ese turno ese día.</p>
+                    ) : (
+                      <div className="flex flex-col rounded-xl border border-gray-300 overflow-hidden max-h-64 overflow-y-auto">
+                        {coworkers.map((c) => (
+                          <label
+                            key={c.id}
+                            className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 last:border-b-0 ${
+                              companera === c.id ? 'bg-blue-50' : 'bg-white'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`companera-${r.id}`}
+                              checked={companera === c.id}
+                              onChange={() => setCompanera(c.id)}
+                              className="w-5 h-5 accent-blue-700"
+                            />
+                            <span className="flex-1 min-w-0 text-sm font-semibold text-gray-900 truncate">
+                              {c.name}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {pickError && (
+                      <p role="alert" className="text-sm text-red-700">
+                        {pickError}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPicking(null)}
+                        className="h-11 rounded-xl border border-gray-300 text-gray-700 text-sm font-semibold"
+                      >
+                        Volver
+                      </button>
+                      <button
+                        type="button"
+                        disabled={saving || !coworkers?.length}
+                        onClick={() => pick(r.id)}
+                        className="h-11 rounded-xl bg-blue-700 text-white text-sm font-bold disabled:opacity-60"
+                      >
+                        {saving ? 'Enviando...' : 'Pedirle el cambio'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               {r.mia && r.status === 'pendiente' && (
                 <button
                   type="button"
