@@ -2026,7 +2026,8 @@ function UsersPanel() {
     if (row.role === 'admin') {
       saveUser(row.user_id, { role: 'personalizado', permisos: [...ALL_PERMS] });
     } else {
-      saveUser(row.user_id, { role: 'admin', areas: null, cargos: null });
+      // Conserva las áreas y cargos: una administradora también puede quedar limitada a ellos
+      saveUser(row.user_id, { role: 'admin' });
     }
   }
 
@@ -2116,9 +2117,10 @@ function UsersPanel() {
                   ? { text: 'Sin acceso', cls: 'text-amber-800 bg-amber-50 border-amber-200' }
                   : isAdminRow
                     ? {
-                        text: r.sucursales
-                          ? 'Administración de sucursal'
-                          : 'Administración general',
+                        text:
+                          r.sucursales || r.areas || r.cargos
+                            ? 'Administración de sucursal'
+                            : 'Administración general',
                         cls: 'text-secondary bg-blue-50 border-blue-200',
                       }
                     : {
@@ -2222,60 +2224,56 @@ function UsersPanel() {
                           </button>
                         ))}
                       </div>
-                      {!isAdminRow && (
-                        <>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs text-muted-foreground mr-1 w-[60px]">
-                              Áreas:
-                            </span>
+                      <>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs text-muted-foreground mr-1 w-[60px]">
+                            Áreas:
+                          </span>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => saveUser(r.user_id, { areas: null })}
+                            className={chip(!r.areas)}
+                          >
+                            Todas
+                          </button>
+                          {allAreas.map((a) => (
                             <button
+                              key={a}
                               type="button"
                               disabled={busy}
-                              onClick={() => saveUser(r.user_id, { areas: null })}
-                              className={chip(!r.areas)}
+                              onClick={() => saveUser(r.user_id, { areas: toggleIn(r.areas, a) })}
+                              className={chip(!!r.areas?.includes(a))}
                             >
-                              Todas
+                              {a}
                             </button>
-                            {allAreas.map((a) => (
-                              <button
-                                key={a}
-                                type="button"
-                                disabled={busy}
-                                onClick={() => saveUser(r.user_id, { areas: toggleIn(r.areas, a) })}
-                                className={chip(!!r.areas?.includes(a))}
-                              >
-                                {a}
-                              </button>
-                            ))}
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs text-muted-foreground mr-1 w-[60px]">
-                              Cargos:
-                            </span>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs text-muted-foreground mr-1 w-[60px]">
+                            Cargos:
+                          </span>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => saveUser(r.user_id, { cargos: null })}
+                            className={chip(!r.cargos)}
+                          >
+                            Todos
+                          </button>
+                          {allCargos.map((c) => (
                             <button
+                              key={c}
                               type="button"
                               disabled={busy}
-                              onClick={() => saveUser(r.user_id, { cargos: null })}
-                              className={chip(!r.cargos)}
+                              onClick={() => saveUser(r.user_id, { cargos: toggleIn(r.cargos, c) })}
+                              className={chip(!!r.cargos?.includes(c))}
                             >
-                              Todos
+                              {c}
                             </button>
-                            {allCargos.map((c) => (
-                              <button
-                                key={c}
-                                type="button"
-                                disabled={busy}
-                                onClick={() =>
-                                  saveUser(r.user_id, { cargos: toggleIn(r.cargos, c) })
-                                }
-                                className={chip(!!r.cargos?.includes(c))}
-                              >
-                                {c}
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )}
+                          ))}
+                        </div>
+                      </>
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
                         {PERM_GROUPS.map((g) => (
