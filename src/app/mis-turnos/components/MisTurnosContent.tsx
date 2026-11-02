@@ -143,6 +143,34 @@ function hoyChile(): { monthKey: string; day: number; date: Date } {
 }
 
 const DOWS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
+const MES_CORTO = [
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
+];
+const MES_LARGO = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
 const DOW_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 function formatFecha(iso: string | null): string {
@@ -510,6 +538,8 @@ function MonthScreen({
   const weeks: (number | null)[][] = [];
   for (let n = 0; n < cells.length; n += 7) weeks.push(cells.slice(n, n + 7));
 
+  const mesCorto = MES_CORTO[month - 1];
+  const mesLargo = MES_LARGO[month - 1];
   const sel = selected !== null ? days[selected] : undefined;
   const selDate = selected !== null ? new Date(year, month - 1, selected + 1) : null;
 
@@ -569,12 +599,12 @@ function MonthScreen({
           {isCurrentMonth && (
             <>
               <TodayHero
-                label={`Hoy · ${DOW_NAMES[hoy.date.getDay()].toLowerCase()} ${hoy.day}`}
+                label={`Hoy · ${DOW_NAMES[hoy.date.getDay()].toLowerCase()} ${hoy.day} de ${mesLargo}`}
                 d={today}
               />
               {manana !== undefined && (
                 <TomorrowRow
-                  label={`Mañana · ${DOW_NAMES[(hoy.date.getDay() + 1) % 7].toLowerCase()} ${hoy.day + 1}`}
+                  label={`Mañana · ${DOW_NAMES[(hoy.date.getDay() + 1) % 7].toLowerCase()} ${hoy.day + 1} de ${mesLargo}`}
                   d={manana}
                 />
               )}
@@ -651,7 +681,7 @@ function MonthScreen({
                           key={i}
                           type="button"
                           onClick={() => setSelected(isSel ? null : i)}
-                          aria-label={`Día ${i + 1}: ${dayText(d)}${wasChanged ? ', cambió' : ''}`}
+                          aria-label={`${i + 1} de ${mesLargo}: ${dayText(d)}${wasChanged ? ', cambió' : ''}`}
                           aria-pressed={isSel}
                           className={`relative min-h-[62px] lg:min-h-[88px] rounded-xl px-0.5 py-1.5 lg:py-2 flex flex-col items-center gap-0.5 text-center transition-transform active:scale-95 ${tile} ${
                             isSel && !isToday ? 'ring-2 ring-blue-600 ring-offset-1' : ''
@@ -660,7 +690,12 @@ function MonthScreen({
                           <span
                             className={`text-[13px] lg:text-sm font-extrabold leading-none ${isToday ? 'text-white' : 'text-slate-800'}`}
                           >
-                            {i + 1}
+                            {String(i + 1).padStart(2, '0')}
+                            <span
+                              className={`ml-0.5 text-[9px] lg:text-[11px] font-bold ${isToday ? 'text-white/85' : 'text-slate-500'}`}
+                            >
+                              {mesCorto}
+                            </span>
                           </span>
                           {k === 'especial' ? (
                             <span className="text-[15px] leading-none mt-0.5">
@@ -725,10 +760,11 @@ function MonthScreen({
                 className={`w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br ${HERO_STYLE[heroKind(sel)].bg} text-white flex flex-col items-center justify-center leading-none`}
               >
                 <span className="text-[17px] font-black">{selected + 1}</span>
+                <span className="text-[10px] font-bold opacity-90">{mesCorto}</span>
               </span>
               <div className="flex flex-col gap-0.5 min-w-0">
                 <span className="text-[13px] font-bold text-slate-500">
-                  {DOW_NAMES[selDate.getDay()]} {selected + 1}
+                  {DOW_NAMES[selDate.getDay()]} {selected + 1} de {mesLargo}
                 </span>
                 <span className="text-[18px] font-extrabold text-slate-900">
                   {heroKind(sel) === 'especial' && <span className="mr-1">{specialIcon(sel)}</span>}
