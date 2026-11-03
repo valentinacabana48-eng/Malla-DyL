@@ -244,6 +244,8 @@ function cargoPlural(cargo: string): string {
 interface PublishResult {
   firstTime: boolean;
   changedNames: string[];
+  /** Nombres de quienes recibieron un cambio o entraron nuevas en esta publicación */
+  publicadas: string[];
   /** Había cambios, pero entraron sin aviso porque la malla todavía no era definitiva */
   sinAviso: boolean;
   /** Fecha desde la que la ven, si es más adelante que hoy */
@@ -315,6 +317,32 @@ export function PublishModal({
   const [result, setResult] = useState<PublishResult | null>(null);
   const [withoutPin, setWithoutPin] = useState<string[] | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  // Cambios pendientes que se publican ahora. Los que se desmarcan quedan pendientes y
+  // esas trabajadoras siguen viendo lo que ya tenían publicado.
+  const [elegidos, setElegidos] = useState<Set<string>>(
+    () => new Set(pending.map((p) => p.workerId))
+  );
+  useEffect(() => setElegidos(new Set(pending.map((p) => p.workerId))), [pending]);
+  const toggleElegido = (id: string) =>
+    setElegidos((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const pendientesElegidos = pending.filter((p) => elegidos.has(p.workerId));
+  // A quién se le cambió la visibilidad aquí (días ocultos o desmarcada): también se publica
+  const ocultosCambiados = useMemo(() => {
+    const ids = new Set([...Object.keys(ocultos), ...Object.keys(state.ocultos)]);
+    return [...ids].filter(
+      (id) => JSON.stringify(ocultos[id] ?? null) !== JSON.stringify(state.ocultos[id] ?? null)
+    );
+  }, [ocultos, state.ocultos]);
+  // Solo a estas se les publica. null = a todas (la primera vez).
+  const soloIds: string[] | null = !publishedAt
+    ? null
+    : [...new Set([...pendientesElegidos.map((p) => p.workerId), ...ocultosCambiados])];
+  const todosElegidos = pendientesElegidos.length === pending.length;
   const [showAllGaps, setShowAllGaps] = useState(false);
   const extraTypes = getAllNonWorkingTypes();
 
@@ -358,9 +386,21 @@ export function PublishModal({
       p_ocultos: ocultos,
       p_visible_desde: visibleDesde || hoy,
       p_definitiva: definitiva,
+      p_solo: soloIds,
     });
+    // Si en la base todavía no está "publicar solo los elegidos" (falta el SQL), se publica a
+    // todas como antes, pero solo si no se dejó ningún cambio fuera
+    if (error?.code === 'PGRST202' && todosElegidos) {
+      ({ data, error } = await supabase.rpc('publish_schedule', {
+        p_month_key: monthKey,
+        p_sucursal: sucursal,
+        p_ocultos: ocultos,
+        p_visible_desde: visibleDesde || hoy,
+        p_definitiva: definitiva,
+      }));
+    }
     // Si en la base todavía no está "Definitiva" (falta el SQL), se publica como antes
-    if (error?.code === 'PGRST202') {
+    if (error?.code === 'PGRST202' && todosElegidos) {
       ({ data, error } = await supabase.rpc('publish_schedule', {
         p_month_key: monthKey,
         p_sucursal: sucursal,
@@ -369,7 +409,7 @@ export function PublishModal({
       }));
     }
     // Si en la base todavía no está la fecha de visibilidad (falta el SQL), se publica sin ella
-    if (error?.code === 'PGRST202' && !programada) {
+    if (error?.code === 'PGRST202' && todosElegidos && !programada) {
       ({ data, error } = await supabase.rpc('publish_schedule', {
         p_month_key: monthKey,
         p_sucursal: sucursal,
@@ -381,7 +421,9 @@ export function PublishModal({
       console.error('Error al publicar:', error);
       toast.error(
         error.code === 'PGRST202'
-          ? 'Para publicar con fecha falta actualizar la base de datos. Publica "Desde hoy" o pide que la actualicen.'
+          ? !todosElegidos
+            ? 'Para publicar solo algunos cambios falta actualizar la base de datos. Marca todos los cambios o pide que la actualicen.'
+            : 'Para publicar con fecha falta actualizar la base de datos. Publica "Desde hoy" o pide que la actualicen.'
           : 'No se pudo publicar la malla. Revisa tu conexión e intenta de nuevo.'
       );
       return;
@@ -389,10 +431,14 @@ export function PublishModal({
     const rows = (data as { r_worker_id: string; r_changed: number; r_is_new: boolean }[]) || [];
     const changedIds = new Set(rows.filter((r) => r.r_changed > 0).map((r) => r.r_worker_id));
     const changedNames = sucursalWorkers.filter((w) => changedIds.has(w.id)).map((w) => w.name);
+    // Para el WhatsApp: solo a quienes se les publicó un cambio o entraron nuevas
+    const publicadas = pendientesElegidos.filter((p) => p.kind !== 'sale').map((p) => p.name);
     setResult({
       firstTime,
       changedNames,
-      sinAviso: !firstTime && !state.definitiva && pending.some((p) => p.kind === 'cambio'),
+      publicadas,
+      sinAviso:
+        !firstTime && !state.definitiva && pendientesElegidos.some((p) => p.kind === 'cambio'),
       programada: programada ? visibleDesde : null,
     });
     toast.success(`Malla de ${sucursal} publicada`);
@@ -401,9 +447,9 @@ export function PublishModal({
 
   const desdeTexto = result?.programada ? ` desde el ${fechaLarga(result.programada)}` : '';
   const whatsappText = result
-    ? result.firstTime || result.changedNames.length === 0
+    ? result.firstTime || result.publicadas.length === 0
       ? `Hola equipo, la malla de ${monthLabel} de ${sucursal} ${result.programada ? `se podrá ver${desdeTexto}` : 'ya está publicada'}. Revísala en ${misTurnosUrl()} con tu RUT y tu clave. Ahí mismo puedes tocar «Instalar» para dejarla como app en tu celular.`
-      : `Hola, se actualizó la malla de ${monthLabel} de ${sucursal}${result.programada ? ` (se podrá ver${desdeTexto})` : ''}. Cambió la de: ${result.changedNames.join(', ')}. Revísala en ${misTurnosUrl()}.`
+      : `Hola, se actualizó la malla de ${monthLabel} de ${sucursal}${result.programada ? ` (se podrá ver${desdeTexto})` : ''}. Cambió la de: ${result.publicadas.join(', ')}. Revísala en ${misTurnosUrl()}.`
     : '';
 
   return (
@@ -500,25 +546,44 @@ export function PublishModal({
                         : ' Todavía no es definitiva, así que se corrige sin el aviso «Cambió».'}
                     </span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Solo se les publica a las que marques. Las demás siguen viendo lo que ya tenían
+                    y sus cambios quedan pendientes para después.
+                  </p>
                   <ul className="border border-border rounded-xl divide-y divide-border max-h-72 overflow-y-auto">
                     {pending.map((p) => (
                       <li key={p.workerId}>
-                        <button
-                          type="button"
-                          onClick={() => setExpanded(expanded === p.workerId ? null : p.workerId)}
-                          disabled={p.kind !== 'cambio'}
-                          aria-expanded={expanded === p.workerId}
-                          className="w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 min-h-[44px]"
-                        >
-                          <span className="font-semibold text-foreground">{p.name}</span>
-                          <span className="text-xs text-muted-foreground shrink-0">
-                            {p.kind === 'nueva'
-                              ? 'Nueva en la malla'
-                              : p.kind === 'sale'
-                                ? 'Ya no está en la sucursal'
-                                : listDays(p.days)}
-                          </span>
-                        </button>
+                        <div className="flex items-center">
+                          <label className="pl-3 pr-1 min-h-[44px] flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={elegidos.has(p.workerId)}
+                              onChange={() => toggleElegido(p.workerId)}
+                              aria-label={`Publicar el cambio de ${p.name}`}
+                              className="w-4 h-4 accent-blue-700"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setExpanded(expanded === p.workerId ? null : p.workerId)}
+                            disabled={p.kind !== 'cambio'}
+                            aria-expanded={expanded === p.workerId}
+                            className="flex-1 min-w-0 text-left pl-2 pr-3 py-2.5 flex items-center justify-between gap-2 min-h-[44px]"
+                          >
+                            <span
+                              className={`font-semibold truncate ${elegidos.has(p.workerId) ? 'text-foreground' : 'text-muted-foreground'}`}
+                            >
+                              {p.name}
+                            </span>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {p.kind === 'nueva'
+                                ? 'Nueva en la malla'
+                                : p.kind === 'sale'
+                                  ? 'Ya no está en la sucursal'
+                                  : listDays(p.days)}
+                            </span>
+                          </button>
+                        </div>
                         {expanded === p.workerId && p.kind === 'cambio' && (
                           <ul className="px-3 pb-2.5 flex flex-col gap-1 text-xs">
                             {p.days.map((d) => (
@@ -900,7 +965,11 @@ export function PublishModal({
                 <Send size={16} />
                 {publishing
                   ? 'Publicando…'
-                  : `${!publishedAt ? 'Publicar' : pending.length > 0 ? 'Publicar cambios' : 'Publicar de nuevo'} (${seleccionadas.length} de ${sucursalWorkers.length})`}
+                  : !publishedAt
+                    ? `Publicar (${seleccionadas.length} de ${sucursalWorkers.length})`
+                    : soloIds && soloIds.length > 0
+                      ? `Publicar cambios a ${soloIds.length} trabajadora${soloIds.length === 1 ? '' : 's'}`
+                      : 'Publicar de nuevo'}
               </button>
             </>
           )}
