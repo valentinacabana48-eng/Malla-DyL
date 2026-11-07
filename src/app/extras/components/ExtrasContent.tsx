@@ -23,6 +23,8 @@ interface Extra {
   cargo: string;
   /** Área a la que va el extra ('' en los guardados antes de existir la columna) */
   area?: string;
+  /** Minutos de colación (0 si no tiene) */
+  colacion?: number;
   inicio: string;
   fin: string;
   monto: number;
@@ -39,6 +41,8 @@ interface Form {
   inicio: string;
   fin: string;
   monto: string;
+  /** Minutos de colación, como texto del campo */
+  colacion: string;
   nota: string;
 }
 
@@ -51,6 +55,7 @@ const EMPTY: Form = {
   inicio: '',
   fin: '',
   monto: '',
+  colacion: '',
   nota: '',
 };
 
@@ -244,7 +249,7 @@ export default function ExtrasContent() {
           cargo: e.cargo || w?.cargo || '',
           inicio: e.inicio,
           fin: e.fin,
-          colacion: 0,
+          colacion: e.colacion ?? 0,
           extra: true,
           nota: e.nota,
         };
@@ -307,6 +312,7 @@ export default function ExtrasContent() {
       inicio: e.inicio,
       fin: e.fin,
       monto: String(e.monto),
+      colacion: e.colacion ? String(e.colacion) : '',
       nota: e.nota,
     });
 
@@ -357,6 +363,7 @@ export default function ExtrasContent() {
       cargo: form.cargo.trim(),
       inicio: form.inicio,
       fin: form.fin,
+      colacion: parseInt(soloNumeros(form.colacion) || '0', 10),
       monto,
       nota: form.nota.trim(),
     };
@@ -367,9 +374,16 @@ export default function ExtrasContent() {
         : supabase.from('extras').insert(r);
     let { error } = await save(row);
     // Si todavía no se agregó la columna del área en Supabase, se guarda igual sin ella
+    if (error && /colacion/.test(error.message)) {
+      // Falta la columna de colación en Supabase: se guarda igual sin ella
+      const { colacion: _c, ...sinColacion } = row;
+      void _c;
+      ({ error } = await save(sinColacion));
+    }
     if (error && /area/.test(error.message)) {
-      const { area: _sinArea, ...sinArea } = row;
-      void _sinArea;
+      const { area: _a, colacion: _c, ...sinArea } = row;
+      void _a;
+      void _c;
       ({ error } = await save(sinArea));
     }
     setSaving(false);
@@ -519,6 +533,7 @@ export default function ExtrasContent() {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {e.inicio} a {e.fin} · {fmtHoras(horas(e.inicio, e.fin))}
+                        {e.colacion ? ` · colación ${e.colacion} min` : ''}
                         {areaDeExtra(e) && ` · ${areaDeExtra(e)}`}
                         {e.cargo && ` · ${e.cargo}`}
                         {!e.worker_id && ' · De afuera'}
@@ -721,7 +736,13 @@ export default function ExtrasContent() {
                   }
                   onChange={(e) => {
                     const t = turnosLista.find((x) => x.code === e.target.value);
-                    if (t) setForm({ ...form, inicio: t.start, fin: t.end });
+                    if (t)
+                      setForm({
+                        ...form,
+                        inicio: t.start,
+                        fin: t.end,
+                        colacion: t.colacion ? String(t.colacion) : '',
+                      });
                   }}
                   className={inputClass}
                 >
@@ -766,6 +787,20 @@ export default function ExtrasContent() {
                   {fmtHoras(horas(form.inicio, form.fin))}
                 </p>
               )}
+
+              <div>
+                <label className={labelClass} htmlFor="ex-colacion">
+                  Colación (minutos)
+                </label>
+                <input
+                  id="ex-colacion"
+                  inputMode="numeric"
+                  value={form.colacion}
+                  onChange={(e) => setForm({ ...form, colacion: soloNumeros(e.target.value) })}
+                  placeholder="Sin colación"
+                  className={inputClass}
+                />
+              </div>
 
               <div>
                 <label className={labelClass} htmlFor="ex-monto">
