@@ -21,6 +21,7 @@ import {
   CalendarClock,
   Download,
   LogOut,
+  HandCoins,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { setVista, useVistaActual } from '@/lib/vista';
@@ -44,6 +45,7 @@ const navItems: {
   { label: 'RRHH', icon: UserCog, href: '/rrhh' },
   { label: 'Solicitudes', icon: Inbox, href: '/solicitudes' },
   { label: 'Vista previa', icon: Eye, href: '/vista-previa' },
+  { label: 'Extras', icon: HandCoins, href: '/extras' },
   { label: 'Ajustes', icon: Settings, href: '/ajustes', adminOnly: true },
 ];
 

@@ -19,7 +19,8 @@ export type Perm =
   | 'solicitudes'
   | 'solicitudes_responder'
   | 'vista_previa'
-  | 'vista_previa_imprimir';
+  | 'vista_previa_imprimir'
+  | 'extras';
 
 export type UserRole = 'admin' | 'lector' | 'asistencia' | 'personalizado' | 'pendiente';
 
@@ -73,6 +74,7 @@ export const PERM_GROUPS: { modulo: string; perms: { perm: Perm; label: string }
       { perm: 'vista_previa_imprimir', label: 'Imprimir y descargar' },
     ],
   },
+  { modulo: 'Extras', perms: [{ perm: 'extras', label: 'Ver, anotar e imprimir' }] },
 ];
 
 export const ALL_PERMS: Perm[] = PERM_GROUPS.flatMap((g) => g.perms.map((p) => p.perm));
@@ -116,6 +118,7 @@ export const ROUTE_PERMS: { href: string; perm: Perm }[] = [
   { href: '/rrhh', perm: 'rrhh' },
   { href: '/solicitudes', perm: 'solicitudes' },
   { href: '/vista-previa', perm: 'vista_previa' },
+  { href: '/extras', perm: 'extras' },
   { href: '/', perm: 'dashboard' },
 ];
 
