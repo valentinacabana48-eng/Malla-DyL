@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Send, X } from 'lucide-react';
 import { getPublicSupabase } from '@/lib/supabase/publicClient';
+import { EVENTO_CAMBIO } from '@/lib/misTurnosVivo';
 
 // Solicitudes de la trabajadora: pedir un día libre o un cambio de turno, y ver cómo van.
 
@@ -129,6 +130,13 @@ export default function Solicitudes({
     loadRequests();
     loadShifts();
   }, [loadRequests, loadShifts]);
+
+  // En vivo: si la jefatura o una compañera responde, la lista se actualiza sola
+  useEffect(() => {
+    const onCambio = () => loadRequests();
+    window.addEventListener(EVENTO_CAMBIO, onCambio);
+    return () => window.removeEventListener(EVENTO_CAMBIO, onCambio);
+  }, [loadRequests]);
 
   // Turnos que tienen ese día sus compañeras, distintos al suyo
   useEffect(() => {

@@ -1,7 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 // Cliente para "Mis turnos": sin cuenta ni sesión de Supabase (las trabajadoras entran con
-// RUT y clave por funciones de la base de datos) y sin conexión en vivo.
+// RUT y clave por funciones de la base de datos). Lo en vivo va por un canal propio de cada
+// trabajadora (ver lib/misTurnosVivo.ts).
 let publicClient: SupabaseClient | null = null;
 
 export function getPublicSupabase(): SupabaseClient {
