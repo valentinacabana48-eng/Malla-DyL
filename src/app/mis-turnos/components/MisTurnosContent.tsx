@@ -22,6 +22,8 @@ import { getPublicSupabase } from '@/lib/supabase/publicClient';
 import AppImage from '@/components/ui/AppImage';
 import Solicitudes from './Solicitudes';
 import InstallBanner from './InstallBanner';
+import AvisosBanner from './AvisosBanner';
+import { apagarAvisosAlSalir, useMisTurnosEnVivo } from '@/lib/misTurnosVivo';
 
 // ¿Hay una sesión de la app de administración abierta en este navegador? Solo para mostrar
 // el acceso directo: la administración pide su propio inicio de sesión igual.
@@ -515,7 +517,8 @@ function MonthScreen({
           </button>
         </div>
         {/* Las solicitudes se pueden hacer y responder aunque aún no haya malla publicada */}
-        <div className="m-3 lg:mx-auto lg:max-w-xl">
+        <div className="m-3 lg:mx-auto lg:max-w-xl flex flex-col gap-3">
+          <AvisosBanner token={token} />
           <Solicitudes token={token} fecha={null} onSessionEnd={onSessionEnd} />
         </div>
       </Shell>
@@ -638,6 +641,7 @@ function MonthScreen({
           )}
 
           <InstallBanner />
+          <AvisosBanner token={token} />
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-2 lg:p-3">
             <div className="grid grid-cols-7 gap-1 mb-1">
@@ -867,8 +871,9 @@ export default function MisTurnosContent() {
   const [notice, setNotice] = useState('');
   const [loadError, setLoadError] = useState('');
 
-  const load = useCallback(async (tok: string, monthKey: string | null) => {
-    setLoading(true);
+  // silent: recarga en segundo plano (cambio en vivo), sin mostrar error si falla
+  const load = useCallback(async (tok: string, monthKey: string | null, silent = false) => {
+    if (!silent) setLoading(true);
     setLoadError('');
     try {
       const { data: res, error } = await getPublicSupabase().rpc('mis_turnos_get', {
@@ -887,7 +892,7 @@ export default function MisTurnosContent() {
       setData(r);
     } catch (err) {
       console.error('Mis turnos:', err);
-      setLoadError('No se pudo cargar tu malla. Revisa tu internet.');
+      if (!silent) setLoadError('No se pudo cargar tu malla. Revisa tu internet.');
     } finally {
       setLoading(false);
     }
@@ -900,11 +905,17 @@ export default function MisTurnosContent() {
     if (tok) load(tok, null);
   }, [load]);
 
-  // Al volver a la app se revisa si hay cambios (sin conexión en vivo)
+  // En vivo: cuando publican o cambian su malla (o responden una solicitud), se recarga sola
+  const monthKeyActual = data?.month_key ?? null;
+  useMisTurnosEnVivo(token, () => {
+    if (token) load(token, monthKeyActual, true);
+  });
+
+  // Al volver a la app también se revisa si hay cambios
   useEffect(() => {
     if (!token) return;
     const onVisible = () => {
-      if (document.visibilityState === 'visible') load(token, data?.month_key ?? null);
+      if (document.visibilityState === 'visible') load(token, data?.month_key ?? null, true);
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
@@ -924,6 +935,7 @@ export default function MisTurnosContent() {
     setData(null);
     setNotice('');
     if (tok) {
+      await apagarAvisosAlSalir(tok);
       try {
         await getPublicSupabase().rpc('mis_turnos_logout', { p_token: tok });
       } catch {
