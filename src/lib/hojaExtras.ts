@@ -99,8 +99,8 @@ export function imprimirHojaExtras(h: HojaExtras) {
   <td class="nom">${esc(p.nombre)}${p.cargo ? `<div class="nota">${esc(p.cargo)}</div>` : ''}</td>
   <td class="c">${esc(p.rut)}</td>
   <td class="c">${esc(p.inicio)} a ${esc(p.fin)}</td>
-  <td class="r">${pesos(p.monto)}</td>
-  <td class="firma"></td>
+  <td class="r monto">${pesos(p.monto)}</td>
+  <td class="firma"><div class="linea"></div></td>
 </tr>`
         )
         .join('')
@@ -117,6 +117,7 @@ export function imprimirHojaExtras(h: HojaExtras) {
 <style>
   @page { size: letter; margin: 12mm; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { background: #fff; }
   body { font-family: 'Montserrat', Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 500; color: #1a1a1a; margin: 0; }
   .hoja + .hoja { break-before: page; page-break-before: always; }
   .head { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #1a1a1a; padding-bottom: 8px; margin-bottom: 12px; }
@@ -135,9 +136,13 @@ export function imprimirHojaExtras(h: HojaExtras) {
   tr.ex td { background: #fff4d6; }
   .tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border: 1.5px solid #b45309; border-radius: 4px; color: #b45309; font-size: 10px; font-weight: 800; letter-spacing: 1px; vertical-align: 1px; }
   .resumen { margin-top: 10px; font-size: 11px; color: #444; }
-  .pagos td { height: 46px; }
-  .firma { width: 30%; }
-  .pagos td.firma { border-bottom: 1px solid #1a1a1a; }
+  .pagos thead th { background: #f1f3f5; border-bottom: 1.5px solid #1a1a1a; }
+  .pagos td { height: 58px; border-bottom: 1px solid #d4d4d4; }
+  .pagos tbody tr:nth-child(even) td { background: #fafafa; }
+  .pagos .monto { font-weight: 700; font-size: 13px; }
+  .firma { width: 32%; }
+  .pagos td.firma { vertical-align: bottom; padding: 0 10px 10px; }
+  .linea { border-bottom: 1.2px solid #1a1a1a; height: 30px; }
   .total td { border-bottom: none; border-top: 2px solid #1a1a1a; font-weight: 800; font-size: 13px; height: auto; }
   .vacio { color: #777; padding: 20px; }
   .muted { color: #555; font-size: 10px; margin-top: 10px; }
