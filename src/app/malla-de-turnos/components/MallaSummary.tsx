@@ -86,7 +86,7 @@ interface HourRow {
   vacantCajas: number;
 }
 
-interface WorkerShiftDetail {
+export interface WorkerShiftDetail {
   name: string;
   sucursal: string;
   area: string;
@@ -94,6 +94,8 @@ interface WorkerShiftDetail {
   start: string;
   end: string;
   colacion: number;
+  /** Turno extra (módulo Extras): se marca con la etiqueta EXTRA */
+  extra?: boolean;
 }
 
 const HOUR_SLOTS = [
@@ -275,6 +277,19 @@ const startMins = (w: WorkerShiftDetail) => {
 };
 const isTardeShift = (w: WorkerShiftDetail) => startMins(w) >= 11 * 60;
 const HOUR_GROUP_ROW_STYLE: React.CSSProperties = { borderTop: '2px solid #374151' };
+const EXTRA_ROW_STYLE: React.CSSProperties = { background: '#fff4d6' };
+const EXTRA_TAG_STYLE: React.CSSProperties = {
+  display: 'inline-block',
+  marginLeft: '6px',
+  padding: '0 6px',
+  border: '1.5px solid #b45309',
+  borderRadius: '3px',
+  color: '#b45309',
+  fontSize: '9px',
+  fontWeight: '800',
+  letterSpacing: '0.08em',
+  verticalAlign: '1px',
+};
 const TOTAL_ROW_STYLE: React.CSSProperties = {
   padding: '4px 10px',
   textAlign: 'right',
@@ -284,7 +299,7 @@ const TOTAL_ROW_STYLE: React.CSSProperties = {
   borderBottom: '1px solid #d1d5db',
 };
 
-function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
+export function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
   // Recuadros de N° de caja solo en la hoja de Cajas; en Sala o Bodega no van
   const showCajas = workerDetails.length > 0 && workerDetails.every((w) => w.area === 'Cajas');
   // Columna de sucursal solo si la hoja mezcla varias sucursales
@@ -354,7 +369,7 @@ function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
               i > 0 && !isFirstTarde && startMins(workerDetails[i - 1]) !== startMins(wd);
             const times: Record<string, string> = {
               entrada: wd.start,
-              colacion: wd.colacion === 0 ? '0' : `${wd.colacion} min`,
+              colacion: wd.extra ? '—' : wd.colacion === 0 ? '0' : `${wd.colacion} min`,
               salida: wd.end,
             };
             return (
@@ -379,11 +394,19 @@ function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
                     </td>
                   </tr>
                 )}
-                <tr style={newHour ? HOUR_GROUP_ROW_STYLE : undefined}>
+                <tr
+                  style={{
+                    ...(newHour ? HOUR_GROUP_ROW_STYLE : {}),
+                    ...(wd.extra ? EXTRA_ROW_STYLE : {}),
+                  }}
+                >
                   <td style={{ ...TD, textAlign: 'center' }}>
                     <span style={ORDER_BOX_STYLE} />
                   </td>
-                  <td style={{ ...TD, padding: '5px 8px', fontWeight: '600' }}>{wd.name}</td>
+                  <td style={{ ...TD, padding: '5px 8px', fontWeight: '600' }}>
+                    {wd.name}
+                    {wd.extra && <span style={EXTRA_TAG_STYLE}>EXTRA</span>}
+                  </td>
                   {multiSucursal && (
                     <td style={{ ...TD, fontSize: '10px', color: '#4b5563' }}>{wd.sucursal}</td>
                   )}

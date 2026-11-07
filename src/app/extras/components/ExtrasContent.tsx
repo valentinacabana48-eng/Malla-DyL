@@ -5,7 +5,9 @@ import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase/client';
 import { useAppContext, type Worker } from '@/context/AppContext';
 import { formatRut } from '@/lib/rut';
-import { fechaLargaAnio, imprimirHojaExtras, pesos } from '@/lib/hojaExtras';
+import { fechaLargaAnio, pesos } from '@/lib/extras';
+import { printElement } from '@/lib/printElement';
+import { DaySheet, type WorkerShiftDetail } from '@/app/malla-de-turnos/components/MallaSummary';
 
 // Extras del día: se elige el día y la sucursal, se ve quién tiene turno y se agregan
 // extras (alguien del personal o una persona de afuera) con su horario y el valor a pagar.
@@ -79,6 +81,7 @@ export default function ExtrasContent() {
     workers,
     shifts,
     scheduleData,
+    specialDays,
     sucursales,
     areasDeSucursales,
     globalSucursal,
@@ -164,18 +167,21 @@ export default function ExtrasContent() {
   // Quiénes tienen turno ese día, por hora de entrada
   const turnos = useMemo(() => {
     const monthSched = scheduleData[monthKey] || {};
-    const list: { w: Worker; inicio: string; fin: string }[] = [];
+    const monthSpecial = specialDays[monthKey] || {};
+    const list: { w: Worker; inicio: string; fin: string; colacion: number }[] = [];
     personal.forEach((w) => {
+      // Igual que la impresión de la Malla: con día especial (licencia, vacaciones…) no trabaja
+      if (monthSpecial[w.id]?.[dayIndex]) return;
       const code = monthSched[w.id]?.[dayIndex];
       if (!code || code === 'DESC') return;
       const sh = shifts[code];
       if (!sh?.start || !sh?.end) return;
-      list.push({ w, inicio: sh.start, fin: sh.end });
+      list.push({ w, inicio: sh.start, fin: sh.end, colacion: sh.colacion ?? 0 });
     });
     return list.sort(
       (a, b) => a.inicio.localeCompare(b.inicio) || a.w.name.localeCompare(b.w.name, 'es')
     );
-  }, [personal, scheduleData, monthKey, dayIndex, shifts]);
+  }, [personal, scheduleData, specialDays, monthKey, dayIndex, shifts]);
 
   // Extras que se muestran: si se filtró por área, los del personal de esa área y los de afuera
   const extrasVisibles = useMemo(
@@ -199,6 +205,7 @@ export default function ExtrasContent() {
         cargo: t.w.cargo || t.w.role,
         inicio: t.inicio,
         fin: t.fin,
+        colacion: t.colacion,
         extra: false,
         nota: '',
       })),
@@ -207,10 +214,12 @@ export default function ExtrasContent() {
         return {
           key: `e-${e.id}`,
           nombre: e.nombre,
-          area: w?.area ?? '',
+          // De afuera: cuenta en el área elegida (así la hoja de Cajas sigue con sus recuadros)
+          area: w?.area ?? (area === 'Todas' ? '' : area),
           cargo: e.cargo || w?.cargo || '',
           inicio: e.inicio,
           fin: e.fin,
+          colacion: 0,
           extra: true,
           nota: e.nota,
         };
@@ -219,23 +228,46 @@ export default function ExtrasContent() {
     return rows.sort(
       (a, b) => a.inicio.localeCompare(b.inicio) || a.nombre.localeCompare(b.nombre, 'es')
     );
-  }, [turnos, extrasVisibles, workerById]);
+  }, [turnos, extrasVisibles, workerById, area]);
+
+  // Hoja 1 igual a la impresión del día de la Malla (con los EXTRA marcados); hoja 2, el pago
+  const hojaDia = useMemo(
+    (): WorkerShiftDetail[] =>
+      horario.map((r) => ({
+        name: r.nombre,
+        sucursal,
+        area: r.area,
+        shiftLabel: '',
+        start: r.inicio,
+        end: r.fin,
+        colacion: r.colacion,
+        extra: r.extra,
+      })),
+    [horario, sucursal]
+  );
+
+  const MESES_CAP = [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ];
+  const dow = fecha ? fechaLargaAnio(fecha).split(' ')[0] : '';
+  const diaTitulo = `${dow.charAt(0).toUpperCase()}${dow.slice(1)} ${d}`;
+  const subtitulo = `${MESES_CAP[m - 1] ?? ''} ${y} · ${sucursal}${area === 'Todas' ? '' : ` · ${area}`}`;
 
   const imprimir = () => {
-    imprimirHojaExtras({
-      fecha,
-      sucursal,
-      area: area === 'Todas' ? undefined : area,
-      horario,
-      pagos: extrasVisibles.map((e) => ({
-        nombre: e.nombre,
-        rut: e.rut,
-        cargo: e.cargo,
-        inicio: e.inicio,
-        fin: e.fin,
-        monto: e.monto,
-      })),
-    });
+    const el = document.getElementById('extras-print');
+    if (!el) return;
+    printElement(el, { title: `Horario y extras ${sucursal} ${fecha}` });
   };
 
   const abrirNuevo = () => setForm({ ...EMPTY });
@@ -735,6 +767,108 @@ export default function ExtrasContent() {
           </div>
         </div>
       )}
+
+      {/* Lo que se imprime: hoja 1 igual a la del día de la Malla, hoja 2 el pago con firma */}
+      <div className="hidden">
+        <div id="extras-print" style={{ fontFamily: 'sans-serif', color: '#111' }}>
+          <h1 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '2px' }}>
+            Horario — {diaTitulo}
+          </h1>
+          <p style={{ fontSize: '11px', color: '#555', marginBottom: '12px' }}>{subtitulo}</p>
+          {hojaDia.length === 0 ? (
+            <p style={{ fontSize: '12px', color: '#888' }}>
+              No hay turnos asignados para este día.
+            </p>
+          ) : (
+            <DaySheet workerDetails={hojaDia} />
+          )}
+
+          <div style={{ breakBefore: 'page', pageBreakBefore: 'always' }}>
+            <h1 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '2px' }}>
+              Pago de extras — {diaTitulo}
+            </h1>
+            <p style={{ fontSize: '11px', color: '#555', marginBottom: '12px' }}>{subtitulo}</p>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+              <thead>
+                <tr style={{ background: '#f3f4f6' }}>
+                  <th style={{ ...P_TH, width: '28px' }}>N°</th>
+                  <th style={{ ...P_TH, textAlign: 'left' }}>Nombre</th>
+                  <th style={P_TH}>RUT</th>
+                  <th style={P_TH}>Horario</th>
+                  <th style={{ ...P_TH, textAlign: 'right' }}>Monto</th>
+                  <th style={{ ...P_TH, width: '32%' }}>Firma</th>
+                </tr>
+              </thead>
+              <tbody>
+                {extrasVisibles.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ ...P_TD, textAlign: 'center', color: '#888' }}>
+                      No hay extras este día.
+                    </td>
+                  </tr>
+                ) : (
+                  extrasVisibles.map((e, i) => (
+                    <tr key={e.id}>
+                      <td style={{ ...P_TD, textAlign: 'center' }}>{i + 1}</td>
+                      <td style={{ ...P_TD, fontWeight: '600' }}>
+                        {e.nombre}
+                        {e.cargo && (
+                          <div style={{ fontSize: '9px', color: '#6b7280', fontWeight: '400' }}>
+                            {e.cargo}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ ...P_TD, textAlign: 'center' }}>{e.rut}</td>
+                      <td style={{ ...P_TD, textAlign: 'center' }}>
+                        {e.inicio} a {e.fin}
+                      </td>
+                      <td style={{ ...P_TD, textAlign: 'right', fontWeight: '700' }}>
+                        {pesos(e.monto)}
+                      </td>
+                      <td style={{ ...P_TD, verticalAlign: 'bottom', paddingBottom: '8px' }}>
+                        <div style={{ borderBottom: '1.2px solid #111', height: '26px' }} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              {extrasVisibles.length > 0 && (
+                <tfoot>
+                  <tr>
+                    <td style={P_TOTAL} />
+                    <td colSpan={3} style={P_TOTAL}>
+                      Total a pagar
+                    </td>
+                    <td style={{ ...P_TOTAL, textAlign: 'right' }}>{pesos(total)}</td>
+                    <td style={P_TOTAL} />
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
+
+const P_TH: React.CSSProperties = {
+  textAlign: 'center',
+  padding: '5px 6px',
+  borderBottom: '2px solid #d1d5db',
+  fontWeight: '700',
+  fontSize: '10px',
+  textTransform: 'uppercase',
+};
+const P_TD: React.CSSProperties = {
+  padding: '6px',
+  height: '44px',
+  borderBottom: '1px solid #e5e7eb',
+};
+const P_TOTAL: React.CSSProperties = {
+  padding: '6px',
+  borderTop: '2px solid #374151',
+  fontWeight: '700',
+  fontSize: '12px',
+  textTransform: 'uppercase',
+};
