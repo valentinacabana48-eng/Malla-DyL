@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { HandCoins, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase/client';
-import { useAppContext, type Worker } from '@/context/AppContext';
+import { shiftsForSucursales, useAppContext, type Worker } from '@/context/AppContext';
 import { formatRut } from '@/lib/rut';
 import { fechaLargaAnio, pesos } from '@/lib/extras';
 import { printElement } from '@/lib/printElement';
@@ -21,6 +21,8 @@ interface Extra {
   nombre: string;
   rut: string;
   cargo: string;
+  /** Área a la que va el extra ('' en los guardados antes de existir la columna) */
+  area?: string;
   inicio: string;
   fin: string;
   monto: number;
@@ -29,7 +31,7 @@ interface Extra {
 
 interface Form {
   id?: string;
-  tipo: 'personal' | 'afuera';
+  area: string;
   workerId: string;
   nombre: string;
   rut: string;
@@ -41,7 +43,7 @@ interface Form {
 }
 
 const EMPTY: Form = {
-  tipo: 'personal',
+  area: '',
   workerId: '',
   nombre: '',
   rut: '',
@@ -150,6 +152,30 @@ export default function ExtrasContent() {
 
   const workerById = useMemo(() => new Map(workers.map((w) => [w.id, w])), [workers]);
 
+  // Turnos de la sucursal (los de Ajustes), para elegir el horario del extra
+  const turnosLista = useMemo(
+    () =>
+      Object.values(shiftsForSucursales(shifts, sucursal ? [sucursal] : []))
+        .filter((t) => t.start && t.end)
+        .sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end)),
+    [shifts, sucursal]
+  );
+
+  // Todo el personal activo de la sucursal: sugerencias al escribir el nombre del extra
+  const personalSucursal = useMemo(
+    () =>
+      workers
+        .filter((w) => w.estado === 'Activo' && w.sucursal === sucursal)
+        .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+    [workers, sucursal]
+  );
+
+  // Área del extra: la que se eligió al agregarlo o, en los antiguos, la de la trabajadora
+  const areaDeExtra = useCallback(
+    (e: Extra) => e.area || (e.worker_id ? workerById.get(e.worker_id)?.area : '') || '',
+    [workerById]
+  );
+
   // Personal activo de la sucursal (y del área, si se eligió)
   const personal = useMemo(
     () =>
@@ -188,10 +214,9 @@ export default function ExtrasContent() {
     () =>
       extras.filter((e) => {
         if (area === 'Todas') return true;
-        const w = e.worker_id ? workerById.get(e.worker_id) : undefined;
-        return !w || w.area === area;
+        return areaDeExtra(e) === area || areaDeExtra(e) === '';
       }),
-    [extras, area, workerById]
+    [extras, area, areaDeExtra]
   );
   const total = extrasVisibles.reduce((s, e) => s + e.monto, 0);
 
@@ -214,8 +239,8 @@ export default function ExtrasContent() {
         return {
           key: `e-${e.id}`,
           nombre: e.nombre,
-          // De afuera: cuenta en el área elegida (así la hoja de Cajas sigue con sus recuadros)
-          area: w?.area ?? (area === 'Todas' ? '' : area),
+          // Sin área guardada: cuenta en el área elegida (la hoja de Cajas sigue con sus recuadros)
+          area: areaDeExtra(e) || (area === 'Todas' ? '' : area),
           cargo: e.cargo || w?.cargo || '',
           inicio: e.inicio,
           fin: e.fin,
@@ -228,7 +253,7 @@ export default function ExtrasContent() {
     return rows.sort(
       (a, b) => a.inicio.localeCompare(b.inicio) || a.nombre.localeCompare(b.nombre, 'es')
     );
-  }, [turnos, extrasVisibles, workerById, area]);
+  }, [turnos, extrasVisibles, workerById, area, areaDeExtra]);
 
   // Hoja 1 igual a la impresión del día de la Malla (con los EXTRA marcados); hoja 2, el pago
   const hojaDia = useMemo(
@@ -270,11 +295,11 @@ export default function ExtrasContent() {
     printElement(el, { title: `Horario y extras ${sucursal} ${fecha}` });
   };
 
-  const abrirNuevo = () => setForm({ ...EMPTY });
+  const abrirNuevo = () => setForm({ ...EMPTY, area: area === 'Todas' ? '' : area });
   const abrirEditar = (e: Extra) =>
     setForm({
       id: e.id,
-      tipo: e.worker_id ? 'personal' : 'afuera',
+      area: areaDeExtra(e),
       workerId: e.worker_id ?? '',
       nombre: e.nombre,
       rut: e.rut,
@@ -285,25 +310,38 @@ export default function ExtrasContent() {
       nota: e.nota,
     });
 
-  const elegirTrabajadora = (id: string) => {
-    const w = workerById.get(id);
-    setForm((f) =>
-      f
-        ? {
-            ...f,
-            workerId: id,
-            nombre: w?.name ?? '',
-            rut: w?.rut ?? '',
-            cargo: f.cargo || w?.cargo || '',
-          }
-        : f
-    );
+  // Se escribe el nombre libremente; si coincide con alguien del personal, se toma su RUT
+  const escribirNombre = (nombre: string) => {
+    const key = nombre.trim().toLocaleLowerCase('es');
+    const w = key
+      ? personalSucursal.find((p) => p.name.toLocaleLowerCase('es') === key)
+      : undefined;
+    setForm((f) => {
+      if (!f) return f;
+      const antes = f.workerId ? workerById.get(f.workerId) : undefined;
+      if (w)
+        return {
+          ...f,
+          nombre,
+          workerId: w.id,
+          rut: w.rut || f.rut,
+          cargo: f.cargo || w.cargo || '',
+          area: f.area || w.area,
+        };
+      // Dejó de ser alguien del personal: se limpia lo que venía de su ficha
+      return {
+        ...f,
+        nombre,
+        workerId: '',
+        rut: antes && f.rut === antes.rut ? '' : f.rut,
+      };
+    });
   };
 
   const guardar = async () => {
     if (!form) return;
     const nombre = form.nombre.trim();
-    if (form.tipo === 'personal' && !form.workerId) return toast.error('Elige a la persona.');
+    if (!form.area) return toast.error('Elige el área.');
     if (!nombre) return toast.error('Escribe el nombre.');
     if (!form.inicio || !form.fin) return toast.error('Falta la hora de inicio o de término.');
     if (form.inicio === form.fin)
@@ -312,7 +350,8 @@ export default function ExtrasContent() {
     const row = {
       fecha,
       sucursal,
-      worker_id: form.tipo === 'personal' ? form.workerId : null,
+      worker_id: form.workerId || null,
+      area: form.area,
       nombre,
       rut: form.rut.trim() ? formatRut(form.rut) : '',
       cargo: form.cargo.trim(),
@@ -322,9 +361,17 @@ export default function ExtrasContent() {
       nota: form.nota.trim(),
     };
     setSaving(true);
-    const { error } = form.id
-      ? await supabase.from('extras').update(row).eq('id', form.id)
-      : await supabase.from('extras').insert(row);
+    const save = (r: Partial<typeof row>) =>
+      form.id
+        ? supabase.from('extras').update(r).eq('id', form.id)
+        : supabase.from('extras').insert(r);
+    let { error } = await save(row);
+    // Si todavía no se agregó la columna del área en Supabase, se guarda igual sin ella
+    if (error && /area/.test(error.message)) {
+      const { area: _sinArea, ...sinArea } = row;
+      void _sinArea;
+      ({ error } = await save(sinArea));
+    }
     setSaving(false);
     if (error) {
       console.error('Extras:', error);
@@ -472,6 +519,7 @@ export default function ExtrasContent() {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {e.inicio} a {e.fin} · {fmtHoras(horas(e.inicio, e.fin))}
+                        {areaDeExtra(e) && ` · ${areaDeExtra(e)}`}
                         {e.cargo && ` · ${e.cargo}`}
                         {!e.worker_id && ' · De afuera'}
                         {t && ` · Su turno: ${t.inicio} a ${t.fin}`}
@@ -586,89 +634,67 @@ export default function ExtrasContent() {
               </button>
             </div>
             <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-1 bg-muted p-1 rounded-xl">
-                {(
-                  [
-                    ['personal', 'Del personal'],
-                    ['afuera', 'Persona de afuera'],
-                  ] as const
-                ).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    aria-pressed={form.tipo === key}
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        tipo: key,
-                        workerId: '',
-                        nombre: '',
-                        rut: '',
-                        cargo: '',
-                      })
-                    }
-                    className={`py-2 rounded-lg text-sm font-semibold ${
-                      form.tipo === key
-                        ? 'bg-card text-foreground shadow-sm'
-                        : 'text-muted-foreground'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <div>
+                <label className={labelClass} htmlFor="ex-area-form">
+                  Área
+                </label>
+                <select
+                  id="ex-area-form"
+                  value={form.area}
+                  onChange={(e) => setForm({ ...form, area: e.target.value })}
+                  className={inputClass}
+                >
+                  <option value="">Elige…</option>
+                  {areaOptions.map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {form.tipo === 'personal' ? (
-                <div>
-                  <label className={labelClass} htmlFor="ex-w">
-                    Persona
-                  </label>
-                  <select
-                    id="ex-w"
-                    value={form.workerId}
-                    onChange={(e) => elegirTrabajadora(e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="">Elige…</option>
-                    {personal.map((w) => {
-                      const t = turnoDe(w.id);
-                      return (
-                        <option key={w.id} value={w.id}>
-                          {w.name}
-                          {t ? ` (turno ${t.inicio}–${t.fin})` : ''}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <label className={labelClass} htmlFor="ex-nom">
-                      Nombre
-                    </label>
-                    <input
-                      id="ex-nom"
-                      value={form.nombre}
-                      onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass} htmlFor="ex-rut">
-                      RUT (opcional)
-                    </label>
-                    <input
-                      id="ex-rut"
-                      value={form.rut}
-                      onChange={(e) => setForm({ ...form, rut: e.target.value })}
-                      onBlur={() => form.rut && setForm({ ...form, rut: formatRut(form.rut) })}
-                      placeholder="12.345.678-9"
-                      className={inputClass}
-                    />
-                  </div>
-                </>
-              )}
+              <div>
+                <label className={labelClass} htmlFor="ex-nom">
+                  Nombre
+                </label>
+                <input
+                  id="ex-nom"
+                  value={form.nombre}
+                  onChange={(e) => escribirNombre(e.target.value)}
+                  list="ex-personal"
+                  autoComplete="off"
+                  placeholder="Escribe el nombre"
+                  className={inputClass}
+                />
+                <datalist id="ex-personal">
+                  {personalSucursal.map((w) => (
+                    <option key={w.id} value={w.name} />
+                  ))}
+                </datalist>
+                {form.nombre.trim() && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {form.workerId
+                      ? (() => {
+                          const t = turnoDe(form.workerId);
+                          return `Del personal${t ? ` · su turno: ${t.inicio} a ${t.fin}` : ''}`;
+                        })()
+                      : 'Persona de afuera'}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="ex-rut">
+                  RUT (opcional)
+                </label>
+                <input
+                  id="ex-rut"
+                  value={form.rut}
+                  onChange={(e) => setForm({ ...form, rut: e.target.value })}
+                  onBlur={() => form.rut && setForm({ ...form, rut: formatRut(form.rut) })}
+                  placeholder="12.345.678-9"
+                  className={inputClass}
+                />
+              </div>
 
               <div>
                 <label className={labelClass} htmlFor="ex-cargo">
@@ -681,6 +707,32 @@ export default function ExtrasContent() {
                   placeholder="Ej.: Cajera, Reponedor, Bodega"
                   className={inputClass}
                 />
+              </div>
+
+              <div>
+                <label className={labelClass} htmlFor="ex-turno">
+                  Turno
+                </label>
+                <select
+                  id="ex-turno"
+                  value={
+                    turnosLista.find((t) => t.start === form.inicio && t.end === form.fin)?.code ??
+                    ''
+                  }
+                  onChange={(e) => {
+                    const t = turnosLista.find((x) => x.code === e.target.value);
+                    if (t) setForm({ ...form, inicio: t.start, fin: t.end });
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">Otro horario (escríbelo abajo)</option>
+                  {turnosLista.map((t) => (
+                    <option key={t.code} value={t.code}>
+                      {t.start} a {t.end}
+                      {t.label && t.label !== `${t.start}-${t.end}` ? ` · ${t.label}` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
