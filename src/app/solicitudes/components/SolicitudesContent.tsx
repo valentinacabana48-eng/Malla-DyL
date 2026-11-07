@@ -15,7 +15,7 @@ import {
 import { imprimirHoja, tipoLabel } from '@/app/malla-de-turnos/components/LicenciaModal';
 
 // Solicitudes que las trabajadoras hacen desde Mis turnos: día libre o cambio de turno.
-// Al aprobar, la base de datos cambia la malla de ese día (queda por publicar).
+// Al aprobar, la base de datos cambia la malla de ese día y lo publica al tiro en Mis turnos.
 
 interface Request {
   id: string;
@@ -243,13 +243,12 @@ export default function SolicitudesContent() {
     }
     if (comoPermiso) {
       await registrarLicencia(r.worker_id, r.fecha, 1, pick.dia as TipoAusencia, r.motivo);
+      // El permiso se marca después de aprobar: se publica ese día de nuevo
+      const { error: pubError } = await supabase.rpc('publicar_dia_solicitud', { p_id: r.id });
+      if (pubError) console.error('Publicar día:', pubError);
     }
     setBusy(null);
-    toast.success(
-      aprobar
-        ? 'Aprobada. La malla quedó cambiada; recuerda publicarla para que ella la vea.'
-        : 'Rechazada.'
-    );
+    toast.success(aprobar ? 'Aprobada. El cambio ya se ve en Mis turnos.' : 'Rechazada.');
     window.dispatchEvent(new Event('solicitudes-cambiaron'));
     await load();
   };
