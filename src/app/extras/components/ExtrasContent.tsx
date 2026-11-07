@@ -96,6 +96,7 @@ export default function ExtrasContent() {
     specialDays,
     sucursales,
     areasDeSucursales,
+    areaCargos,
     globalSucursal,
     ensureMonths,
     loading: appLoading,
@@ -104,6 +105,9 @@ export default function ExtrasContent() {
   const [fecha, setFecha] = useState(hoyISO);
   const [sucursal, setSucursal] = useState('');
   const [area, setArea] = useState('Todas');
+  const [cargo, setCargo] = useState('Todos');
+  /** En el formulario: se eligió "Otro" y se escribe el cargo a mano */
+  const [cargoLibre, setCargoLibre] = useState(false);
   const [extras, setExtras] = useState<Extra[]>([]);
   const [loading, setLoading] = useState(true);
   const [missingTable, setMissingTable] = useState(false);
@@ -133,6 +137,27 @@ export default function ExtrasContent() {
   useEffect(() => {
     if (area !== 'Todas' && !areaOptions.includes(area)) setArea('Todas');
   }, [areaOptions, area]);
+
+  // Cargos de un área: los de Ajustes y los que tiene el personal de la sucursal
+  const cargosDeArea = useCallback(
+    (a: string) => {
+      const set = new Set<string>();
+      const areasVer = a && a !== 'Todas' ? [a] : areaOptions;
+      areasVer.forEach((x) => (areaCargos[x] || []).forEach((c) => c && set.add(c)));
+      workers.forEach((w) => {
+        if (w.estado !== 'Activo' || w.sucursal !== sucursal) return;
+        if (a && a !== 'Todas' && w.area !== a) return;
+        const c = w.cargo || w.role;
+        if (c) set.add(c);
+      });
+      return [...set].sort((x, y) => x.localeCompare(y, 'es'));
+    },
+    [areaCargos, areaOptions, workers, sucursal]
+  );
+  const cargoOptions = useMemo(() => cargosDeArea(area), [cargosDeArea, area]);
+  useEffect(() => {
+    if (cargo !== 'Todos' && !cargoOptions.includes(cargo)) setCargo('Todos');
+  }, [cargoOptions, cargo]);
 
   const load = useCallback(async () => {
     if (!sucursal || !fecha) return;
@@ -195,10 +220,11 @@ export default function ExtrasContent() {
           (w) =>
             w.estado === 'Activo' &&
             w.sucursal === sucursal &&
-            (area === 'Todas' || w.area === area)
+            (area === 'Todas' || w.area === area) &&
+            (cargo === 'Todos' || (w.cargo || w.role) === cargo)
         )
         .sort((a, b) => a.name.localeCompare(b.name, 'es')),
-    [workers, sucursal, area]
+    [workers, sucursal, area, cargo]
   );
 
   // Quiénes tienen turno ese día, por hora de entrada
@@ -224,10 +250,11 @@ export default function ExtrasContent() {
   const extrasVisibles = useMemo(
     () =>
       extras.filter((e) => {
+        if (cargo !== 'Todos' && e.cargo !== cargo) return false;
         if (area === 'Todas') return true;
         return areaDeExtra(e) === area || areaDeExtra(e) === '';
       }),
-    [extras, area, areaDeExtra]
+    [extras, area, cargo, areaDeExtra]
   );
   const total = extrasVisibles.reduce((s, e) => s + e.monto, 0);
 
@@ -318,7 +345,7 @@ export default function ExtrasContent() {
   ];
   const dow = fecha ? fechaLargaAnio(fecha).split(' ')[0] : '';
   const diaTitulo = `${dow.charAt(0).toUpperCase()}${dow.slice(1)} ${d}`;
-  const subtitulo = `${MESES_CAP[m - 1] ?? ''} ${y} · ${sucursal}${area === 'Todas' ? '' : ` · ${area}`}`;
+  const subtitulo = `${MESES_CAP[m - 1] ?? ''} ${y} · ${sucursal}${area === 'Todas' ? '' : ` · ${area}`}${cargo === 'Todos' ? '' : ` · ${plural(cargo)}`}`;
   // "Sábado 7 de noviembre" para el título de la hoja de pago
   const fechaPago = `${diaTitulo} de ${(MESES_CAP[m - 1] ?? '').toLocaleLowerCase('es')}`;
 
@@ -328,8 +355,16 @@ export default function ExtrasContent() {
     printElement(el, { title: `Horario y extras ${sucursal} ${fecha}` });
   };
 
-  const abrirNuevo = () => setForm({ ...EMPTY, area: area === 'Todas' ? '' : area });
-  const abrirEditar = (e: Extra) =>
+  const abrirNuevo = () => {
+    setCargoLibre(false);
+    setForm({
+      ...EMPTY,
+      area: area === 'Todas' ? '' : area,
+      cargo: cargo === 'Todos' ? '' : cargo,
+    });
+  };
+  const abrirEditar = (e: Extra) => {
+    setCargoLibre(false);
     setForm({
       id: e.id,
       area: areaDeExtra(e),
@@ -343,6 +378,7 @@ export default function ExtrasContent() {
       colacion: e.colacion ? String(e.colacion) : '',
       nota: e.nota,
     });
+  };
 
   // Se escribe el nombre libremente; si coincide con alguien del personal, se toma su RUT
   const escribirNombre = (nombre: string) => {
@@ -463,7 +499,7 @@ export default function ExtrasContent() {
       </div>
 
       {/* Filtros */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5 bg-card border border-border rounded-2xl p-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5 bg-card border border-border rounded-2xl p-4">
         <div>
           <label className={labelClass} htmlFor="ex-fecha">
             Día
@@ -511,7 +547,25 @@ export default function ExtrasContent() {
             ))}
           </select>
         </div>
-        <p className="sm:col-span-3 text-sm font-semibold text-foreground first-letter:uppercase">
+        <div>
+          <label className={labelClass} htmlFor="ex-cargo-filtro">
+            Cargo
+          </label>
+          <select
+            id="ex-cargo-filtro"
+            value={cargo}
+            onChange={(e) => setCargo(e.target.value)}
+            className={inputClass}
+          >
+            <option value="Todos">Todos</option>
+            {cargoOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className="sm:col-span-2 lg:col-span-4 text-sm font-semibold text-foreground first-letter:uppercase">
           {fecha && fechaLargaAnio(fecha)}
         </p>
       </div>
@@ -764,15 +818,47 @@ export default function ExtrasContent() {
 
               <div>
                 <label className={labelClass} htmlFor="ex-cargo">
-                  Qué hace (opcional)
+                  Cargo
                 </label>
-                <input
-                  id="ex-cargo"
-                  value={form.cargo}
-                  onChange={(e) => setForm({ ...form, cargo: e.target.value })}
-                  placeholder="Ej.: Cajera, Reponedor, Bodega"
-                  className={inputClass}
-                />
+                {(() => {
+                  const ops = cargosDeArea(form.area);
+                  const libre = cargoLibre || (!!form.cargo && !ops.includes(form.cargo));
+                  return (
+                    <>
+                      <select
+                        id="ex-cargo"
+                        value={libre ? '__otro' : form.cargo}
+                        onChange={(e) => {
+                          if (e.target.value === '__otro') {
+                            setCargoLibre(true);
+                            setForm({ ...form, cargo: '' });
+                          } else {
+                            setCargoLibre(false);
+                            setForm({ ...form, cargo: e.target.value });
+                          }
+                        }}
+                        className={inputClass}
+                      >
+                        <option value="">Elige…</option>
+                        {ops.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                        <option value="__otro">Otro (escríbelo)</option>
+                      </select>
+                      {libre && (
+                        <input
+                          id="ex-cargo-otro"
+                          value={form.cargo}
+                          onChange={(e) => setForm({ ...form, cargo: e.target.value })}
+                          placeholder="Ej.: Descarga camión"
+                          className={`${inputClass} mt-2`}
+                        />
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div>
@@ -929,7 +1015,11 @@ export default function ExtrasContent() {
               >
                 <h1 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '2px' }}>
                   Pago extra — {fechaPago}
-                  {g.area ? ` — ${tituloArea(g.area)}` : ''}
+                  {cargo !== 'Todos'
+                    ? ` — ${plural(cargo)}`
+                    : g.area
+                      ? ` — ${tituloArea(g.area)}`
+                      : ''}
                 </h1>
                 <p style={{ fontSize: '11px', color: '#555', marginBottom: '12px' }}>
                   {sucursal} · {y}
@@ -986,7 +1076,12 @@ export default function ExtrasContent() {
                       <tr>
                         <td style={P_TOTAL} />
                         <td colSpan={2} style={P_TOTAL}>
-                          Total {g.area ? tituloArea(g.area).toLocaleLowerCase('es') : 'a pagar'}
+                          Total{' '}
+                          {cargo !== 'Todos'
+                            ? plural(cargo).toLocaleLowerCase('es')
+                            : g.area
+                              ? tituloArea(g.area).toLocaleLowerCase('es')
+                              : 'a pagar'}
                         </td>
                         <td style={{ ...P_TOTAL, textAlign: 'right' }}>{pesos(g.total)}</td>
                         <td style={P_TOTAL} />
@@ -1045,4 +1140,12 @@ const NOMBRE_AREA: Record<string, string> = {
 };
 function tituloArea(area: string): string {
   return NOMBRE_AREA[area] ?? area;
+}
+
+/** "Cajera" → "Cajeras", "Jefa de Caja" → "Jefas de Caja" */
+function plural(cargo: string): string {
+  const [first, ...rest] = cargo.split(' ');
+  if (!first) return cargo;
+  const p = /[aeiouáéíóú]$/i.test(first) ? `${first}s` : `${first}es`;
+  return [p, ...rest].join(' ');
 }
