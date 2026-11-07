@@ -63,7 +63,12 @@ const hoyISO = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
-const hhmm = (t: string) => (t || '').slice(0, 5);
+/** Hora siempre como HH:MM (algunos turnos están guardados como "9:00") */
+const hhmm = (t: string) => {
+  const [h = '', m = ''] = (t || '').split(':');
+  if (!h) return '';
+  return `${h.padStart(2, '0')}:${(m || '00').padStart(2, '0').slice(0, 2)}`;
+};
 const toMin = (t: string) => {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + (m || 0);
@@ -162,6 +167,7 @@ export default function ExtrasContent() {
     () =>
       Object.values(shiftsForSucursales(shifts, sucursal ? [sucursal] : []))
         .filter((t) => t.start && t.end)
+        .map((t) => ({ ...t, start: hhmm(t.start), end: hhmm(t.end) }))
         .sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end)),
     [shifts, sucursal]
   );
@@ -207,7 +213,7 @@ export default function ExtrasContent() {
       if (!code || code === 'DESC') return;
       const sh = shifts[code];
       if (!sh?.start || !sh?.end) return;
-      list.push({ w, inicio: sh.start, fin: sh.end, colacion: sh.colacion ?? 0 });
+      list.push({ w, inicio: hhmm(sh.start), fin: hhmm(sh.end), colacion: sh.colacion ?? 0 });
     });
     return list.sort(
       (a, b) => a.inicio.localeCompare(b.inicio) || a.w.name.localeCompare(b.w.name, 'es')
