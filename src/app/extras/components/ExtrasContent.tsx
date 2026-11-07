@@ -23,6 +23,8 @@ interface Extra {
   cargo: string;
   /** Área a la que va el extra ('' en los guardados antes de existir la columna) */
   area?: string;
+  /** Minutos de colación (0 si no tiene) */
+  colacion?: number;
   inicio: string;
   fin: string;
   monto: number;
@@ -39,6 +41,8 @@ interface Form {
   inicio: string;
   fin: string;
   monto: string;
+  /** Minutos de colación, como texto del campo */
+  colacion: string;
   nota: string;
 }
 
@@ -51,6 +55,7 @@ const EMPTY: Form = {
   inicio: '',
   fin: '',
   monto: '',
+  colacion: '',
   nota: '',
 };
 
@@ -220,6 +225,26 @@ export default function ExtrasContent() {
   );
   const total = extrasVisibles.reduce((s, e) => s + e.monto, 0);
 
+  // Extras agrupados por área, cada grupo con su total (en pantalla y en la hoja de pago)
+  const grupos = useMemo(() => {
+    const map = new Map<string, Extra[]>();
+    extrasVisibles.forEach((e) => {
+      const a = areaDeExtra(e) || (area === 'Todas' ? 'Sin área' : area);
+      map.set(a, [...(map.get(a) ?? []), e]);
+    });
+    const orden = (a: string) => {
+      const i = areaOptions.indexOf(a);
+      return i === -1 ? 999 : i;
+    };
+    return [...map.entries()]
+      .sort(([a], [b]) => orden(a) - orden(b) || a.localeCompare(b, 'es'))
+      .map(([nombre, lista]) => ({
+        area: nombre,
+        lista,
+        total: lista.reduce((s, e) => s + e.monto, 0),
+      }));
+  }, [extrasVisibles, areaDeExtra, area, areaOptions]);
+
   // Horario del día con los extras metidos en su hora
   const horario = useMemo(() => {
     const rows = [
@@ -244,7 +269,7 @@ export default function ExtrasContent() {
           cargo: e.cargo || w?.cargo || '',
           inicio: e.inicio,
           fin: e.fin,
-          colacion: 0,
+          colacion: e.colacion ?? 0,
           extra: true,
           nota: e.nota,
         };
@@ -288,6 +313,8 @@ export default function ExtrasContent() {
   const dow = fecha ? fechaLargaAnio(fecha).split(' ')[0] : '';
   const diaTitulo = `${dow.charAt(0).toUpperCase()}${dow.slice(1)} ${d}`;
   const subtitulo = `${MESES_CAP[m - 1] ?? ''} ${y} · ${sucursal}${area === 'Todas' ? '' : ` · ${area}`}`;
+  // "Sábado 7 de noviembre" para el título de la hoja de pago
+  const fechaPago = `${diaTitulo} de ${(MESES_CAP[m - 1] ?? '').toLocaleLowerCase('es')}`;
 
   const imprimir = () => {
     const el = document.getElementById('extras-print');
@@ -307,6 +334,7 @@ export default function ExtrasContent() {
       inicio: e.inicio,
       fin: e.fin,
       monto: String(e.monto),
+      colacion: e.colacion ? String(e.colacion) : '',
       nota: e.nota,
     });
 
@@ -357,6 +385,7 @@ export default function ExtrasContent() {
       cargo: form.cargo.trim(),
       inicio: form.inicio,
       fin: form.fin,
+      colacion: parseInt(soloNumeros(form.colacion) || '0', 10),
       monto,
       nota: form.nota.trim(),
     };
@@ -367,9 +396,16 @@ export default function ExtrasContent() {
         : supabase.from('extras').insert(r);
     let { error } = await save(row);
     // Si todavía no se agregó la columna del área en Supabase, se guarda igual sin ella
+    if (error && /colacion/.test(error.message)) {
+      // Falta la columna de colación en Supabase: se guarda igual sin ella
+      const { colacion: _c, ...sinColacion } = row;
+      void _c;
+      ({ error } = await save(sinColacion));
+    }
     if (error && /area/.test(error.message)) {
-      const { area: _sinArea, ...sinArea } = row;
-      void _sinArea;
+      const { area: _a, colacion: _c, ...sinArea } = row;
+      void _a;
+      void _c;
       ({ error } = await save(sinArea));
     }
     setSaving(false);
@@ -505,53 +541,73 @@ export default function ExtrasContent() {
           </p>
         ) : (
           <>
-            <ul className="divide-y divide-border">
-              {extrasVisibles.map((e) => {
-                const t = turnoDe(e.worker_id);
-                return (
-                  <li key={e.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-foreground">
-                        {e.nombre}{' '}
-                        <span className="ml-1 inline-block whitespace-nowrap align-middle text-[10px] font-extrabold tracking-wider text-amber-700 border border-amber-500 rounded px-1.5 py-0.5">
-                          EXTRA
-                        </span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {e.inicio} a {e.fin} · {fmtHoras(horas(e.inicio, e.fin))}
-                        {areaDeExtra(e) && ` · ${areaDeExtra(e)}`}
-                        {e.cargo && ` · ${e.cargo}`}
-                        {!e.worker_id && ' · De afuera'}
-                        {t && ` · Su turno: ${t.inicio} a ${t.fin}`}
-                      </p>
-                      {e.nota && <p className="text-xs text-muted-foreground italic">{e.nota}</p>}
-                    </div>
-                    <span className="text-sm font-bold text-foreground tabular-nums whitespace-nowrap">
-                      {pesos(e.monto)}
+            {grupos.map((g) => (
+              <div key={g.area}>
+                <div className="flex items-center justify-between gap-2 px-4 py-2 bg-muted/50 border-b border-border">
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                    {tituloArea(g.area)}{' '}
+                    <span className="font-semibold text-muted-foreground normal-case tracking-normal">
+                      · {g.lista.length} {g.lista.length === 1 ? 'persona' : 'personas'}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => abrirEditar(e)}
-                      aria-label={`Editar extra de ${e.nombre}`}
-                      className="w-9 h-9 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => borrar(e)}
-                      aria-label={`Quitar extra de ${e.nombre}`}
-                      className="w-9 h-9 rounded-lg hover:bg-red-50 flex items-center justify-center text-muted-foreground hover:text-red-600"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/50">
-              <span className="text-sm font-bold text-foreground">Total a pagar</span>
-              <span className="text-base font-extrabold text-foreground tabular-nums mr-[96px]">
+                  </span>
+                  <span className="text-sm font-extrabold text-foreground tabular-nums whitespace-nowrap">
+                    {pesos(g.total)}
+                  </span>
+                </div>
+                <ul className="divide-y divide-border border-b border-border">
+                  {g.lista.map((e) => {
+                    const t = turnoDe(e.worker_id);
+                    return (
+                      <li key={e.id} className="flex items-center gap-3 px-4 py-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-foreground">
+                            {e.nombre}{' '}
+                            <span className="ml-1 inline-block whitespace-nowrap align-middle text-[10px] font-extrabold tracking-wider text-amber-700 border border-amber-500 rounded px-1.5 py-0.5">
+                              EXTRA
+                            </span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {e.inicio} a {e.fin} · {fmtHoras(horas(e.inicio, e.fin))}
+                            {e.colacion ? ` · colación ${e.colacion} min` : ''}
+                            {areaDeExtra(e) && ` · ${areaDeExtra(e)}`}
+                            {e.cargo && ` · ${e.cargo}`}
+                            {!e.worker_id && ' · De afuera'}
+                            {t && ` · Su turno: ${t.inicio} a ${t.fin}`}
+                          </p>
+                          {e.nota && (
+                            <p className="text-xs text-muted-foreground italic">{e.nota}</p>
+                          )}
+                        </div>
+                        <span className="text-sm font-bold text-foreground tabular-nums whitespace-nowrap">
+                          {pesos(e.monto)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => abrirEditar(e)}
+                          aria-label={`Editar extra de ${e.nombre}`}
+                          className="w-9 h-9 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => borrar(e)}
+                          aria-label={`Quitar extra de ${e.nombre}`}
+                          className="w-9 h-9 rounded-lg hover:bg-red-50 flex items-center justify-center text-muted-foreground hover:text-red-600"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+            <div className="flex items-center justify-between px-4 py-3 bg-muted">
+              <span className="text-sm font-bold text-foreground">
+                {grupos.length > 1 ? 'Total de todas las áreas' : 'Total a pagar'}
+              </span>
+              <span className="text-base font-extrabold text-foreground tabular-nums">
                 {pesos(total)}
               </span>
             </div>
@@ -584,6 +640,7 @@ export default function ExtrasContent() {
                 <th className="px-4 py-2 font-bold">Cargo</th>
                 <th className="px-4 py-2 font-bold text-center">Entrada</th>
                 <th className="px-4 py-2 font-bold text-center">Salida</th>
+                <th className="px-4 py-2 font-bold text-center">Colación</th>
               </tr>
             </thead>
             <tbody>
@@ -609,6 +666,9 @@ export default function ExtrasContent() {
                   </td>
                   <td className="px-2 sm:px-4 py-2 text-center tabular-nums whitespace-nowrap">
                     {r.fin}
+                  </td>
+                  <td className="px-2 sm:px-4 py-2 text-center tabular-nums whitespace-nowrap text-muted-foreground">
+                    {r.colacion > 0 ? `${r.colacion} min` : '—'}
                   </td>
                 </tr>
               ))}
@@ -721,7 +781,13 @@ export default function ExtrasContent() {
                   }
                   onChange={(e) => {
                     const t = turnosLista.find((x) => x.code === e.target.value);
-                    if (t) setForm({ ...form, inicio: t.start, fin: t.end });
+                    if (t)
+                      setForm({
+                        ...form,
+                        inicio: t.start,
+                        fin: t.end,
+                        colacion: t.colacion ? String(t.colacion) : '',
+                      });
                   }}
                   className={inputClass}
                 >
@@ -766,6 +832,20 @@ export default function ExtrasContent() {
                   {fmtHoras(horas(form.inicio, form.fin))}
                 </p>
               )}
+
+              <div>
+                <label className={labelClass} htmlFor="ex-colacion">
+                  Colación (minutos)
+                </label>
+                <input
+                  id="ex-colacion"
+                  inputMode="numeric"
+                  value={form.colacion}
+                  onChange={(e) => setForm({ ...form, colacion: soloNumeros(e.target.value) })}
+                  placeholder="Sin colación"
+                  className={inputClass}
+                />
+              </div>
 
               <div>
                 <label className={labelClass} htmlFor="ex-monto">
@@ -835,69 +915,96 @@ export default function ExtrasContent() {
             <DaySheet workerDetails={hojaDia} />
           )}
 
-          <div style={{ breakBefore: 'page', pageBreakBefore: 'always' }}>
-            <h1 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '2px' }}>
-              Pago de extras — {diaTitulo}
-            </h1>
-            <p style={{ fontSize: '11px', color: '#555', marginBottom: '12px' }}>{subtitulo}</p>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-              <thead>
-                <tr style={{ background: '#f3f4f6' }}>
-                  <th style={{ ...P_TH, width: '28px' }}>N°</th>
-                  <th style={{ ...P_TH, textAlign: 'left' }}>Nombre</th>
-                  <th style={P_TH}>RUT</th>
-                  <th style={P_TH}>Horario</th>
-                  <th style={{ ...P_TH, textAlign: 'right' }}>Monto</th>
-                  <th style={{ ...P_TH, width: '32%' }}>Firma</th>
-                </tr>
-              </thead>
-              <tbody>
-                {extrasVisibles.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ ...P_TD, textAlign: 'center', color: '#888' }}>
-                      No hay extras este día.
-                    </td>
-                  </tr>
-                ) : (
-                  extrasVisibles.map((e, i) => (
-                    <tr key={e.id}>
-                      <td style={{ ...P_TD, textAlign: 'center' }}>{i + 1}</td>
-                      <td style={{ ...P_TD, fontWeight: '600' }}>
-                        {e.nombre}
-                        {e.cargo && (
-                          <div style={{ fontSize: '9px', color: '#6b7280', fontWeight: '400' }}>
-                            {e.cargo}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ ...P_TD, textAlign: 'center' }}>{e.rut}</td>
-                      <td style={{ ...P_TD, textAlign: 'center' }}>
-                        {e.inicio} a {e.fin}
-                      </td>
-                      <td style={{ ...P_TD, textAlign: 'right', fontWeight: '700' }}>
-                        {pesos(e.monto)}
-                      </td>
-                      <td style={{ ...P_TD, verticalAlign: 'bottom', paddingBottom: '8px' }}>
-                        <div style={{ borderBottom: '1.2px solid #111', height: '26px' }} />
-                      </td>
+          {(grupos.length === 0 ? [{ area: '', lista: [] as Extra[], total: 0 }] : grupos).map(
+            (g, gi, todos) => (
+              <div
+                key={g.area || 'vacio'}
+                style={{ breakBefore: 'page', pageBreakBefore: 'always' }}
+              >
+                <h1 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '2px' }}>
+                  Pago extra — {fechaPago}
+                  {g.area ? ` — ${tituloArea(g.area)}` : ''}
+                </h1>
+                <p style={{ fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+                  {sucursal} · {y}
+                </p>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                  <thead>
+                    <tr style={{ background: '#f3f4f6' }}>
+                      <th style={{ ...P_TH, width: '28px' }}>N°</th>
+                      <th style={{ ...P_TH, textAlign: 'left' }}>Nombre</th>
+                      <th style={P_TH}>RUT</th>
+                      <th style={P_TH}>Horario</th>
+                      <th style={{ ...P_TH, textAlign: 'right' }}>Monto</th>
+                      <th style={{ ...P_TH, width: '32%' }}>Firma</th>
                     </tr>
-                  ))
+                  </thead>
+                  <tbody>
+                    {g.lista.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ ...P_TD, textAlign: 'center', color: '#888' }}>
+                          No hay extras este día.
+                        </td>
+                      </tr>
+                    ) : (
+                      g.lista.map((e, i) => (
+                        <tr key={e.id}>
+                          <td style={{ ...P_TD, textAlign: 'center' }}>{i + 1}</td>
+                          <td style={{ ...P_TD, fontWeight: '600' }}>
+                            {e.nombre}
+                            {e.cargo && (
+                              <div style={{ fontSize: '9px', color: '#6b7280', fontWeight: '400' }}>
+                                {e.cargo}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ ...P_TD, textAlign: 'center' }}>{e.rut}</td>
+                          <td style={{ ...P_TD, textAlign: 'center' }}>
+                            {e.inicio} a {e.fin}
+                            {e.colacion ? (
+                              <div style={{ fontSize: '9px', color: '#6b7280' }}>
+                                colación {e.colacion} min
+                              </div>
+                            ) : null}
+                          </td>
+                          <td style={{ ...P_TD, textAlign: 'right', fontWeight: '700' }}>
+                            {pesos(e.monto)}
+                          </td>
+                          <td style={{ ...P_TD, verticalAlign: 'bottom', paddingBottom: '8px' }}>
+                            <div style={{ borderBottom: '1.2px solid #111', height: '26px' }} />
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {g.lista.length > 0 && (
+                    <tfoot>
+                      <tr>
+                        <td style={P_TOTAL} />
+                        <td colSpan={3} style={P_TOTAL}>
+                          Total {g.area ? tituloArea(g.area).toLocaleLowerCase('es') : 'a pagar'}
+                        </td>
+                        <td style={{ ...P_TOTAL, textAlign: 'right' }}>{pesos(g.total)}</td>
+                        <td style={P_TOTAL} />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+                {todos.length > 1 && gi === todos.length - 1 && (
+                  <p
+                    style={{
+                      marginTop: '14px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      textAlign: 'right',
+                    }}
+                  >
+                    Total de todas las áreas: {pesos(total)}
+                  </p>
                 )}
-              </tbody>
-              {extrasVisibles.length > 0 && (
-                <tfoot>
-                  <tr>
-                    <td style={P_TOTAL} />
-                    <td colSpan={3} style={P_TOTAL}>
-                      Total a pagar
-                    </td>
-                    <td style={{ ...P_TOTAL, textAlign: 'right' }}>{pesos(total)}</td>
-                    <td style={P_TOTAL} />
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
+              </div>
+            )
+          )}
         </div>
       </div>
     </div>
@@ -924,3 +1031,14 @@ const P_TOTAL: React.CSSProperties = {
   fontSize: '12px',
   textTransform: 'uppercase',
 };
+
+// Cómo se nombra a la gente de cada área en el título de la hoja de pago
+const NOMBRE_AREA: Record<string, string> = {
+  Cajas: 'Cajeras',
+  Bodega: 'Bodegueros',
+  Sala: 'Reponedores',
+  Tesorería: 'Tesoreras',
+};
+function tituloArea(area: string): string {
+  return NOMBRE_AREA[area] ?? area;
+}

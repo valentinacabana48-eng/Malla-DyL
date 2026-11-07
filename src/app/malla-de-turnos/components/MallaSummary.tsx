@@ -369,7 +369,7 @@ export function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[]
               i > 0 && !isFirstTarde && startMins(workerDetails[i - 1]) !== startMins(wd);
             const times: Record<string, string> = {
               entrada: wd.start,
-              colacion: wd.extra ? '—' : wd.colacion === 0 ? '0' : `${wd.colacion} min`,
+              colacion: wd.colacion > 0 ? `${wd.colacion} min` : wd.extra ? '—' : '0',
               salida: wd.end,
             };
             return (
