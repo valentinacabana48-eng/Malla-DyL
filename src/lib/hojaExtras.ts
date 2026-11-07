@@ -140,8 +140,6 @@ export function imprimirHojaExtras(h: HojaExtras) {
   .pagos td.firma { border-bottom: 1px solid #1a1a1a; }
   .total td { border-bottom: none; border-top: 2px solid #1a1a1a; font-weight: 800; font-size: 13px; height: auto; }
   .vacio { color: #777; padding: 20px; }
-  .autoriza { display: flex; justify-content: space-between; gap: 40px; margin-top: 70px; }
-  .autoriza div { flex: 1; border-top: 1px solid #1a1a1a; text-align: center; padding-top: 4px; font-weight: 700; font-size: 11px; letter-spacing: .4px; }
   .muted { color: #555; font-size: 10px; margin-top: 10px; }
   @media print { .noprint { display: none; } }
 </style></head><body>
@@ -166,7 +164,6 @@ export function imprimirHojaExtras(h: HojaExtras) {
         : ''
     }
   </table>
-  <div class="autoriza"><div>ENTREGA (NOMBRE Y FIRMA)</div><div>AUTORIZA JEFATURA</div></div>
 </section>
 <p class="muted noprint">Si no se abrió el cuadro de impresión, usa Ctrl+P.</p>
 <script>
