@@ -939,7 +939,6 @@ export default function ExtrasContent() {
                     <tr style={{ background: '#f3f4f6' }}>
                       <th style={{ ...P_TH, width: '28px' }}>N°</th>
                       <th style={{ ...P_TH, textAlign: 'left' }}>Nombre</th>
-                      <th style={P_TH}>RUT</th>
                       <th style={P_TH}>Horario</th>
                       <th style={{ ...P_TH, textAlign: 'right' }}>Monto</th>
                       <th style={{ ...P_TH, width: '32%' }}>Firma</th>
@@ -948,7 +947,7 @@ export default function ExtrasContent() {
                   <tbody>
                     {g.lista.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ ...P_TD, textAlign: 'center', color: '#888' }}>
+                        <td colSpan={5} style={{ ...P_TD, textAlign: 'center', color: '#888' }}>
                           No hay extras este día.
                         </td>
                       </tr>
@@ -964,7 +963,6 @@ export default function ExtrasContent() {
                               </div>
                             )}
                           </td>
-                          <td style={{ ...P_TD, textAlign: 'center' }}>{e.rut}</td>
                           <td style={{ ...P_TD, textAlign: 'center' }}>
                             {e.inicio} a {e.fin}
                             {e.colacion ? (
@@ -987,7 +985,7 @@ export default function ExtrasContent() {
                     <tfoot>
                       <tr>
                         <td style={P_TOTAL} />
-                        <td colSpan={3} style={P_TOTAL}>
+                        <td colSpan={2} style={P_TOTAL}>
                           Total {g.area ? tituloArea(g.area).toLocaleLowerCase('es') : 'a pagar'}
                         </td>
                         <td style={{ ...P_TOTAL, textAlign: 'right' }}>{pesos(g.total)}</td>
