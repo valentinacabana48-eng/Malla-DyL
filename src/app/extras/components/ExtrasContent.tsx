@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { HandCoins, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase/client';
-import { useAppContext, type Worker } from '@/context/AppContext';
+import { shiftsForSucursales, useAppContext, type Worker } from '@/context/AppContext';
 import { formatRut } from '@/lib/rut';
 import { fechaLargaAnio, pesos } from '@/lib/extras';
 import { printElement } from '@/lib/printElement';
@@ -151,6 +151,15 @@ export default function ExtrasContent() {
   }, [load]);
 
   const workerById = useMemo(() => new Map(workers.map((w) => [w.id, w])), [workers]);
+
+  // Turnos de la sucursal (los de Ajustes), para elegir el horario del extra
+  const turnosLista = useMemo(
+    () =>
+      Object.values(shiftsForSucursales(shifts, sucursal ? [sucursal] : []))
+        .filter((t) => t.start && t.end)
+        .sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end)),
+    [shifts, sucursal]
+  );
 
   // Todo el personal activo de la sucursal: sugerencias al escribir el nombre del extra
   const personalSucursal = useMemo(
@@ -698,6 +707,32 @@ export default function ExtrasContent() {
                   placeholder="Ej.: Cajera, Reponedor, Bodega"
                   className={inputClass}
                 />
+              </div>
+
+              <div>
+                <label className={labelClass} htmlFor="ex-turno">
+                  Turno
+                </label>
+                <select
+                  id="ex-turno"
+                  value={
+                    turnosLista.find((t) => t.start === form.inicio && t.end === form.fin)?.code ??
+                    ''
+                  }
+                  onChange={(e) => {
+                    const t = turnosLista.find((x) => x.code === e.target.value);
+                    if (t) setForm({ ...form, inicio: t.start, fin: t.end });
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">Otro horario (escríbelo abajo)</option>
+                  {turnosLista.map((t) => (
+                    <option key={t.code} value={t.code}>
+                      {t.start} a {t.end}
+                      {t.label && t.label !== `${t.start}-${t.end}` ? ` · ${t.label}` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
