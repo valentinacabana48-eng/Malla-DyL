@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   BarChart2,
   ArrowDownToLine,
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { type ShiftCode, type Shift, type Worker, timeToMinutes } from '@/context/AppContext';
 import { printElement } from '@/lib/printElement';
+import { getSupabase } from '@/lib/supabase/client';
 
 interface Props {
   workers: Worker[];
@@ -23,7 +24,27 @@ interface Props {
   // Meses vecinos: para ver la semana completa cuando cruza de mes
   prevMonth?: NeighborMonth;
   nextMonth?: NeighborMonth;
+  /** Filtros de la Malla para sumar los extras del día a la impresión (cargo = el del extra) */
+  extrasFiltro?: { sucursales: string[]; areas: string[]; cargos: string[] };
 }
+
+interface ExtraRow {
+  fecha: string;
+  sucursal: string;
+  nombre: string;
+  area?: string;
+  cargo: string;
+  inicio: string;
+  fin: string;
+  colacion?: number;
+}
+
+const isoDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const hhmmExtra = (t: string) => {
+  const [h = '', m = ''] = (t || '').split(':');
+  return h ? `${h.padStart(2, '0')}:${(m || '00').padStart(2, '0').slice(0, 2)}` : '';
+};
 
 interface NeighborMonth {
   scheduleData: Record<string, ShiftCode[]>;
@@ -555,8 +576,64 @@ export default function MallaSummary({
   selectedCargo = 'Todos',
   prevMonth,
   nextMonth,
+  extrasFiltro,
 }: Props) {
   const [selectedDay, setSelectedDay] = useState<number>(-1);
+
+  // Extras del mes (y unos días antes y después, por las semanas que cruzan de mes)
+  const [extras, setExtras] = useState<ExtraRow[]>([]);
+  const filtroKey = JSON.stringify(extrasFiltro ?? null);
+  useEffect(() => {
+    if (!extrasFiltro || extrasFiltro.sucursales.length === 0) {
+      setExtras([]);
+      return;
+    }
+    const [year, monthIdx] = monthYear(monthLabel);
+    const desde = isoDate(new Date(year, monthIdx, -6));
+    const hasta = isoDate(new Date(year, monthIdx + 1, 7));
+    let cancel = false;
+    getSupabase()
+      .from('extras')
+      .select('fecha,sucursal,nombre,area,cargo,inicio,fin,colacion')
+      .gte('fecha', desde)
+      .lte('fecha', hasta)
+      .in('sucursal', extrasFiltro.sucursales)
+      .then(({ data, error }) => {
+        if (cancel) return;
+        // Sin permiso de Extras o sin la tabla: la hoja sale igual, sin extras
+        setExtras(error ? [] : ((data as ExtraRow[]) ?? []));
+      });
+    return () => {
+      cancel = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthLabel, filtroKey]);
+
+  // Extras de un día (día del mes; puede ser < 1 o > días del mes), con los filtros de la Malla.
+  // Cuenta el cargo con que viene en el extra, no el de su ficha.
+  const extrasDelDia = (day: number): WorkerShiftDetail[] => {
+    if (extras.length === 0 || !extrasFiltro) return [];
+    const [year, monthIdx] = monthYear(monthLabel);
+    const fecha = isoDate(new Date(year, monthIdx, day));
+    const { areas, cargos } = extrasFiltro;
+    return extras
+      .filter(
+        (e) =>
+          e.fecha === fecha &&
+          (areas.length === 0 || !e.area || areas.includes(e.area)) &&
+          (cargos.length === 0 || !e.cargo || cargos.includes(e.cargo))
+      )
+      .map((e) => ({
+        name: e.nombre,
+        sucursal: e.sucursal,
+        area: e.area || (areas.length === 1 ? areas[0] : ''),
+        shiftLabel: '',
+        start: hhmmExtra(e.inicio),
+        end: hhmmExtra(e.fin),
+        colacion: e.colacion ?? 0,
+        extra: true,
+      }));
+  };
   const [printMode, setPrintMode] = useState<'day' | 'week'>('week');
   const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
 
@@ -763,6 +840,7 @@ export default function MallaSummary({
         colacion: (shift as { colacion?: number }).colacion ?? 0,
       });
     });
+    details.push(...extrasDelDia(selectedDay + 1));
     details.sort((a, b) => {
       const toMins = (t: string) => {
         const [h, m] = (t || '00:00').split(':').map(Number);
@@ -772,7 +850,8 @@ export default function MallaSummary({
       return diff !== 0 ? diff : a.name.localeCompare(b.name);
     });
     return details;
-  }, [workers, scheduleData, specialDaysData, shifts, selectedDay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workers, scheduleData, specialDaysData, shifts, selectedDay, extras, filtroKey]);
 
   const weekWorkerDetails = useMemo(() => {
     const wk = weekOptions[selectedWeekIdx];
@@ -801,6 +880,7 @@ export default function MallaSummary({
           colacion: (shift as { colacion?: number }).colacion ?? 0,
         });
       });
+      dayWorkers.push(...extrasDelDia(d));
       dayWorkers.sort((a, b) => {
         const toMins = (t: string) => {
           const [h, m] = (t || '00:00').split(':').map(Number);
@@ -822,6 +902,8 @@ export default function MallaSummary({
     shifts,
     weekOptions,
     selectedWeekIdx,
+    extras,
+    filtroKey,
   ]);
 
   const weeklySummary = useMemo(() => {

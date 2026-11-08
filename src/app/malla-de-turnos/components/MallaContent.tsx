@@ -280,6 +280,19 @@ export default function MallaContent() {
   // Sin «Publicar»: un mes que viene solo se ve en las sucursales donde ya es definitivo
   const sucursalesPublicadas = useMesSinPublicar(monthLabelToKey(selectedMes));
 
+  // Para sumar los extras a la impresión del día: misma sucursal, área y cargo elegidos
+  const extrasFiltro = useMemo(
+    () => ({
+      sucursales:
+        selectedSucursales.length > 0
+          ? selectedSucursales
+          : [...new Set(workers.map((w) => w.sucursal))],
+      areas: selectedAreas,
+      cargos: selectedCargos,
+    }),
+    [selectedSucursales, selectedAreas, selectedCargos, workers]
+  );
+
   const filteredWorkers = useMemo(() => {
     return workers.filter((w) => {
       if (w.estado !== 'Activo') return false;
@@ -724,6 +737,7 @@ export default function MallaContent() {
                 selectedCargo={selectedCargos.length === 1 ? selectedCargos[0] : 'Todos'}
                 prevMonth={neighborMonths.prev}
                 nextMonth={neighborMonths.next}
+                extrasFiltro={extrasFiltro}
               />
             </div>
           </div>
