@@ -250,7 +250,8 @@ export default function ExtrasContent() {
   const extrasVisibles = useMemo(
     () =>
       extras.filter((e) => {
-        if (cargo !== 'Todos' && e.cargo !== cargo) return false;
+        // Sin cargo anotado se muestra igual, para que no se pierda
+        if (cargo !== 'Todos' && e.cargo && e.cargo !== cargo) return false;
         if (area === 'Todas') return true;
         return areaDeExtra(e) === area || areaDeExtra(e) === '';
       }),
@@ -395,7 +396,6 @@ export default function ExtrasContent() {
           nombre,
           workerId: w.id,
           rut: w.rut || f.rut,
-          cargo: f.cargo || w.cargo || '',
           area: f.area || w.area,
         };
       // Dejó de ser alguien del personal: se limpia lo que venía de su ficha
@@ -413,6 +413,7 @@ export default function ExtrasContent() {
     const nombre = form.nombre.trim();
     if (!form.area) return toast.error('Elige el área.');
     if (!nombre) return toast.error('Escribe el nombre.');
+    if (!form.cargo.trim()) return toast.error('Elige a qué cargo viene.');
     if (!form.inicio || !form.fin) return toast.error('Falta la hora de inicio o de término.');
     if (form.inicio === form.fin)
       return toast.error('El inicio y el término no pueden ser iguales.');
@@ -818,7 +819,7 @@ export default function ExtrasContent() {
 
               <div>
                 <label className={labelClass} htmlFor="ex-cargo">
-                  Cargo
+                  Viene como (cargo)
                 </label>
                 {(() => {
                   const ops = cargosDeArea(form.area);
