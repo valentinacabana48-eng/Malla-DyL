@@ -261,7 +261,10 @@ export default function ExtrasContent() {
     const label = new Map(getAllNonWorkingTypes().map((t) => [t.code, t.label]));
     // El domingo no se listan los descansos (descansa casi todo el personal)
     const domingo = new Date(y, m - 1, d).getDay() === 0;
+    // Quien vino de extra ese día no se cuenta como que no viene
+    const conExtra = new Set(extras.map((e) => e.worker_id).filter(Boolean));
     return personal
+      .filter((w) => !conExtra.has(w.id))
       .map((w) => ({
         name: w.name,
         estado: estadoAusencia(
@@ -272,7 +275,18 @@ export default function ExtrasContent() {
       }))
       .filter((x): x is Ausente => !!x.estado && !(domingo && x.estado === 'Descanso'))
       .sort(ordenAusentes);
-  }, [personal, specialDays, scheduleData, monthKey, dayIndex, getAllNonWorkingTypes, y, m, d]);
+  }, [
+    personal,
+    extras,
+    specialDays,
+    scheduleData,
+    monthKey,
+    dayIndex,
+    getAllNonWorkingTypes,
+    y,
+    m,
+    d,
+  ]);
 
   // Extras que se muestran: si se filtró por área, los del personal de esa área y los de afuera
   const extrasVisibles = useMemo(

@@ -499,26 +499,38 @@ export interface Ausente {
 /** Quién no viene ese día por licencia, vacaciones, permiso, etc. (el descanso no se lista) */
 export function Ausentes({ ausentes }: { ausentes: Ausente[] }) {
   if (ausentes.length === 0) return null;
-  const cell: React.CSSProperties = {
-    padding: '3px 8px',
-    borderBottom: '1px solid #e5e7eb',
-    fontSize: '10px',
-  };
+  // En dos columnas, para que no ocupe tanta hoja cuando son muchas
   return (
     <div style={{ marginTop: '10px', breakInside: 'avoid' }}>
       <div style={{ fontSize: '11px', fontWeight: '700', marginBottom: '3px' }}>
         No vienen este día ({ausentes.length})
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <tbody>
-          {ausentes.map((a, i) => (
-            <tr key={`aus-${i}`}>
-              <td style={{ ...cell, fontWeight: '600', width: '55%' }}>{a.name}</td>
-              <td style={{ ...cell, fontWeight: '700', color: '#b45309' }}>{a.estado}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          columnGap: '16px',
+          fontSize: '10px',
+        }}
+      >
+        {ausentes.map((a, i) => (
+          <div
+            key={`aus-${i}`}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: '8px',
+              padding: '3px 8px',
+              borderBottom: '1px solid #e5e7eb',
+            }}
+          >
+            <span style={{ fontWeight: '600' }}>{a.name}</span>
+            <span style={{ fontWeight: '700', color: '#b45309', whiteSpace: 'nowrap' }}>
+              {a.estado}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
