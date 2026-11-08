@@ -7,7 +7,13 @@ import { shiftsForSucursales, useAppContext, type Worker } from '@/context/AppCo
 import { formatRut } from '@/lib/rut';
 import { fechaLargaAnio, pesos } from '@/lib/extras';
 import { printElement } from '@/lib/printElement';
-import { DaySheet, type WorkerShiftDetail } from '@/app/malla-de-turnos/components/MallaSummary';
+import {
+  Ausentes,
+  DaySheet,
+  NO_ES_AUSENCIA,
+  type Ausente,
+  type WorkerShiftDetail,
+} from '@/app/malla-de-turnos/components/MallaSummary';
 
 // Extras del día: se elige el día y la sucursal, se ve quién tiene turno y se agregan
 // extras (alguien del personal o una persona de afuera) con su horario y el valor a pagar.
@@ -97,6 +103,7 @@ export default function ExtrasContent() {
     sucursales,
     areasDeSucursales,
     areaCargos,
+    getAllNonWorkingTypes,
     globalSucursal,
     ensureMonths,
     loading: appLoading,
@@ -245,6 +252,17 @@ export default function ExtrasContent() {
       (a, b) => a.inicio.localeCompare(b.inicio) || a.w.name.localeCompare(b.w.name, 'es')
     );
   }, [personal, scheduleData, specialDays, monthKey, dayIndex, shifts]);
+
+  // Quién no viene ese día (licencia, vacaciones, permiso…), del área y cargo elegidos
+  const ausentes = useMemo((): Ausente[] => {
+    const monthSpecial = specialDays[monthKey] || {};
+    const label = new Map(getAllNonWorkingTypes().map((t) => [t.code, t.label]));
+    return personal
+      .map((w) => ({ w, code: monthSpecial[w.id]?.[dayIndex] }))
+      .filter((x): x is { w: Worker; code: string } => !!x.code && !NO_ES_AUSENCIA.has(x.code))
+      .map(({ w, code }) => ({ name: w.name, estado: label.get(code) ?? code }))
+      .sort((a, b) => a.estado.localeCompare(b.estado) || a.name.localeCompare(b.name, 'es'));
+  }, [personal, specialDays, monthKey, dayIndex, getAllNonWorkingTypes]);
 
   // Extras que se muestran: si se filtró por área, los del personal de esa área y los de afuera
   const extrasVisibles = useMemo(
@@ -1007,6 +1025,7 @@ export default function ExtrasContent() {
           ) : (
             <DaySheet workerDetails={hojaDia} />
           )}
+          <Ausentes ausentes={ausentes} />
 
           {(grupos.length === 0 ? [{ area: '', lista: [] as Extra[], total: 0 }] : grupos).map(
             (g, gi, todos) => (
