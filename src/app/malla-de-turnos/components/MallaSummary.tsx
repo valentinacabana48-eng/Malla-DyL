@@ -8,7 +8,13 @@ import {
   CalendarDays,
   Printer,
 } from 'lucide-react';
-import { type ShiftCode, type Shift, type Worker, timeToMinutes } from '@/context/AppContext';
+import {
+  type ShiftCode,
+  type Shift,
+  type Worker,
+  timeToMinutes,
+  useAppContext,
+} from '@/context/AppContext';
 import { printElement } from '@/lib/printElement';
 
 interface Props {
@@ -485,6 +491,41 @@ export function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[]
   );
 }
 
+export interface Ausente {
+  name: string;
+  estado: string;
+}
+
+/** Quién no viene ese día por licencia, vacaciones, permiso, etc. (el descanso no se lista) */
+export function Ausentes({ ausentes }: { ausentes: Ausente[] }) {
+  if (ausentes.length === 0) return null;
+  const cell: React.CSSProperties = {
+    padding: '3px 8px',
+    borderBottom: '1px solid #e5e7eb',
+    fontSize: '10px',
+  };
+  return (
+    <div style={{ marginTop: '10px', breakInside: 'avoid' }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', marginBottom: '3px' }}>
+        No vienen este día ({ausentes.length})
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <tbody>
+          {ausentes.map((a, i) => (
+            <tr key={`aus-${i}`}>
+              <td style={{ ...cell, fontWeight: '600', width: '55%' }}>{a.name}</td>
+              <td style={{ ...cell, fontWeight: '700', color: '#b45309' }}>{a.estado}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Días especiales que no se listan como ausencia */
+export const NO_ES_AUSENCIA = new Set(['DESCANSO', 'NT']);
+
 // Cuántas hay trabajando a cada hora en punto (la que sale a esa hora ya no cuenta)
 function HourlyCountStrip({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
   const turnos = workerDetails
@@ -557,6 +598,18 @@ export default function MallaSummary({
   nextMonth,
 }: Props) {
   const [selectedDay, setSelectedDay] = useState<number>(-1);
+  const { getAllNonWorkingTypes } = useAppContext();
+  const estadoLabel = useMemo(() => {
+    const map = new Map(getAllNonWorkingTypes().map((t) => [t.code, t.label]));
+    return (code: string) => map.get(code) ?? code;
+  }, [getAllNonWorkingTypes]);
+  const ausentesDe = (sd: Record<string, Record<number, string>>, dayIdx: number): Ausente[] =>
+    workers
+      .map((w) => ({ w, code: sd[w.id]?.[dayIdx] }))
+      .filter((x): x is { w: Worker; code: string } => !!x.code && !NO_ES_AUSENCIA.has(x.code))
+      .map(({ w, code }) => ({ name: w.name, estado: estadoLabel(code) }))
+      .sort((a, b) => a.estado.localeCompare(b.estado) || a.name.localeCompare(b.name, 'es'));
+  const ausentesDia = selectedDay >= 0 ? ausentesDe(specialDaysData, selectedDay) : [];
   const [printMode, setPrintMode] = useState<'day' | 'week'>('week');
   const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
 
@@ -777,7 +830,7 @@ export default function MallaSummary({
   const weekWorkerDetails = useMemo(() => {
     const wk = weekOptions[selectedWeekIdx];
     if (!wk) return [];
-    const result: { day: number; workers: WorkerShiftDetail[] }[] = [];
+    const result: { day: number; workers: WorkerShiftDetail[]; ausentes: Ausente[] }[] = [];
     for (let d = wk.startDay; d <= wk.endDay; d++) {
       const { scheduleData, specialDaysData, dayIdx } = resolveDay(d);
       const dayWorkers: WorkerShiftDetail[] = [];
@@ -809,7 +862,7 @@ export default function MallaSummary({
         const diff = toMins(a.start) - toMins(b.start);
         return diff !== 0 ? diff : a.name.localeCompare(b.name);
       });
-      result.push({ day: d, workers: dayWorkers });
+      result.push({ day: d, workers: dayWorkers, ausentes: ausentesDe(specialDaysData, dayIdx) });
     }
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -949,10 +1002,11 @@ export default function MallaSummary({
               ) : (
                 <DaySheet workerDetails={workerDetails} />
               )}
+              <Ausentes ausentes={ausentesDia} />
             </>
           ) : (
             <>
-              {weekWorkerDetails.map(({ day, workers: dayWorkers }, dayIdx) => {
+              {weekWorkerDetails.map(({ day, workers: dayWorkers, ausentes }, dayIdx) => {
                 return (
                   <div
                     key={`week-day-${day}`}
@@ -977,6 +1031,7 @@ export default function MallaSummary({
                     ) : (
                       <DaySheet workerDetails={dayWorkers} />
                     )}
+                    <Ausentes ausentes={ausentes} />
                   </div>
                 );
               })}
