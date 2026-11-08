@@ -542,10 +542,19 @@ export const NO_ES_AUSENCIA = new Set(['NT']);
 export function estadoAusencia(
   special: string | undefined,
   code: ShiftCode | string | null | undefined,
-  label: (c: string) => string
+  label: (c: string) => string,
+  horasContratadas = 42
 ): string | null {
-  if (special) return NO_ES_AUSENCIA.has(special) ? null : label(special);
-  return code === 'DESC' ? 'Descanso' : null;
+  const estado = special
+    ? NO_ES_AUSENCIA.has(special)
+      ? null
+      : label(special)
+    : code === 'DESC'
+      ? 'Descanso'
+      : null;
+  // Las de 10 horas trabajan solo los domingos: su descanso de la semana no se lista
+  if (estado === 'Descanso' && horasContratadas <= 10) return null;
+  return estado;
 }
 
 /** Primero licencias, vacaciones, permisos…; al final los descansos */
@@ -643,7 +652,12 @@ export default function MallaSummary({
     return workers
       .map((w) => ({
         name: w.name,
-        estado: estadoAusencia(sd[w.id]?.[dayIdx], sched[w.id]?.[dayIdx], estadoLabel),
+        estado: estadoAusencia(
+          sd[w.id]?.[dayIdx],
+          sched[w.id]?.[dayIdx],
+          estadoLabel,
+          w.horasContratadas
+        ),
       }))
       .filter((x): x is Ausente => !!x.estado && !(domingo && x.estado === 'Descanso'))
       .sort(ordenAusentes);

@@ -270,7 +270,8 @@ export default function ExtrasContent() {
         estado: estadoAusencia(
           monthSpecial[w.id]?.[dayIndex],
           monthSched[w.id]?.[dayIndex],
-          (c) => label.get(c) ?? c
+          (c) => label.get(c) ?? c,
+          w.horasContratadas
         ),
       }))
       .filter((x): x is Ausente => !!x.estado && !(domingo && x.estado === 'Descanso'))
