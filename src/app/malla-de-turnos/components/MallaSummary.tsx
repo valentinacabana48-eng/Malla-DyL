@@ -499,32 +499,60 @@ export interface Ausente {
 /** Quién no viene ese día por licencia, vacaciones, permiso, etc. (el descanso no se lista) */
 export function Ausentes({ ausentes }: { ausentes: Ausente[] }) {
   if (ausentes.length === 0) return null;
-  const cell: React.CSSProperties = {
-    padding: '3px 8px',
-    borderBottom: '1px solid #e5e7eb',
-    fontSize: '10px',
-  };
+  // En dos columnas, para que no ocupe tanta hoja cuando son muchas
   return (
     <div style={{ marginTop: '10px', breakInside: 'avoid' }}>
       <div style={{ fontSize: '11px', fontWeight: '700', marginBottom: '3px' }}>
         No vienen este día ({ausentes.length})
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <tbody>
-          {ausentes.map((a, i) => (
-            <tr key={`aus-${i}`}>
-              <td style={{ ...cell, fontWeight: '600', width: '55%' }}>{a.name}</td>
-              <td style={{ ...cell, fontWeight: '700', color: '#b45309' }}>{a.estado}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          columnGap: '16px',
+          fontSize: '10px',
+        }}
+      >
+        {ausentes.map((a, i) => (
+          <div
+            key={`aus-${i}`}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: '8px',
+              padding: '3px 8px',
+              borderBottom: '1px solid #e5e7eb',
+            }}
+          >
+            <span style={{ fontWeight: '600' }}>{a.name}</span>
+            <span style={{ fontWeight: '700', color: '#b45309', whiteSpace: 'nowrap' }}>
+              {a.estado}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 /** Días especiales que no se listan como ausencia */
-export const NO_ES_AUSENCIA = new Set(['DESCANSO', 'NT']);
+export const NO_ES_AUSENCIA = new Set(['NT']);
+
+/** Estado de quien no trabaja ese día: el día especial, o "Descanso" si en la malla tiene DESC */
+export function estadoAusencia(
+  special: string | undefined,
+  code: ShiftCode | string | null | undefined,
+  label: (c: string) => string
+): string | null {
+  if (special) return NO_ES_AUSENCIA.has(special) ? null : label(special);
+  return code === 'DESC' ? 'Descanso' : null;
+}
+
+/** Primero licencias, vacaciones, permisos…; al final los descansos */
+export const ordenAusentes = (a: Ausente, b: Ausente) =>
+  Number(a.estado === 'Descanso') - Number(b.estado === 'Descanso') ||
+  a.estado.localeCompare(b.estado) ||
+  a.name.localeCompare(b.name, 'es');
 
 // Cuántas hay trabajando a cada hora en punto (la que sale a esa hora ya no cuenta)
 function HourlyCountStrip({ workerDetails }: { workerDetails: WorkerShiftDetail[] }) {
@@ -603,13 +631,25 @@ export default function MallaSummary({
     const map = new Map(getAllNonWorkingTypes().map((t) => [t.code, t.label]));
     return (code: string) => map.get(code) ?? code;
   }, [getAllNonWorkingTypes]);
-  const ausentesDe = (sd: Record<string, Record<number, string>>, dayIdx: number): Ausente[] =>
-    workers
-      .map((w) => ({ w, code: sd[w.id]?.[dayIdx] }))
-      .filter((x): x is { w: Worker; code: string } => !!x.code && !NO_ES_AUSENCIA.has(x.code))
-      .map(({ w, code }) => ({ name: w.name, estado: estadoLabel(code) }))
-      .sort((a, b) => a.estado.localeCompare(b.estado) || a.name.localeCompare(b.name, 'es'));
-  const ausentesDia = selectedDay >= 0 ? ausentesDe(specialDaysData, selectedDay) : [];
+  // day: día del mes (puede salirse del mes en la semana); el domingo no se listan descansos
+  const ausentesDe = (
+    sd: Record<string, Record<number, string>>,
+    sched: Record<string, ShiftCode[]>,
+    dayIdx: number,
+    day: number
+  ): Ausente[] => {
+    const [year, monthIdx] = monthYear(monthLabel);
+    const domingo = new Date(year, monthIdx, day).getDay() === 0;
+    return workers
+      .map((w) => ({
+        name: w.name,
+        estado: estadoAusencia(sd[w.id]?.[dayIdx], sched[w.id]?.[dayIdx], estadoLabel),
+      }))
+      .filter((x): x is Ausente => !!x.estado && !(domingo && x.estado === 'Descanso'))
+      .sort(ordenAusentes);
+  };
+  const ausentesDia =
+    selectedDay >= 0 ? ausentesDe(specialDaysData, scheduleData, selectedDay, selectedDay + 1) : [];
   const [printMode, setPrintMode] = useState<'day' | 'week'>('week');
   const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
 
@@ -862,7 +902,11 @@ export default function MallaSummary({
         const diff = toMins(a.start) - toMins(b.start);
         return diff !== 0 ? diff : a.name.localeCompare(b.name);
       });
-      result.push({ day: d, workers: dayWorkers, ausentes: ausentesDe(specialDaysData, dayIdx) });
+      result.push({
+        day: d,
+        workers: dayWorkers,
+        ausentes: ausentesDe(specialDaysData, scheduleData, dayIdx, d),
+      });
     }
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
