@@ -10,7 +10,8 @@ import { printElement } from '@/lib/printElement';
 import {
   Ausentes,
   DaySheet,
-  NO_ES_AUSENCIA,
+  estadoAusencia,
+  ordenAusentes,
   type Ausente,
   type WorkerShiftDetail,
 } from '@/app/malla-de-turnos/components/MallaSummary';
@@ -256,13 +257,22 @@ export default function ExtrasContent() {
   // Quién no viene ese día (licencia, vacaciones, permiso…), del área y cargo elegidos
   const ausentes = useMemo((): Ausente[] => {
     const monthSpecial = specialDays[monthKey] || {};
+    const monthSched = scheduleData[monthKey] || {};
     const label = new Map(getAllNonWorkingTypes().map((t) => [t.code, t.label]));
+    // El domingo no se listan los descansos (descansa casi todo el personal)
+    const domingo = new Date(y, m - 1, d).getDay() === 0;
     return personal
-      .map((w) => ({ w, code: monthSpecial[w.id]?.[dayIndex] }))
-      .filter((x): x is { w: Worker; code: string } => !!x.code && !NO_ES_AUSENCIA.has(x.code))
-      .map(({ w, code }) => ({ name: w.name, estado: label.get(code) ?? code }))
-      .sort((a, b) => a.estado.localeCompare(b.estado) || a.name.localeCompare(b.name, 'es'));
-  }, [personal, specialDays, monthKey, dayIndex, getAllNonWorkingTypes]);
+      .map((w) => ({
+        name: w.name,
+        estado: estadoAusencia(
+          monthSpecial[w.id]?.[dayIndex],
+          monthSched[w.id]?.[dayIndex],
+          (c) => label.get(c) ?? c
+        ),
+      }))
+      .filter((x): x is Ausente => !!x.estado && !(domingo && x.estado === 'Descanso'))
+      .sort(ordenAusentes);
+  }, [personal, specialDays, scheduleData, monthKey, dayIndex, getAllNonWorkingTypes, y, m, d]);
 
   // Extras que se muestran: si se filtró por área, los del personal de esa área y los de afuera
   const extrasVisibles = useMemo(
