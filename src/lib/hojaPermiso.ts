@@ -44,26 +44,26 @@ export function imprimirHojaPermiso(h: HojaPermiso) {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  @page { size: letter; margin: 14mm; }
+  @page { size: letter; margin: 10mm; }
   * { box-sizing: border-box; }
   body { font-family: 'Montserrat', Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 500; color: #1a1a1a; margin: 0; }
-  .frame { border: 1.5px solid #1a1a1a; border-radius: 10px; padding: 22px 26px; }
-  .head { border: 1.5px solid #1a1a1a; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; }
+  .frame { border: 1.5px solid #1a1a1a; border-radius: 10px; padding: 16px 22px; break-inside: avoid; page-break-inside: avoid; }
+  .head { border: 1.5px solid #1a1a1a; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; }
   .head h1 { font-size: 19px; font-weight: 800; margin: 0; letter-spacing: .6px; }
   .head h1 span { display: block; font-size: 11px; font-weight: 600; letter-spacing: 2px; color: #d71920; margin-top: 3px; }
-  .head img { height: 78px; }
-  .row { display: flex; align-items: center; gap: 10px; margin: 11px 0; }
+  .head img { height: 62px; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
   .lbl { font-weight: 700; font-size: 11px; letter-spacing: .4px; min-width: 150px; }
   .field { flex: 1; border: 1px solid #1a1a1a; border-radius: 4px; min-height: 26px; padding: 4px 9px; }
   .box { display: inline-block; width: 64px; height: 26px; border: 1px solid #1a1a1a; text-align: center; line-height: 24px; margin-right: -1px; }
-  .datebar { display: flex; justify-content: flex-end; margin: 14px 0 6px; }
+  .datebar { display: flex; justify-content: flex-end; margin: 10px 0 4px; }
   .datebar .tag { border: 1px solid #1a1a1a; padding: 0 18px; font-weight: 700; font-size: 11px; letter-spacing: .4px; height: 26px; line-height: 24px; margin-right: -1px; }
   .check { display: inline-block; width: 80px; height: 26px; border: 1px solid #1a1a1a; border-radius: 4px; text-align: center; line-height: 24px; font-weight: 800; }
-  .opt { display: flex; align-items: center; gap: 12px; margin: 8px 0 8px 160px; }
+  .opt { display: flex; align-items: center; gap: 12px; margin: 6px 0 6px 160px; }
   .opt span:first-child { width: 250px; font-weight: 700; font-size: 11px; letter-spacing: .4px; }
-  .obs { min-height: 48px; }
-  .sign { margin: 46px 0 0 auto; width: 55%; border-top: 1px solid #1a1a1a; text-align: center; padding-top: 4px; font-weight: 700; font-size: 11px; letter-spacing: .4px; }
-  .res { border: 1.5px solid #1a1a1a; border-radius: 8px; padding: 14px 18px; margin-top: 22px; }
+  .obs { min-height: 42px; }
+  .sign { margin: 34px 0 0 auto; width: 55%; border-top: 1px solid #1a1a1a; text-align: center; padding-top: 4px; font-weight: 700; font-size: 11px; letter-spacing: .4px; }
+  .res { border: 1.5px solid #1a1a1a; border-radius: 8px; padding: 10px 18px; margin-top: 16px; }
   .res h2 { font-size: 15px; font-weight: 800; letter-spacing: .6px; margin: 0 0 4px; }
   .muted { color: #555; font-size: 10px; margin-top: 10px; }
   @media print { .noprint { display: none; } }
