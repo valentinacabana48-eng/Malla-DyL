@@ -753,26 +753,26 @@ function FloatingShiftPanel({
             {/* Apply / counter */}
             {activeShift !== undefined && selectedCount > 0 && (
               <>
-                <span className="text-[10px] text-emerald-600 font-semibold whitespace-nowrap bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5">
+                <span className="text-[10px] text-emerald-600 font-semibold  bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5">
                   {selectedCount} sel.
                 </span>
                 <button
                   onClick={onApply}
-                  className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors "
                 >
                   <CheckSquare size={11} />
                   Aplicar
                 </button>
                 <button
                   onClick={onClearSelection}
-                  className="text-[10px] text-muted-foreground hover:text-foreground px-1 py-0.5 rounded transition-colors whitespace-nowrap"
+                  className="text-[10px] text-muted-foreground hover:text-foreground px-1 py-0.5 rounded transition-colors "
                 >
                   Limpiar sel.
                 </button>
               </>
             )}
             {activeShift !== undefined && selectedCount === 0 && (
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+              <span className="text-[10px] text-muted-foreground ">
                 {activeShift === null
                   ? 'Selecciona celdas a limpiar'
                   : 'Selecciona celdas → Aplicar'}
@@ -780,26 +780,26 @@ function FloatingShiftPanel({
             )}
             {activeSpecialDay !== undefined && selectedCount > 0 && (
               <>
-                <span className="text-[10px] text-purple-600 font-semibold whitespace-nowrap bg-purple-50 border border-purple-200 rounded-full px-1.5 py-0.5">
+                <span className="text-[10px] text-purple-600 font-semibold  bg-purple-50 border border-purple-200 rounded-full px-1.5 py-0.5">
                   {selectedCount} sel.
                 </span>
                 <button
                   onClick={onApply}
-                  className="flex items-center gap-1 bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1 bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors "
                 >
                   <CheckSquare size={11} />
                   Aplicar
                 </button>
                 <button
                   onClick={onClearSelection}
-                  className="text-[10px] text-muted-foreground hover:text-foreground px-1 py-0.5 rounded transition-colors whitespace-nowrap"
+                  className="text-[10px] text-muted-foreground hover:text-foreground px-1 py-0.5 rounded transition-colors "
                 >
                   Limpiar sel.
                 </button>
               </>
             )}
             {activeSpecialDay !== undefined && selectedCount === 0 && (
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+              <span className="text-[10px] text-muted-foreground ">
                 Selecciona celdas → Aplicar
               </span>
             )}
@@ -822,7 +822,7 @@ function FloatingShiftPanel({
                 onSelectShift(activeShift === null ? (undefined as unknown as ShiftCode) : null)
               }
               title="Modo limpiar celda"
-              className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all whitespace-nowrap ${
+              className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all  ${
                 activeShift === null
                   ? 'border-emerald-500 ring-2 ring-emerald-300 bg-slate-200 text-slate-700'
                   : 'border-transparent hover:border-border/60 bg-slate-100 text-slate-500'
@@ -841,7 +841,7 @@ function FloatingShiftPanel({
                     onSelectSpecialDay(activeSpecialDay === nwt.code ? undefined : nwt.code)
                   }
                   title={`Modo ${nwt.label}`}
-                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all whitespace-nowrap ${
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all  ${
                     activeSpecialDay === nwt.code
                       ? 'border-purple-500 ring-2 ring-purple-300 bg-purple-100 text-purple-700'
                       : 'border-transparent hover:border-border/60 bg-purple-50 text-purple-500'
@@ -1244,12 +1244,12 @@ export default function MallaGrid({
               </th>
               {/* Summary column header — sticky */}
               <th
-                className="hidden lg:table-cell text-center px-1 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] border-r border-border min-w-[90px] w-[90px] lg:sticky"
+                className="hidden lg:table-cell text-center px-1 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[11px] border-r border-border min-w-[112px] w-[112px] lg:sticky"
                 style={{ left: 180, zIndex: 13, backgroundColor: '#f1f5f9' }}
               >
                 <div>Resumen</div>
                 <div className="text-[9px] font-normal normal-case tracking-normal text-muted-foreground/70">
-                  horas · ☀ dom. libres
+                  horas · domingos
                 </div>
               </th>
               {leadingDays.map((ld) => (
@@ -1342,7 +1342,7 @@ export default function MallaGrid({
                             const effectiveHoras =
                               contractedHoursOverride[worker.id] ?? worker.horasContratadas ?? 42;
                             return (
-                              <span className="text-[9px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded px-1 py-0 shrink-0 whitespace-nowrap">
+                              <span className="text-[9px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded px-1 py-0 shrink-0 ">
                                 {effectiveHoras}h
                               </span>
                             );
@@ -1391,21 +1391,21 @@ export default function MallaGrid({
 
                     return (
                       <td
-                        className="hidden lg:table-cell border-r border-border px-1 py-0.5 min-w-[90px] w-[90px] text-center align-middle lg:sticky"
+                        className="hidden lg:table-cell border-r border-border px-1.5 py-1 min-w-[112px] w-[112px] text-center align-middle lg:sticky"
                         style={{ left: 180, zIndex: 2, backgroundColor: stickyBgColor }}
                       >
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex flex-col items-stretch gap-1">
                           {/* Monthly total hours */}
                           <div
-                            className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded-md text-[10px] font-semibold ${hoursOver ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}
+                            className={`flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-bold ${hoursOver ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}
                           >
-                            <span>{totalHours}h</span>
-                            {hoursOver && <span className="text-[9px]">⚠</span>}
+                            <span>{totalHours} h mes</span>
+                            {hoursOver && <span>⚠</span>}
                           </div>
 
                           {/* Sunday count */}
                           <div
-                            className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded-md text-[10px] font-semibold ${sundaysOver ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}
+                            className={`flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-semibold ${sundaysOver ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}
                             title={
                               exentoDomingos
                                 ? 'Trabaja todos los domingos: no aplica la regla de domingos libres'
@@ -1413,8 +1413,10 @@ export default function MallaGrid({
                             }
                           >
                             <span>☀</span>
-                            <span>{exentoDomingos ? 'Todos' : sundayCount}</span>
-                            {sundaysOver && <span className="text-[9px]">⚠</span>}
+                            <span>
+                              {exentoDomingos ? 'Trab. dom.' : `${sundayCount} dom.`}
+                            </span>
+                            {sundaysOver && <span>⚠</span>}
                           </div>
                         </div>
                         {(() => {
@@ -1432,7 +1434,7 @@ export default function MallaGrid({
                                 })
                               }
                               title="Ver horas por semana"
-                              className={`mt-0.5 w-full flex items-center justify-center gap-1 px-1 py-0 rounded text-[9px] font-semibold border transition-colors ${anyWeekDiff ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+                              className={`mt-1 w-full flex items-center justify-center gap-1 px-1 py-0.5 rounded text-[11px] font-semibold border transition-colors ${anyWeekDiff ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
                             >
                               {anyWeekDiff && <span>⚠</span>}
                               <span>Semanas</span>
@@ -1451,7 +1453,7 @@ export default function MallaGrid({
                                   return (
                                     <div
                                       key={`wk-${wk.key}`}
-                                      className={`flex items-center justify-between gap-1 px-1 py-0.5 rounded text-[9px] font-medium border ${
+                                      className={`flex items-center justify-between gap-1 px-1 py-0.5 rounded text-[11px] font-medium border ${
                                         isOver
                                           ? 'bg-orange-50 border-orange-200 text-orange-700'
                                           : isUnder
@@ -1496,30 +1498,30 @@ export default function MallaGrid({
                                         className={`rounded-md border px-1.5 py-1 text-left ${firstHasDiff ? 'border-orange-300 bg-orange-50' : 'border-violet-200 bg-violet-50'}`}
                                       >
                                         <div
-                                          className={`text-[9px] font-bold uppercase tracking-wide mb-0.5 ${firstHasDiff ? 'text-orange-600' : 'text-violet-600'}`}
+                                          className={`text-[11px] font-bold uppercase tracking-wide mb-0.5 ${firstHasDiff ? 'text-orange-600' : 'text-violet-600'}`}
                                         >
                                           Sem. 1 {firstHasDiff && '⚠'}
                                         </div>
                                         <div className="flex items-center justify-between gap-1">
                                           <span
-                                            className={`text-[9px] ${firstHasDiff ? 'text-orange-500' : 'text-violet-500'}`}
+                                            className={`text-[11px] ${firstHasDiff ? 'text-orange-500' : 'text-violet-500'}`}
                                           >
                                             Mes ant.
                                           </span>
                                           <span
-                                            className={`text-[9px] font-bold ${firstHasDiff ? 'text-orange-700' : 'text-violet-700'}`}
+                                            className={`text-[11px] font-bold ${firstHasDiff ? 'text-orange-700' : 'text-violet-700'}`}
                                           >
                                             {firstWeekPrevHours}h
                                           </span>
                                         </div>
                                         <div className="flex items-center justify-between gap-1">
                                           <span
-                                            className={`text-[9px] ${firstHasDiff ? 'text-orange-500' : 'text-violet-500'}`}
+                                            className={`text-[11px] ${firstHasDiff ? 'text-orange-500' : 'text-violet-500'}`}
                                           >
                                             Este mes
                                           </span>
                                           <span
-                                            className={`text-[9px] font-bold ${firstHasDiff ? 'text-orange-700' : 'text-violet-700'}`}
+                                            className={`text-[11px] font-bold ${firstHasDiff ? 'text-orange-700' : 'text-violet-700'}`}
                                           >
                                             {firstWeekCurrentHours}h
                                           </span>
@@ -1528,12 +1530,12 @@ export default function MallaGrid({
                                           className={`flex items-center justify-between gap-1 mt-0.5 pt-0.5 border-t ${firstHasDiff ? 'border-orange-200' : 'border-violet-200'}`}
                                         >
                                           <span
-                                            className={`text-[9px] font-semibold ${firstHasDiff ? 'text-orange-600' : 'text-violet-600'}`}
+                                            className={`text-[11px] font-semibold ${firstHasDiff ? 'text-orange-600' : 'text-violet-600'}`}
                                           >
                                             Total sem.
                                           </span>
                                           <span
-                                            className={`text-[9px] font-bold ${firstHasDiff ? 'text-orange-800' : 'text-violet-800'}`}
+                                            className={`text-[11px] font-bold ${firstHasDiff ? 'text-orange-800' : 'text-violet-800'}`}
                                           >
                                             {firstWeekTotal}h
                                           </span>
@@ -1545,30 +1547,30 @@ export default function MallaGrid({
                                         className={`rounded-md border px-1.5 py-1 text-left ${lastHasDiff ? 'border-orange-300 bg-orange-50' : 'border-teal-200 bg-teal-50'}`}
                                       >
                                         <div
-                                          className={`text-[9px] font-bold uppercase tracking-wide mb-0.5 ${lastHasDiff ? 'text-orange-600' : 'text-teal-600'}`}
+                                          className={`text-[11px] font-bold uppercase tracking-wide mb-0.5 ${lastHasDiff ? 'text-orange-600' : 'text-teal-600'}`}
                                         >
                                           Últ. sem. {lastHasDiff && '⚠'}
                                         </div>
                                         <div className="flex items-center justify-between gap-1">
                                           <span
-                                            className={`text-[9px] ${lastHasDiff ? 'text-orange-500' : 'text-teal-500'}`}
+                                            className={`text-[11px] ${lastHasDiff ? 'text-orange-500' : 'text-teal-500'}`}
                                           >
                                             Este mes
                                           </span>
                                           <span
-                                            className={`text-[9px] font-bold ${lastHasDiff ? 'text-orange-700' : 'text-teal-700'}`}
+                                            className={`text-[11px] font-bold ${lastHasDiff ? 'text-orange-700' : 'text-teal-700'}`}
                                           >
                                             {lastWeekCurrentHours}h
                                           </span>
                                         </div>
                                         <div className="flex items-center justify-between gap-1">
                                           <span
-                                            className={`text-[9px] ${lastHasDiff ? 'text-orange-500' : 'text-teal-500'}`}
+                                            className={`text-[11px] ${lastHasDiff ? 'text-orange-500' : 'text-teal-500'}`}
                                           >
                                             Mes sig.
                                           </span>
                                           <span
-                                            className={`text-[9px] font-bold ${lastHasDiff ? 'text-orange-700' : 'text-teal-700'}`}
+                                            className={`text-[11px] font-bold ${lastHasDiff ? 'text-orange-700' : 'text-teal-700'}`}
                                           >
                                             {lastWeekNextHours}h
                                           </span>
@@ -1577,12 +1579,12 @@ export default function MallaGrid({
                                           className={`flex items-center justify-between gap-1 mt-0.5 pt-0.5 border-t ${lastHasDiff ? 'border-orange-200' : 'border-teal-200'}`}
                                         >
                                           <span
-                                            className={`text-[9px] font-semibold ${lastHasDiff ? 'text-orange-600' : 'text-teal-600'}`}
+                                            className={`text-[11px] font-semibold ${lastHasDiff ? 'text-orange-600' : 'text-teal-600'}`}
                                           >
                                             Total sem.
                                           </span>
                                           <span
-                                            className={`text-[9px] font-bold ${lastHasDiff ? 'text-orange-800' : 'text-teal-800'}`}
+                                            className={`text-[11px] font-bold ${lastHasDiff ? 'text-orange-800' : 'text-teal-800'}`}
                                           >
                                             {lastWeekTotal}h
                                           </span>
