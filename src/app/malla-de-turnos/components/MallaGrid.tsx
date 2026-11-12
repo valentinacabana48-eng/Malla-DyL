@@ -753,26 +753,26 @@ function FloatingShiftPanel({
             {/* Apply / counter */}
             {activeShift !== undefined && selectedCount > 0 && (
               <>
-                <span className="text-[10px] text-emerald-600 font-semibold  bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5">
+                <span className="text-[10px] text-emerald-600 font-semibold whitespace-nowrap bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5">
                   {selectedCount} sel.
                 </span>
                 <button
                   onClick={onApply}
-                  className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors "
+                  className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors whitespace-nowrap"
                 >
                   <CheckSquare size={11} />
                   Aplicar
                 </button>
                 <button
                   onClick={onClearSelection}
-                  className="text-[10px] text-muted-foreground hover:text-foreground px-1 py-0.5 rounded transition-colors "
+                  className="text-[10px] text-muted-foreground hover:text-foreground px-1 py-0.5 rounded transition-colors whitespace-nowrap"
                 >
                   Limpiar sel.
                 </button>
               </>
             )}
             {activeShift !== undefined && selectedCount === 0 && (
-              <span className="text-[10px] text-muted-foreground ">
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                 {activeShift === null
                   ? 'Selecciona celdas a limpiar'
                   : 'Selecciona celdas → Aplicar'}
@@ -780,26 +780,26 @@ function FloatingShiftPanel({
             )}
             {activeSpecialDay !== undefined && selectedCount > 0 && (
               <>
-                <span className="text-[10px] text-purple-600 font-semibold  bg-purple-50 border border-purple-200 rounded-full px-1.5 py-0.5">
+                <span className="text-[10px] text-purple-600 font-semibold whitespace-nowrap bg-purple-50 border border-purple-200 rounded-full px-1.5 py-0.5">
                   {selectedCount} sel.
                 </span>
                 <button
                   onClick={onApply}
-                  className="flex items-center gap-1 bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors "
+                  className="flex items-center gap-1 bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors whitespace-nowrap"
                 >
                   <CheckSquare size={11} />
                   Aplicar
                 </button>
                 <button
                   onClick={onClearSelection}
-                  className="text-[10px] text-muted-foreground hover:text-foreground px-1 py-0.5 rounded transition-colors "
+                  className="text-[10px] text-muted-foreground hover:text-foreground px-1 py-0.5 rounded transition-colors whitespace-nowrap"
                 >
                   Limpiar sel.
                 </button>
               </>
             )}
             {activeSpecialDay !== undefined && selectedCount === 0 && (
-              <span className="text-[10px] text-muted-foreground ">
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                 Selecciona celdas → Aplicar
               </span>
             )}
@@ -822,7 +822,7 @@ function FloatingShiftPanel({
                 onSelectShift(activeShift === null ? (undefined as unknown as ShiftCode) : null)
               }
               title="Modo limpiar celda"
-              className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all  ${
+              className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all whitespace-nowrap ${
                 activeShift === null
                   ? 'border-emerald-500 ring-2 ring-emerald-300 bg-slate-200 text-slate-700'
                   : 'border-transparent hover:border-border/60 bg-slate-100 text-slate-500'
@@ -841,7 +841,7 @@ function FloatingShiftPanel({
                     onSelectSpecialDay(activeSpecialDay === nwt.code ? undefined : nwt.code)
                   }
                   title={`Modo ${nwt.label}`}
-                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all  ${
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all whitespace-nowrap ${
                     activeSpecialDay === nwt.code
                       ? 'border-purple-500 ring-2 ring-purple-300 bg-purple-100 text-purple-700'
                       : 'border-transparent hover:border-border/60 bg-purple-50 text-purple-500'
@@ -1342,7 +1342,7 @@ export default function MallaGrid({
                             const effectiveHoras =
                               contractedHoursOverride[worker.id] ?? worker.horasContratadas ?? 42;
                             return (
-                              <span className="text-[9px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded px-1 py-0 shrink-0 ">
+                              <span className="text-[9px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded px-1 py-0 shrink-0 whitespace-nowrap">
                                 {effectiveHoras}h
                               </span>
                             );
@@ -1413,9 +1413,7 @@ export default function MallaGrid({
                             }
                           >
                             <span>☀</span>
-                            <span>
-                              {exentoDomingos ? 'Trab. dom.' : `${sundayCount} dom.`}
-                            </span>
+                            <span>{exentoDomingos ? 'Trab. dom.' : `${sundayCount} dom.`}</span>
                             {sundaysOver && <span>⚠</span>}
                           </div>
                         </div>
