@@ -520,7 +520,7 @@ export default function ExtrasContent() {
     workerId ? turnos.find((t) => t.w.id === workerId) : undefined;
 
   return (
-    <div className="p-4 lg:p-6 xl:p-8 max-w-5xl mx-auto">
+    <div className="p-4 lg:p-6 xl:p-8 max-w-5xl">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
           <h1 className="text-xl font-bold text-foreground section-header-line flex items-center gap-2">

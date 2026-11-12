@@ -15,7 +15,6 @@ export type Perm =
   | 'asistencia_aprobar'
   | 'horas_extra'
   | 'horas_extra_aprobar'
-  | 'rrhh'
   | 'solicitudes'
   | 'solicitudes_responder'
   | 'vista_previa'
@@ -59,7 +58,6 @@ export const PERM_GROUPS: { modulo: string; perms: { perm: Perm; label: string }
       { perm: 'horas_extra_aprobar', label: 'Aprobar' },
     ],
   },
-  { modulo: 'RRHH', perms: [{ perm: 'rrhh', label: 'Ver y editar' }] },
   {
     modulo: 'Solicitudes',
     perms: [
@@ -115,7 +113,6 @@ export const ROUTE_PERMS: { href: string; perm: Perm }[] = [
   { href: '/cumplimiento', perm: 'cumplimiento' },
   { href: '/personal', perm: 'personal_ver' },
   { href: '/asistencia', perm: 'asistencia_ver' },
-  { href: '/rrhh', perm: 'rrhh' },
   { href: '/solicitudes', perm: 'solicitudes' },
   { href: '/vista-previa', perm: 'vista_previa' },
   { href: '/extras', perm: 'extras' },

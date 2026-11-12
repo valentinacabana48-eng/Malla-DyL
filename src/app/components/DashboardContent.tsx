@@ -10,7 +10,6 @@ import {
   Cake,
   TrendingUp,
 } from 'lucide-react';
-import AppImage from '@/components/ui/AppImage';
 import { useAppContext, monthLabelToKey } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
 import { useCargoOptions } from '@/hooks/useCargoOptions';
@@ -20,27 +19,6 @@ const MULTI_LABEL =
   'block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5';
 const MULTI_BUTTON =
   'w-full py-2.5 bg-input border border-border rounded-xl text-sm font-medium text-foreground transition-colors hover:border-secondary/40';
-
-const BRANCH_LOGOS = [
-  {
-    id: 'logo-distribuidora',
-    src: '/assets/images/descarga__2_-1784608577889.png',
-    alt: 'Distribuidora DyL - logo azul y amarillo',
-    label: 'Distribuidora DyL',
-  },
-  {
-    id: 'logo-mayorista',
-    src: '/assets/images/descarga__1_-1784608578251.png',
-    alt: 'Mayorista DyL - logo rojo y naranja',
-    label: 'Mayorista DyL',
-  },
-  {
-    id: 'logo-envases',
-    src: '/assets/images/descarga-1784608578238.png',
-    alt: 'Envases DyL - logo verde y naranja',
-    label: 'Envases DyL',
-  },
-];
 
 const MONTH_NAMES = [
   'Enero',
@@ -289,7 +267,7 @@ export default function DashboardContent() {
   const yearOptions = [2026, 2027, 2028, 2029, 2030];
 
   return (
-    <div className="p-6 xl:p-8 max-w-screen-2xl mx-auto">
+    <div className="p-4 lg:p-6 xl:p-8 max-w-screen-2xl mx-auto">
       {/* Page header */}
       <div className="flex items-center justify-between mb-7 flex-wrap gap-3">
         <div>
@@ -304,70 +282,6 @@ export default function DashboardContent() {
         >
           <Calendar size={14} className="text-secondary" />
           <span className="font-semibold text-foreground text-xs">{selectedDateLabel}</span>
-        </div>
-      </div>
-
-      {/* Brand logos — consistent with app design */}
-      <div
-        className="bg-card rounded-2xl border border-border mb-6 overflow-hidden"
-        style={{ boxShadow: 'var(--shadow-card)' }}
-      >
-        {/* Header strip */}
-        <div
-          className="px-6 py-4 border-b border-border flex items-center justify-between"
-          style={{ background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)' }}
-        >
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-0.5">
-              Grupo Empresarial
-            </p>
-            <h2 className="text-base font-extrabold text-foreground tracking-tight">
-              DyL Empresas
-            </h2>
-          </div>
-          <div className="h-6 w-px rounded-full" style={{ background: 'var(--border)' }} />
-          <p className="text-xs text-muted-foreground font-medium hidden lg:block">
-            Gestión integrada de personal y turnos
-          </p>
-        </div>
-
-        {/* Logo cards */}
-        <div className="px-4 lg:px-6 py-5 lg:py-6 grid grid-cols-3 gap-3 lg:flex lg:flex-wrap lg:gap-5 lg:justify-center lg:items-stretch">
-          {BRANCH_LOGOS.map((logo) => (
-            <div key={logo.id} className="group flex flex-col items-center gap-3 cursor-default">
-              {/* Card */}
-              <div
-                className="relative flex items-center justify-center rounded-2xl p-2 lg:p-4 border border-border transition-all duration-200 group-hover:border-secondary/40 w-full h-20 lg:w-[160px] lg:h-[110px]"
-                style={{
-                  background: '#ffffff',
-                  boxShadow: '0 2px 8px rgba(15,39,68,0.06)',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)';
-                  (e.currentTarget as HTMLDivElement).style.boxShadow =
-                    '0 12px 32px rgba(37,99,235,0.12), 0 2px 8px rgba(15,39,68,0.06)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
-                  (e.currentTarget as HTMLDivElement).style.boxShadow =
-                    '0 2px 8px rgba(15,39,68,0.06)';
-                }}
-              >
-                <AppImage
-                  src={logo.src}
-                  alt={logo.alt}
-                  width={130}
-                  height={85}
-                  className="object-contain w-full h-full"
-                />
-              </div>
-              {/* Label */}
-              <span className="text-xs font-semibold text-muted-foreground tracking-wide text-center">
-                {logo.label}
-              </span>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -599,83 +513,78 @@ export default function DashboardContent() {
           </div>
         </div>
 
-        {/* Hourly table */}
+        {/* Personas por hora: gráfico de barras compacto */}
         {hourlySummary.length > 0 ? (
-          <div
-            className="overflow-x-auto rounded-xl border border-border"
-            style={{ boxShadow: 'var(--shadow-sm)' }}
-          >
-            <table className="w-full text-sm">
-              <thead>
-                <tr
-                  style={{
-                    background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)',
-                    borderBottom: '1px solid var(--border)',
-                  }}
-                >
-                  <th className="text-left px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Hora
-                  </th>
-                  <th className="text-center px-4 py-3 text-xs font-bold text-green-600 uppercase tracking-wider">
-                    Entran
-                  </th>
-                  <th className="text-center px-4 py-3 text-xs font-bold text-red-500 uppercase tracking-wider">
-                    Salen
-                  </th>
-                  <th className="text-center px-4 py-3 text-xs font-bold text-blue-600 uppercase tracking-wider">
-                    Activas
-                  </th>
-                  {isCajeras && (
-                    <th className="text-center px-4 py-3 text-xs font-bold text-orange-500 uppercase tracking-wider">
-                      Cajas vacías
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {hourlySummary.map((row, i) => (
-                  <tr
-                    key={row.hour}
-                    className={`border-b border-border/50 transition-colors hover:bg-muted/30 ${i % 2 === 0 ? '' : 'bg-muted/[0.03]'}`}
-                  >
-                    <td className="px-4 py-3 font-bold text-foreground font-tabular">{row.hour}</td>
-                    <td className="px-4 py-3 text-center">
-                      {row.entering > 0 ? (
-                        <span className="inline-flex items-center justify-center w-8 h-7 rounded-lg bg-green-100 text-green-700 font-bold text-sm">
-                          {row.entering}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground/30">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {row.exiting > 0 ? (
-                        <span className="inline-flex items-center justify-center w-8 h-7 rounded-lg bg-red-100 text-red-600 font-bold text-sm">
-                          {row.exiting}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground/30">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center justify-center w-8 h-7 rounded-lg bg-blue-100 text-blue-700 font-bold text-sm">
-                        {row.active}
-                      </span>
-                    </td>
+          (() => {
+            const maxActive = Math.max(1, ...hourlySummary.map((r) => r.active));
+            return (
+              <div
+                className="rounded-xl border border-border p-4"
+                style={{ boxShadow: 'var(--shadow-sm)' }}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    Personas por hora
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-blue-500" /> Trabajando
+                    </span>
+                    <span className="text-green-600 font-semibold">+ entran</span>
+                    <span className="text-red-500 font-semibold">− salen</span>
                     {isCajeras && (
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`inline-flex items-center justify-center w-8 h-7 rounded-lg font-bold text-sm ${row.vacantCajas > 5 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-500'}`}
-                        >
-                          {row.vacantCajas}
-                        </span>
-                      </td>
+                      <span className="text-orange-500 font-semibold">cajas vacías</span>
                     )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <div
+                    className="grid gap-1 min-w-[560px]"
+                    style={{
+                      gridTemplateColumns: `repeat(${hourlySummary.length}, minmax(0, 1fr))`,
+                    }}
+                  >
+                    {hourlySummary.map((row) => (
+                      <div
+                        key={row.hour}
+                        className="flex flex-col items-center"
+                        title={`${row.hour}: ${row.active} trabajando, ${row.entering} entran, ${row.exiting} salen${isCajeras ? `, ${row.vacantCajas} cajas vacías` : ''}`}
+                      >
+                        <span className="text-xs font-bold text-blue-700 font-tabular">
+                          {row.active}
+                        </span>
+                        <div className="w-full h-28 flex items-end justify-center">
+                          <div
+                            className="w-full max-w-[28px] rounded-t-md bg-blue-500"
+                            style={{
+                              height: `${Math.max(4, (row.active / maxActive) * 100)}%`,
+                              opacity: row.active === 0 ? 0.25 : 1,
+                            }}
+                          />
+                        </div>
+                        <span className="mt-1 text-[11px] font-semibold text-foreground font-tabular">
+                          {row.hour.slice(0, 2)}
+                        </span>
+                        <span className="text-[10px] leading-tight font-semibold text-green-600 h-3.5">
+                          {row.entering > 0 ? `+${row.entering}` : ''}
+                        </span>
+                        <span className="text-[10px] leading-tight font-semibold text-red-500 h-3.5">
+                          {row.exiting > 0 ? `−${row.exiting}` : ''}
+                        </span>
+                        {isCajeras && (
+                          <span
+                            className={`text-[10px] leading-tight font-semibold h-3.5 ${row.vacantCajas > 5 ? 'text-orange-500' : 'text-slate-400'}`}
+                          >
+                            {row.vacantCajas}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()
         ) : (
           <div className="text-center py-10 text-muted-foreground text-sm rounded-xl border border-dashed border-border">
             <Calendar size={28} className="mx-auto mb-2 text-muted-foreground/40" />

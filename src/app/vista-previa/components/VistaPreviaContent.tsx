@@ -23,7 +23,7 @@ import MultiSelect from '@/components/ui/MultiSelect';
 import { useAuth } from '@/context/AuthContext';
 import { useCargoOptions } from '@/hooks/useCargoOptions';
 
-const MULTI_WRAPPER = 'flex-1 min-w-[180px] max-w-[300px]';
+const MULTI_WRAPPER = 'flex-1 min-w-[180px] max-w-[300px] order-3 lg:order-none';
 const MULTI_LABEL =
   'block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5';
 const MULTI_BUTTON =
@@ -1003,14 +1003,14 @@ export default function VistaPreviaContent() {
   };
 
   return (
-    <div className="p-6 xl:p-8 max-w-screen-2xl mx-auto">
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+    <div className="p-4 lg:p-6 xl:p-8 max-w-screen-2xl mx-auto">
+      <div className="flex items-start justify-between mb-5 lg:mb-7 gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-wide text-foreground uppercase flex items-center gap-2">
-            <Eye size={24} className="text-secondary" />
-            Vista Previa
+          <h1 className="text-xl font-bold text-foreground section-header-line flex items-center gap-2">
+            <Eye size={20} className="text-secondary" />
+            Vista previa
           </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
+          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-3">
             Malla mensual individual por trabajador/a
           </p>
         </div>
@@ -1076,7 +1076,7 @@ export default function VistaPreviaContent() {
         </h2>
         <div className="flex flex-wrap gap-4">
           {/* Mes */}
-          <div className="flex-1 min-w-[160px]">
+          <div className="flex-1 min-w-[160px] order-3 lg:order-none">
             <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
               Mes
             </label>
@@ -1137,8 +1137,9 @@ export default function VistaPreviaContent() {
             labelClassName={MULTI_LABEL}
             buttonClassName={MULTI_BUTTON}
           />
+          {/* En el celular el buscador y la trabajadora van primero; los filtros después */}
           {activeTab === 'individual' && (
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[200px] order-1 lg:order-none">
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                 Buscar por nombre
               </label>
@@ -1158,7 +1159,7 @@ export default function VistaPreviaContent() {
             </div>
           )}
           {activeTab === 'individual' && (
-            <div className="flex-1 min-w-[220px]">
+            <div className="flex-1 min-w-[220px] order-2 lg:order-none">
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                 Trabajadora
               </label>
@@ -1185,7 +1186,7 @@ export default function VistaPreviaContent() {
             </div>
           )}
           {activeTab === 'individual' && (
-            <div className="min-w-[200px]">
+            <div className="min-w-[200px] order-4 lg:order-none">
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                 Versión a imprimir
               </label>
