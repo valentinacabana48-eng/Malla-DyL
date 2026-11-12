@@ -1871,14 +1871,12 @@ export default function AsistenciaContent() {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 lg:py-4 shrink-0">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
-              <CalendarCheck size={18} className="text-blue-600" />
-            </div>
-            <div>
-              <h1 className="font-bold text-gray-900 text-lg leading-tight">Asistencia</h1>
-              <p className="text-xs text-gray-500">{periodLabel}</p>
-            </div>
+          <div>
+            <h1 className="text-xl font-bold text-foreground section-header-line flex items-center gap-2">
+              <CalendarCheck size={20} className="text-secondary" />
+              Asistencia
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1 ml-3">{periodLabel}</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -2877,6 +2875,7 @@ export function PeriodOverview({
             </thead>
             <tbody>
               {workers.map((w) => {
+                const todayStr = getTodayStr();
                 let totalP = 0,
                   totalA = 0,
                   totalHE = 0,
@@ -2896,7 +2895,13 @@ export function PeriodOverview({
                       </div>
                     </td>
                     {visibleDates.map((dt) => {
-                      const status = getEffectiveStatus(w.id, dt);
+                      // Un día que todavía no llega no puede salir como "presente": queda en blanco
+                      // hasta que pase (se siguen viendo descansos, licencias y vacaciones)
+                      const rawStatus = getEffectiveStatus(w.id, dt);
+                      const status =
+                        dt > todayStr && rawStatus === 'PRESENTE' && !attendance[w.id]?.[dt]
+                          ? 'FUTURO'
+                          : rawStatus;
                       const he = overtime[w.id]?.[dt]?.hours ?? 0;
                       if (status === 'PRESENTE') totalP++;
                       if (status === 'AUSENTE') totalA++;
@@ -2915,6 +2920,7 @@ export function PeriodOverview({
                         FALTA_JUSTIFICADA: 'bg-amber-400',
                         VACACIONES: 'bg-blue-400',
                         CUMPLEANOS: 'bg-pink-400',
+                        FUTURO: 'bg-white border border-dashed border-gray-200',
                       };
                       const statusLetters: Record<string, string> = {
                         PRESENTE: 'P',
@@ -2947,9 +2953,11 @@ export function PeriodOverview({
                           <button
                             onClick={() => onSelectDate(dt)}
                             title={
-                              retiro > 0
-                                ? `${getStatusLabel(status)} · se retiró antes (-${retiro}h)`
-                                : getStatusLabel(status)
+                              status === 'FUTURO'
+                                ? 'Todavía no llega este día'
+                                : retiro > 0
+                                  ? `${getStatusLabel(status)} · se retiró antes (-${retiro}h)`
+                                  : getStatusLabel(status)
                             }
                             className={`w-5 h-5 rounded-sm mx-auto flex items-center justify-center transition-transform hover:scale-110 ${statusColors[status] ?? 'bg-gray-200'}`}
                           >

@@ -36,8 +36,8 @@ function DeleteWorkerDialog({
       >
         <h3 className="text-lg font-bold text-foreground">Borrar a {worker.name}</h3>
         <p className="text-sm text-muted-foreground">
-          Se borra para siempre todo lo suyo: malla, asistencia, RRHH, licencias, solicitudes y
-          clave de Mis turnos. No se puede deshacer.
+          Se borra para siempre todo lo suyo: malla, asistencia, licencias, solicitudes y clave de
+          Mis turnos. No se puede deshacer.
         </p>
         <p className="text-sm text-muted-foreground">
           Si solo dejó de trabajar, no la borres: déjala <strong>Inactiva</strong> y se guarda su

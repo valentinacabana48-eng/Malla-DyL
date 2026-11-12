@@ -980,7 +980,6 @@ export default function MallaGrid({
   const nonWorkingTypes = getAllNonWorkingTypes();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  const [expandedWeekBreakdown, setExpandedWeekBreakdown] = useState<Set<string>>(new Set());
   const [expandedWeeklyHours, setExpandedWeeklyHours] = useState<Set<string>>(new Set());
 
   // ─── Floating panel state ──────────────────────────────────────────────
@@ -1250,7 +1249,7 @@ export default function MallaGrid({
               >
                 <div>Resumen</div>
                 <div className="text-[9px] font-normal normal-case tracking-normal text-muted-foreground/70">
-                  horas · sem. · dom.
+                  horas · ☀ dom. libres
                 </div>
               </th>
               {leadingDays.map((ld) => (
@@ -1395,18 +1394,34 @@ export default function MallaGrid({
                         className="hidden lg:table-cell border-r border-border px-1 py-0.5 min-w-[90px] w-[90px] text-center align-middle lg:sticky"
                         style={{ left: 180, zIndex: 2, backgroundColor: stickyBgColor }}
                       >
-                        {/* Monthly total hours */}
-                        <div
-                          className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded-md text-[10px] font-semibold mb-0.5 ${hoursOver ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}
-                        >
-                          <span>⏱</span>
-                          <span>{totalHours}h mes</span>
-                          {hoursOver && <span className="text-[9px]">⚠</span>}
-                        </div>
+                        <div className="flex items-center justify-center gap-1">
+                          {/* Monthly total hours */}
+                          <div
+                            className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded-md text-[10px] font-semibold ${hoursOver ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}
+                          >
+                            <span>{totalHours}h</span>
+                            {hoursOver && <span className="text-[9px]">⚠</span>}
+                          </div>
 
-                        {/* Weekly hours breakdown */}
-                        {weeklyHours.length > 0 && (
-                          <div className="mt-0.5 mb-0.5">
+                          {/* Sunday count */}
+                          <div
+                            className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded-md text-[10px] font-semibold ${sundaysOver ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}
+                            title={
+                              exentoDomingos
+                                ? 'Trabaja todos los domingos: no aplica la regla de domingos libres'
+                                : `${sundayCount} domingos de descanso`
+                            }
+                          >
+                            <span>☀</span>
+                            <span>{exentoDomingos ? 'Todos' : sundayCount}</span>
+                            {sundaysOver && <span className="text-[9px]">⚠</span>}
+                          </div>
+                        </div>
+                        {(() => {
+                          const anyWeekDiff = weeks.some((w) => w.over || w.under);
+                          const open = expandedWeeklyHours.has(worker.id);
+                          if (weeklyHours.length === 0 && !anyWeekDiff) return null;
+                          return (
                             <button
                               onClick={() =>
                                 setExpandedWeeklyHours((prev) => {
@@ -1416,11 +1431,18 @@ export default function MallaGrid({
                                   return next;
                                 })
                               }
-                              className="w-full flex items-center justify-between gap-1 px-1 py-0.5 rounded text-[9px] font-semibold border bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 transition-colors"
+                              title="Ver horas por semana"
+                              className={`mt-0.5 w-full flex items-center justify-center gap-1 px-1 py-0 rounded text-[9px] font-semibold border transition-colors ${anyWeekDiff ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
                             >
-                              <span>Horas x sem.</span>
-                              <span>{expandedWeeklyHours.has(worker.id) ? '▲' : '▼'}</span>
+                              {anyWeekDiff && <span>⚠</span>}
+                              <span>Semanas</span>
+                              <span>{open ? '▲' : '▼'}</span>
                             </button>
+                          );
+                        })()}
+                        {/* Weekly hours breakdown */}
+                        {weeklyHours.length > 0 && expandedWeeklyHours.has(worker.id) && (
+                          <div className="mt-0.5 mb-0.5">
                             {expandedWeeklyHours.has(worker.id) && (
                               <div className="mt-0.5 space-y-0.5">
                                 {weeklyHours.map((wk) => {
@@ -1463,30 +1485,10 @@ export default function MallaGrid({
                             const lastHasDiff =
                               hasLastWeek && !!lastWeek && (lastWeek.over || lastWeek.under);
                             const hasDiff = firstHasDiff || lastHasDiff;
-                            const isExpanded = expandedWeekBreakdown.has(worker.id);
+                            const isExpanded = expandedWeeklyHours.has(worker.id);
+                            if (!isExpanded) return null;
                             return (
                               <div className="mt-1 mb-1">
-                                <button
-                                  onClick={() =>
-                                    setExpandedWeekBreakdown((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(worker.id)) next.delete(worker.id);
-                                      else next.add(worker.id);
-                                      return next;
-                                    })
-                                  }
-                                  className={`w-full flex items-center justify-between gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-semibold border transition-colors ${
-                                    hasDiff
-                                      ? 'bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100'
-                                      : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
-                                  }`}
-                                >
-                                  <span className="flex items-center gap-1">
-                                    {hasDiff && <span>⚠</span>}
-                                    <span>Sems. incompletas</span>
-                                  </span>
-                                  <span>{isExpanded ? '▲' : '▼'}</span>
-                                </button>
                                 {isExpanded && (
                                   <div className="mt-0.5 space-y-0.5">
                                     {hasFirstWeek && (
@@ -1592,22 +1594,6 @@ export default function MallaGrid({
                               </div>
                             );
                           })()}
-
-                        {/* Sunday count */}
-                        <div
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold ${sundaysOver ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}
-                          title={
-                            exentoDomingos
-                              ? 'Trabaja todos los domingos: no aplica la regla de domingos libres'
-                              : undefined
-                          }
-                        >
-                          <span>☀</span>
-                          <span>
-                            {exentoDomingos ? 'Trab. domingos' : `${sundayCount} dom. desc.`}
-                          </span>
-                          {sundaysOver && <span className="text-[9px]">⚠</span>}
-                        </div>
                       </td>
                     );
                   })()}

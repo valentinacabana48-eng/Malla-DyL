@@ -269,7 +269,7 @@ export default function CumplimientoContent() {
     complianceData.length > 0 ? Math.round((passCount / complianceData.length) * 100) : 0;
 
   return (
-    <div className="p-6 xl:p-8 max-w-screen-xl mx-auto">
+    <div className="p-4 lg:p-6 xl:p-8 max-w-screen-2xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>

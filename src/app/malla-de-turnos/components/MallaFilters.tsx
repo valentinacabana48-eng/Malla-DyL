@@ -193,22 +193,37 @@ export default function MallaFilters({
         className="flex flex-col gap-1 flex-1 min-w-0 lg:flex-none lg:min-w-[160px]"
         labelClassName={mobileLabel}
       />
+      {/* En el computador el área queda siempre a la vista; lo demás va en "Más filtros" */}
+      <MultiSelect
+        label="Área"
+        icon={Users}
+        options={mounted ? clientAreas : []}
+        selected={selectedAreas}
+        onChange={setSelectedAreas}
+        allLabel="Todas"
+        className="hidden lg:flex flex-col gap-1 min-w-[160px] lg:max-w-[260px]"
+      />
       <button
         type="button"
         onClick={() => setShowMore((v) => !v)}
         aria-expanded={showMore}
-        className="lg:hidden flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-card text-sm font-semibold text-foreground"
+        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted lg:order-last"
       >
         <SlidersHorizontal size={15} />
         Más filtros
+        {activeCount - (selectedAreas.length > 0 ? 1 : 0) > 0 && (
+          <span className="hidden lg:flex min-w-[20px] h-5 px-1.5 rounded-full bg-secondary text-white text-[11px] font-bold items-center justify-center">
+            {activeCount - (selectedAreas.length > 0 ? 1 : 0)}
+          </span>
+        )}
         {activeCount > 0 && (
-          <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-secondary text-white text-[11px] font-bold flex items-center justify-center">
+          <span className="lg:hidden min-w-[20px] h-5 px-1.5 rounded-full bg-secondary text-white text-[11px] font-bold flex items-center justify-center">
             {activeCount}
           </span>
         )}
       </button>
       <div
-        className={`${showMore ? 'flex' : 'hidden'} order-last w-full flex-col gap-3 pt-2 lg:contents`}
+        className={`${showMore ? 'flex' : 'hidden'} order-last w-full flex-col gap-3 pt-2 lg:flex-row lg:flex-wrap lg:items-end lg:gap-4 lg:pt-3 lg:border-t lg:border-border`}
       >
         <MultiSelect
           label="Área"
@@ -217,7 +232,7 @@ export default function MallaFilters({
           selected={selectedAreas}
           onChange={setSelectedAreas}
           allLabel="Todas"
-          className={multiClass}
+          className={`${multiClass} lg:hidden`}
         />
         <MultiSelect
           label="Sucursal"

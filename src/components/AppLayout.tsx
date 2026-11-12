@@ -86,12 +86,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
           )}
         </main>
         <MobileNav onOpenMenu={() => setMobileOpen(true)} />
-        <footer
-          className="hidden lg:block text-center py-3 text-xs text-muted-foreground/60 border-t border-border bg-card"
-          style={{ letterSpacing: '0.03em' }}
-        >
-          © 2026 VCG – Todos los derechos reservados.
-        </footer>
       </div>
     </div>
   );

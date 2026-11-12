@@ -271,7 +271,7 @@ export default function SolicitudesContent() {
   };
 
   return (
-    <div className="p-4 lg:p-6 xl:p-8 max-w-3xl mx-auto">
+    <div className="p-4 lg:p-6 xl:p-8 max-w-4xl">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-foreground section-header-line flex items-center gap-2">
           <Inbox size={20} className="text-secondary" />

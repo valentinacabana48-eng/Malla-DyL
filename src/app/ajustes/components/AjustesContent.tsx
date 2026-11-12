@@ -2459,15 +2459,15 @@ export default function AjustesContent() {
   const TABS = isGlobalAdmin ? ALL_TABS : ALL_TABS.filter((t) => t.id === 'turnos');
 
   return (
-    <div className="p-4 lg:p-6 xl:p-8 max-w-3xl mx-auto">
+    <div className="p-4 lg:p-6 xl:p-8 max-w-4xl">
       {/* Header */}
       <div className="flex items-start justify-between mb-5 lg:mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold tracking-wide text-foreground uppercase flex items-center gap-2">
-            <Settings size={24} className="text-secondary" />
+          <h1 className="text-xl font-bold text-foreground section-header-line flex items-center gap-2">
+            <Settings size={20} className="text-secondary" />
             Ajustes
           </h1>
-          <p className="hidden lg:block text-muted-foreground text-sm mt-0.5">
+          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-3">
             {isGlobalAdmin
               ? 'Configura turnos, días especiales, sucursales y áreas de tu organización.'
               : 'Crea y edita los turnos de tu sucursal.'}
