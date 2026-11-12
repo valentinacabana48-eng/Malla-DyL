@@ -14,6 +14,8 @@ interface Request {
   fecha: string;
   turno_actual: string;
   turno_pedido: string;
+  /** Cambio con compañera: los turnos que le sirven (puede marcar varios) */
+  turnos_opciones?: string[];
   /** Cambio con compañera: por_preaprobar → elegir → pendiente (responde ella) → aceptada */
   companera_status: '' | 'por_preaprobar' | 'elegir' | 'pendiente' | 'aceptada' | 'rechazada';
   turno_companera?: string;
@@ -36,6 +38,8 @@ interface ShiftOption {
 interface Coworker {
   id: string;
   name: string;
+  /** Cuál de los turnos que ella marcó tiene la compañera */
+  turno: string;
 }
 
 // "HH:MM" a minutos, para ordenar por hora
@@ -77,11 +81,22 @@ function fechaText(iso: string) {
   return `${DOW[date.getDay()]} ${d} de ${MONTHS[m - 1]}`;
 }
 
+const isoOf = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(
+    2,
+    '0'
+  )}`;
+
 function todayIso() {
+  return isoOf(new Date());
+}
+
+// «Otro turno» se pide solo para el mes siguiente: el mes en curso ya está armado
+function nextMonth() {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-    now.getDate()
-  ).padStart(2, '0')}`;
+  const first = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const last = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+  return { min: isoOf(first), max: isoOf(last), name: MONTHS[first.getMonth()] };
 }
 
 export default function Solicitudes({
@@ -108,10 +123,13 @@ export default function Solicitudes({
   const [pickError, setPickError] = useState('');
   const [day, setDay] = useState('');
   const [turno, setTurno] = useState('');
+  // Con compañera: puede marcar varios turnos que le sirven
+  const [turnos, setTurnos] = useState<string[]>([]);
   const [motivo, setMotivo] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState('');
+  const mes = nextMonth();
 
   const loadRequests = useCallback(async () => {
     const { data } = await getPublicSupabase().rpc('mis_turnos_requests', { p_token: token });
@@ -143,7 +161,7 @@ export default function Solicitudes({
     if (!open || tipo !== 'intercambio' || !day) return;
     let active = true;
     setDayShifts(null);
-    setTurno('');
+    setTurnos([]);
     getPublicSupabase()
       .rpc('mis_turnos_day_shifts', { p_token: token, p_fecha: day })
       .then(({ data }) => {
@@ -193,7 +211,9 @@ export default function Solicitudes({
         return;
       }
       setPicking(null);
-      setSent('Listo. Ahora tiene que aceptar tu compañera y después la jefatura.');
+      setSent(
+        'Listo. Ahora tiene que aceptar tu compañera y después la jefatura. Si no acepta, puedes elegir a otra.'
+      );
       await loadRequests();
     } catch {
       setPickError('No se pudo enviar. Revisa tu internet.');
@@ -207,6 +227,7 @@ export default function Solicitudes({
     setDay(fecha && fecha >= min ? fecha : '');
     setTipo('libre');
     setTurno('');
+    setTurnos([]);
     setMotivo('');
     setError('');
     setSent('');
@@ -217,7 +238,11 @@ export default function Solicitudes({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!day) return setError('Elige el día.');
-    if (tipo !== 'libre' && !turno) return setError('Elige el turno que quieres.');
+    if (tipo === 'cambio' && (day < mes.min || day > mes.max))
+      return setError(`Otro turno se pide solo para días de ${mes.name}.`);
+    if (tipo === 'cambio' && !turno) return setError('Elige el turno que quieres.');
+    if (tipo === 'intercambio' && turnos.length === 0)
+      return setError('Marca al menos un turno que te sirva.');
     setSaving(true);
     setError('');
     try {
@@ -225,8 +250,9 @@ export default function Solicitudes({
         p_token: token,
         p_tipo: tipo,
         p_fecha: day,
-        p_turno: tipo === 'libre' ? null : turno,
+        p_turno: tipo === 'libre' ? null : tipo === 'intercambio' ? turnos[0] : turno,
         p_motivo: motivo,
+        ...(tipo === 'intercambio' ? { p_turnos: turnos } : {}),
       });
       if (rpcError) throw rpcError;
       const r = data as { ok: boolean; error?: string };
@@ -258,6 +284,18 @@ export default function Solicitudes({
     await loadRequests();
   };
 
+  // Mientras espera a la compañera: le retira la solicitud y vuelve a elegir a otra
+  const otra = async (id: string) => {
+    const { data } = await getPublicSupabase().rpc('mis_turnos_request_otra', {
+      p_token: token,
+      p_id: id,
+    });
+    const r = data as { ok: boolean; error?: string } | null;
+    if (r?.error === 'sesion') return onSessionEnd();
+    await loadRequests();
+    if (r?.ok) openPick(id);
+  };
+
   const cancel = async (id: string) => {
     await getPublicSupabase().rpc('mis_turnos_request_cancel', { p_token: token, p_id: id });
     await loadRequests();
@@ -267,6 +305,12 @@ export default function Solicitudes({
     if (!code || code === 'DESC') return 'libre';
     const s = shifts.find((x) => x.code === code);
     return s ? `${s.start} a ${s.end}` : code;
+  };
+
+  // Turnos que le sirven, en texto: «08:00 a 16:00 o 09:00 a 17:00»
+  const opcionesText = (r: Request) => {
+    const ops = r.turnos_opciones?.length ? r.turnos_opciones : [r.turno_pedido];
+    return ops.map(shiftText).join(' o ');
   };
 
   const title = (r: Request) =>
@@ -326,7 +370,10 @@ export default function Solicitudes({
               <button
                 key={key}
                 type="button"
-                onClick={() => setTipo(key)}
+                onClick={() => {
+                  setTipo(key);
+                  if (key === 'cambio' && day && (day < mes.min || day > mes.max)) setDay('');
+                }}
                 aria-pressed={tipo === key}
                 className={`py-2.5 px-1 rounded-lg text-[13px] leading-tight font-bold ${
                   tipo === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
@@ -342,10 +389,16 @@ export default function Solicitudes({
             <input
               type="date"
               value={day}
-              min={todayIso()}
+              min={tipo === 'cambio' ? mes.min : todayIso()}
+              max={tipo === 'cambio' ? mes.max : undefined}
               onChange={(e) => setDay(e.target.value)}
               className="h-12 px-3 rounded-xl border border-gray-300 bg-gray-50 text-base"
             />
+            {tipo === 'cambio' && (
+              <span className="text-[13px] text-gray-500">
+                Otro turno se pide solo para días de {mes.name}. El mes en curso ya está armado.
+              </span>
+            )}
           </label>
 
           {tipo === 'cambio' && (
@@ -369,7 +422,7 @@ export default function Solicitudes({
           {tipo === 'intercambio' && day && (
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-semibold text-gray-700">
-                Turno que quieres {mine && <>(tú tienes {shiftText(mine)})</>}
+                Turnos que te sirven {mine && <>(tú tienes {shiftText(mine)})</>}
               </span>
               {dayShifts === null ? (
                 <p className="text-sm text-gray-500">Buscando turnos…</p>
@@ -381,14 +434,19 @@ export default function Solicitudes({
                     <label
                       key={sh.code}
                       className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 last:border-b-0 ${
-                        turno === sh.code ? 'bg-blue-50' : 'bg-white'
+                        turnos.includes(sh.code) ? 'bg-blue-50' : 'bg-white'
                       }`}
                     >
                       <input
-                        type="radio"
-                        name="turno"
-                        checked={turno === sh.code}
-                        onChange={() => setTurno(sh.code)}
+                        type="checkbox"
+                        checked={turnos.includes(sh.code)}
+                        onChange={(e) =>
+                          setTurnos((prev) =>
+                            e.target.checked
+                              ? [...prev, sh.code]
+                              : prev.filter((c) => c !== sh.code)
+                          )
+                        }
                         className="w-5 h-5 accent-blue-700"
                       />
                       <span className="text-sm font-semibold text-gray-900">
@@ -399,7 +457,8 @@ export default function Solicitudes({
                 </div>
               )}
               <p className="text-[13px] text-gray-500">
-                Si la jefatura lo pre aprueba, después eliges con qué compañera cambiar.
+                Puedes marcar varios. Si la jefatura lo pre aprueba, después eliges con qué
+                compañera cambiar, y si una no acepta, puedes elegir a otra.
               </p>
             </div>
           )}
@@ -457,8 +516,16 @@ export default function Solicitudes({
                       {(() => {
                         // Solo su propio turno; el de la compañera no se muestra.
                         // Al aprobar, la jefa pudo ajustar el turno de la compañera
-                        const yo = r.mia ? r.turno_pedido : r.turno_companera || r.turno_actual;
                         const verbo = r.status === 'aprobada' ? 'Quedaste' : 'Quedarías';
+                        // Antes de elegir compañera: cualquiera de los turnos que marcó
+                        if (
+                          r.mia &&
+                          r.status === 'pendiente' &&
+                          (r.companera_status === 'por_preaprobar' ||
+                            r.companera_status === 'elegir')
+                        )
+                          return `${verbo} ${opcionesText(r)}`;
+                        const yo = r.mia ? r.turno_pedido : r.turno_companera || r.turno_actual;
                         return `${verbo} ${shiftText(yo)}`;
                       })()}
                     </p>
@@ -508,12 +575,15 @@ export default function Solicitudes({
                 ) : (
                   <div className="flex flex-col gap-2 mt-1">
                     <span className="text-sm font-semibold text-gray-700">
-                      Tienen {shiftText(r.turno_pedido)} ese día:
+                      Compañeras con {opcionesText(r)} ese día:
                     </span>
                     {coworkers === null ? (
                       <p className="text-sm text-gray-500">Buscando compañeras…</p>
                     ) : coworkers.length === 0 ? (
-                      <p className="text-sm text-gray-500">Ya nadie tiene ese turno ese día.</p>
+                      <p className="text-sm text-gray-500">
+                        No queda ninguna compañera con ese turno ese día. Puedes cancelar la
+                        solicitud y hacer otra.
+                      </p>
                     ) : (
                       <div className="flex flex-col rounded-xl border border-gray-300 overflow-hidden max-h-64 overflow-y-auto">
                         {coworkers.map((c) => (
@@ -533,6 +603,11 @@ export default function Solicitudes({
                             <span className="flex-1 min-w-0 text-sm font-semibold text-gray-900 truncate">
                               {c.name}
                             </span>
+                            {(r.turnos_opciones?.length ?? 0) > 1 && (
+                              <span className="shrink-0 text-[13px] text-gray-600">
+                                quedarías {shiftText(c.turno)}
+                              </span>
+                            )}
                           </label>
                         ))}
                       </div>
@@ -561,6 +636,15 @@ export default function Solicitudes({
                     </div>
                   </div>
                 ))}
+              {r.mia && r.status === 'pendiente' && r.companera_status === 'pendiente' && (
+                <button
+                  type="button"
+                  onClick={() => otra(r.id)}
+                  className="self-start h-10 px-3 mt-1 rounded-xl border border-gray-300 text-gray-700 text-[13px] font-semibold"
+                >
+                  Pedírselo a otra compañera
+                </button>
+              )}
               {r.mia && r.status === 'pendiente' && (
                 <button
                   type="button"

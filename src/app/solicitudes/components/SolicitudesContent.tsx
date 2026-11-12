@@ -28,6 +28,10 @@ interface Request {
   turno_actual: string;
   turno_companera?: string;
   turno_pedido: string;
+  /** Cambio con compañera: los turnos que le sirven (puede marcar varios) */
+  turnos_opciones?: string[];
+  /** Compañeras que dijeron que no (ella puede elegir a otra) */
+  companeras_no?: string[];
   motivo: string;
   status: 'pendiente' | 'aprobada' | 'rechazada' | 'cancelada';
   respuesta: string;
@@ -410,7 +414,9 @@ export default function SolicitudesContent() {
                           {' '}
                           · Pide:{' '}
                           <span className="font-semibold text-foreground">
-                            {shiftText(r.turno_pedido)}
+                            {r.tipo === 'intercambio' && r.turnos_opciones?.length
+                              ? r.turnos_opciones.map(shiftText).join(' o ')
+                              : shiftText(r.turno_pedido)}
                           </span>
                         </>
                       )}
@@ -435,13 +441,23 @@ export default function SolicitudesContent() {
                     </p>
                   )}
                   {r.motivo && <p className="text-muted-foreground mt-0.5">«{r.motivo}»</p>}
+                  {r.tipo === 'intercambio' && (r.companeras_no?.length ?? 0) > 0 && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      No aceptaron:{' '}
+                      {r
+                        .companeras_no!.map((id) => workerById.get(id)?.name ?? 'Compañera')
+                        .join(', ')}
+                    </p>
+                  )}
                 </div>
 
                 {r.status === 'pendiente' && pre && (
                   <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-2.5 py-1.5">
                     {r.companera_status === 'por_preaprobar'
                       ? 'Si la pre apruebas, ella verá quiénes tienen ese turno ese día y elegirá con quién cambiar. Después acepta la compañera y tú apruebas el cambio definitivo.'
-                      : 'Pre aprobada. Esperando que ella elija con qué compañera cambiar.'}
+                      : (r.companeras_no?.length ?? 0) > 0
+                        ? 'La compañera no aceptó. Esperando que ella elija a otra compañera.'
+                        : 'Pre aprobada. Esperando que ella elija con qué compañera cambiar.'}
                   </p>
                 )}
 
