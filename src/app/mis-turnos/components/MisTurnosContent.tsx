@@ -563,7 +563,6 @@ function MonthScreen({
   const weeks: (number | null)[][] = [];
   for (let n = 0; n < cells.length; n += 7) weeks.push(cells.slice(n, n + 7));
 
-  const mesCorto = MES_CORTO[month - 1];
   const mesLargo = MES_LARGO[month - 1];
   const sel = selected !== null ? days[selected] : undefined;
   const selDate = selected !== null ? new Date(year, month - 1, selected + 1) : null;
@@ -806,40 +805,35 @@ function MonthScreen({
         <div className="flex flex-col gap-3 lg:gap-4 lg:sticky lg:top-4">
           {selected !== null && selDate && (
             // En el celular sale como ventanita abajo; en el computador, en la columna
-            <div className="fixed inset-x-3 bottom-[76px] z-40 shadow-xl lg:static lg:inset-auto lg:z-auto lg:shadow-sm bg-white rounded-3xl border border-slate-200 p-4 flex items-start gap-3">
-              <span
-                className={`w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br ${HERO_STYLE[heroKind(sel)].bg} text-white flex flex-col items-center justify-center leading-none`}
-              >
-                <span className="text-[17px] font-black">{selected + 1}</span>
-                <span className="text-[10px] font-bold opacity-90">{mesCorto}</span>
-              </span>
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-[13px] font-bold text-slate-500">
-                  {DOW_NAMES[selDate.getDay()]} {selected + 1} de {mesLargo}
-                </span>
-                <span className="text-[18px] font-extrabold text-slate-900">
+            <div className="fixed inset-x-3 bottom-[76px] z-40 shadow-lg lg:static lg:inset-auto lg:z-auto lg:shadow-sm bg-white rounded-2xl border border-slate-200 pl-3 pr-1 py-1.5 flex flex-col">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className={`w-1.5 h-6 shrink-0 rounded-full bg-gradient-to-b ${HERO_STYLE[heroKind(sel)].bg}`}
+                  aria-hidden="true"
+                />
+                <span className="text-[13px] text-slate-700 truncate">
+                  <b className="text-slate-900">
+                    {DOW_NAMES[selDate.getDay()].slice(0, 3)} {selected + 1}
+                  </b>
+                  {' · '}
                   {heroKind(sel) === 'especial' && <span className="mr-1">{specialIcon(sel)}</span>}
                   {dayText(sel)}
+                  {sel?.col && !sel.esp ? ` · colación ${sel.col} min` : ''}
                 </span>
-                {sel?.col && !sel.esp ? (
-                  <span className="text-[13px] text-slate-500">
-                    {fmtHoras(dayHours(sel))} h · colación {sel.col} min
-                  </span>
-                ) : null}
-                {changed.has(selected) && data.prev_days && (
-                  <span className="text-sm text-orange-800 bg-orange-50 rounded-lg px-2.5 py-1.5 mt-1">
-                    Cambió. Antes: {dayText(data.prev_days[selected])}
-                  </span>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setSelected(null)}
+                  aria-label="Cerrar"
+                  className="ml-auto w-8 h-8 shrink-0 rounded-full text-slate-400 flex items-center justify-center hover:bg-slate-100"
+                >
+                  <X size={16} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                aria-label="Cerrar"
-                className="ml-auto -mr-1 -mt-1 w-9 h-9 shrink-0 rounded-full text-slate-400 flex items-center justify-center hover:bg-slate-100"
-              >
-                <X size={18} />
-              </button>
+              {changed.has(selected) && data.prev_days && (
+                <span className="text-[12px] text-orange-800 pb-1 pl-3.5">
+                  Cambió. Antes: {dayText(data.prev_days[selected])}
+                </span>
+              )}
             </div>
           )}
 
