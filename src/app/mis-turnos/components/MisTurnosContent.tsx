@@ -1,7 +1,11 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import localFont from 'next/font/local';
 import {
+  ClipboardCheck,
+  Clock,
+  Home,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -24,6 +28,19 @@ import Solicitudes from './Solicitudes';
 import InstallBanner from './InstallBanner';
 import AvisosBanner from './AvisosBanner';
 import { apagarAvisosAlSalir, useMisTurnosEnVivo } from '@/lib/misTurnosVivo';
+
+// Letra manuscrita para el título «Mis Turnos» (guardada en el proyecto, como la otra)
+const letraTitulo = localFont({
+  src: '../../fonts/KaushanScript-latin.woff2',
+  weight: '400',
+  display: 'swap',
+});
+
+/** Lleva la pantalla a una sección (calendario, solicitudes) */
+function irA(id: string) {
+  if (id === 'arriba') return window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 // ¿Hay una sesión de la app de administración abierta en este navegador? Solo para mostrar
 // el acceso directo: la administración pide su propio inicio de sesión igual.
@@ -408,37 +425,29 @@ function TodayHero({
   manana?: { label: string; d: PublishedDay | null | undefined };
 }) {
   const k = heroKind(d);
-  const { soft, Icon, short } = HERO_STYLE[k];
   const turno = d?.s && d?.e && !d.esp;
   const horas = dayHours(d);
   return (
-    <div className="rounded-3xl bg-blue-50/80 border border-blue-100 px-5 py-4">
-      <div className="flex items-center justify-between gap-2">
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-50 to-sky-100 border border-blue-100 shadow-sm px-5 py-4">
+      <div className="relative flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 min-w-0">
-          <span className="shrink-0 rounded-full bg-blue-700 text-white text-[12px] font-bold px-2.5 py-0.5">
+          <span className="shrink-0 rounded-full bg-blue-700 text-white text-[14px] font-bold px-3 py-0.5">
             Hoy
           </span>
           <span className="text-[13px] font-medium text-slate-600 truncate">{label}</span>
         </span>
-        {short && (
-          <span
-            className={`shrink-0 inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[12px] font-semibold ${soft.split(' ')[1]}`}
-          >
-            <Icon size={13} aria-hidden="true" />
-            {short}
-          </span>
-        )}
       </div>
       {turno ? (
         <>
-          <p className="mt-2 text-[clamp(28px,8.5vw,36px)] leading-none font-semibold tracking-tight text-slate-900 tabular-nums whitespace-nowrap">
+          <p className="relative mt-3 text-[clamp(32px,10vw,42px)] leading-none font-extrabold tracking-tight text-slate-900 tabular-nums whitespace-nowrap">
             {d.s}
-            <span className="mx-2 text-slate-300 font-light">–</span>
+            <span className="mx-2">–</span>
             {d.e}
           </p>
-          <p className="mt-2 text-[14px] font-medium text-slate-500">
+          <p className="relative mt-3 flex items-center gap-1.5 text-[14px] font-medium text-slate-700">
+            <Clock size={16} className="shrink-0" aria-hidden="true" />
             {fmtHoras(horas)} h de trabajo
-            {d.col ? ` · colación ${d.col} min` : ''}
+            {d.col ? ` • Colación: ${d.col} min` : ''}
           </p>
         </>
       ) : (
@@ -448,7 +457,7 @@ function TodayHero({
         </p>
       )}
       {manana && (
-        <p className="mt-3 pt-3 border-t border-blue-100 flex items-center gap-2 text-[14px] text-slate-600">
+        <p className="relative mt-3 pt-3 border-t border-blue-200/60 flex items-center gap-2 text-[14px] text-slate-600">
           {(() => {
             const MIcon = HERO_STYLE[heroKind(manana.d)].Icon;
             return <MIcon size={15} className="text-slate-400 shrink-0" aria-hidden="true" />;
@@ -493,6 +502,8 @@ function MonthScreen({
   const [selected, setSelected] = useState<number | null>(null);
   const seenKey = `${SEEN_KEY}:${monthKey}`;
   const [seen, setSeen] = useState(() => readLocal(seenKey));
+  // Solicitudes que esperan algo (número en la campanita)
+  const [pendientes, setPendientes] = useState(0);
 
   useEffect(() => {
     // Sin día elegido al abrir: el de hoy ya sale arriba en grande
@@ -503,7 +514,7 @@ function MonthScreen({
 
   if (!monthKey) {
     return (
-      <Shell data={data} onLogout={onLogout}>
+      <Shell data={data} onLogout={onLogout} pendientes={pendientes}>
         <div className="mx-3 lg:mx-auto lg:max-w-xl bg-white rounded-3xl border border-slate-200/70 p-6 text-center flex flex-col gap-3">
           <span className="mx-auto w-14 h-14 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
             <CalendarDays size={28} aria-hidden="true" />
@@ -524,7 +535,12 @@ function MonthScreen({
           <div className="bg-white rounded-2xl border border-slate-200/70 empty:hidden">
             <AvisosBanner token={token} />
           </div>
-          <Solicitudes token={token} fecha={null} onSessionEnd={onSessionEnd} />
+          <Solicitudes
+            token={token}
+            fecha={null}
+            onSessionEnd={onSessionEnd}
+            onPendientes={setPendientes}
+          />
         </div>
       </Shell>
     );
@@ -557,7 +573,7 @@ function MonthScreen({
   const diasLibres = days.filter((d) => dayKind(d) === 'descanso').length;
 
   return (
-    <Shell data={data} onLogout={onLogout}>
+    <Shell data={data} onLogout={onLogout} pendientes={pendientes}>
       <div className="p-3 flex flex-col gap-3 lg:p-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6">
         <div className="flex flex-col gap-3 lg:gap-4">
           {/* Primero lo que más se mira: el turno de hoy y de mañana */}
@@ -577,6 +593,25 @@ function MonthScreen({
               />
             </>
           )}
+
+          {/* Horas y días del mes */}
+          <div className="grid grid-cols-3 gap-2.5">
+            {(
+              [
+                ['text-blue-700', `${fmtHoras(horasMes)} h`, `Trabajadas en ${mesLargo}`],
+                ['text-violet-700', String(diasTrabajo), 'Días con turno'],
+                ['text-amber-600', String(diasLibres), 'Días libres'],
+              ] as const
+            ).map(([color, valor, texto]) => (
+              <div
+                key={texto}
+                className="bg-white rounded-2xl border border-slate-200/70 shadow-sm px-2 py-3 flex flex-col items-center text-center"
+              >
+                <p className={`text-[22px] font-extrabold leading-tight ${color}`}>{valor}</p>
+                <p className="text-[12px] leading-tight text-slate-600">{texto}</p>
+              </div>
+            ))}
+          </div>
           {showNotice && (
             <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 flex gap-3">
               <span className="w-10 h-10 shrink-0 rounded-xl bg-amber-400 text-amber-950 flex items-center justify-center">
@@ -610,19 +645,22 @@ function MonthScreen({
             <AvisosBanner token={token} />
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-200/70 p-2 lg:p-3">
-            {/* Mes y resumen, dentro del calendario */}
+          <div
+            id="calendario"
+            className="scroll-mt-3 bg-white rounded-3xl border border-slate-200/70 shadow-sm p-2 lg:p-3"
+          >
+            {/* «Mi Calendario» y el mes */}
             <div className="flex items-center justify-between gap-2 px-2 pt-1.5 pb-2">
               <div className="min-w-0">
-                <p className="flex items-center gap-2 text-[16px] font-bold text-slate-900">
-                  <CalendarDays size={18} className="text-blue-700 shrink-0" aria-hidden="true" />
-                  {monthKeyToLabel(monthKey)}
-                </p>
-                <p className="text-[12px] text-slate-500 mt-0.5">
-                  {fmtHoras(horasMes)} h · {diasTrabajo} días de turno · {diasLibres} libres
+                <p className="flex items-center gap-2 text-[16px] lg:text-[17px] font-bold text-slate-900 whitespace-nowrap">
+                  <CalendarDays size={22} className="text-blue-700 shrink-0" aria-hidden="true" />
+                  Mi Calendario
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                <span className="text-[13px] lg:text-[14px] font-bold text-slate-900 mr-0.5 whitespace-nowrap">
+                  {monthKeyToLabel(monthKey)}
+                </span>
                 <button
                   type="button"
                   onClick={() => prevMonth && onChangeMonth(prevMonth)}
@@ -803,6 +841,7 @@ function MonthScreen({
                 : null
             }
             onSessionEnd={onSessionEnd}
+            onPendientes={setPendientes}
           />
 
           <p className="text-xs text-slate-400 text-center">
@@ -817,50 +856,116 @@ function MonthScreen({
 function Shell({
   data,
   onLogout,
+  pendientes = 0,
   children,
 }: {
   data: MonthData;
   onLogout: () => void;
+  /** Solicitudes que esperan algo: número en la campanita */
+  pendientes?: number;
   children: React.ReactNode;
 }) {
   const adminSession = useHasAdminSession();
   const primerNombre = data.name.split(' ')[0];
   return (
     <div className="min-h-[var(--app-height,100dvh)] bg-slate-50 text-slate-900">
-      <div className="max-w-md lg:max-w-6xl mx-auto pb-6">
-        {/* Encabezado simple: saludo, sucursal y salir */}
-        <header className="flex items-center justify-between gap-3 px-4 lg:px-6 pt-5 pb-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="w-10 h-10 shrink-0 rounded-full bg-blue-700 text-white flex items-center justify-center text-[14px] font-bold">
-              {safeInitials('', data.name)}
+      <div className="max-w-md lg:max-w-6xl mx-auto pb-24 lg:pb-6">
+        {/* Encabezado azul con el nombre de la app y la campanita */}
+        <header className="relative bg-gradient-to-br from-blue-800 via-blue-700 to-blue-500 text-white px-5 lg:px-6 pt-5 pb-12 overflow-hidden">
+          <div className="relative flex items-center gap-3">
+            <span className="w-12 h-12 shrink-0 rounded-2xl border-2 border-white/80 flex items-center justify-center">
+              <CalendarDays size={26} aria-hidden="true" />
             </span>
-            <div className="min-w-0">
-              <h1 className="text-[18px] font-bold leading-tight truncate">Hola, {primerNombre}</h1>
-              <p className="flex items-center gap-1 text-[13px] text-slate-500 truncate">
-                <MapPin size={12} className="shrink-0" aria-hidden="true" />
-                {data.sucursal}
+            <div className="flex-1 min-w-0">
+              <p className={`${letraTitulo.className} text-[30px] leading-none`}>Mis Turnos</p>
+              <p className="text-[13px] text-blue-100 mt-1 truncate">
+                Tu calendario, siempre contigo ❤️
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => irA('solicitudes')}
+              aria-label={`Solicitudes${pendientes ? `: ${pendientes} pendientes` : ''}`}
+              className="relative w-11 h-11 shrink-0 rounded-full flex items-center justify-center hover:bg-white/10"
+            >
+              <Bell size={24} aria-hidden="true" />
+              {pendientes > 0 && (
+                <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-[11px] font-bold flex items-center justify-center ring-2 ring-blue-700">
+                  {pendientes}
+                </span>
+              )}
+            </button>
             {adminSession && (
               <AdminLink
                 label={<span className="hidden sm:inline">Admin</span>}
-                className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-[13px] font-semibold flex items-center gap-1.5"
+                className="h-9 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold flex items-center gap-1.5"
               />
             )}
             <button
               type="button"
               onClick={onLogout}
-              className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-600 text-[13px] font-semibold flex items-center gap-1.5"
+              className="hidden lg:flex h-9 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold items-center gap-1.5"
             >
               <LogOut size={15} />
               Salir
             </button>
           </div>
+          {/* Ola de abajo */}
+          <svg
+            className="absolute bottom-0 left-0 w-full h-8 text-slate-50"
+            viewBox="0 0 400 32"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M0 22 C 90 2, 170 34, 260 16 S 360 4, 400 14 L400 32 L0 32 Z"
+              fill="currentColor"
+            />
+          </svg>
         </header>
+
+        {/* Saludo */}
+        <div className="relative px-5 lg:px-6 -mt-3 pb-3">
+          <h1 className="text-[24px] font-extrabold leading-tight">Hola, {primerNombre} 👋</h1>
+          <p className="text-[14px] text-slate-600">
+            Que tengas un excelente día
+            <span className="text-slate-400"> · {data.sucursal}</span>
+          </p>
+        </div>
+
         {children}
       </div>
+
+      {/* Menú de abajo (celular) */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
+        <div className="max-w-md mx-auto grid grid-cols-4">
+          {(
+            [
+              ['arriba', 'Inicio', Home],
+              ['calendario', 'Calendario', CalendarDays],
+              ['solicitudes', 'Solicitudes', ClipboardCheck],
+            ] as const
+          ).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => irA(id)}
+              className="h-16 flex flex-col items-center justify-center gap-0.5 text-[12px] font-semibold text-slate-600 active:text-blue-700"
+            >
+              <Icon size={22} aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={onLogout}
+            className="h-16 flex flex-col items-center justify-center gap-0.5 text-[12px] font-semibold text-slate-600"
+          >
+            <LogOut size={22} aria-hidden="true" />
+            Salir
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }
