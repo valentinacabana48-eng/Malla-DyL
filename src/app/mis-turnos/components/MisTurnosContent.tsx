@@ -1,7 +1,11 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import localFont from 'next/font/local';
 import {
+  ClipboardCheck,
+  Clock,
+  Home,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -15,6 +19,7 @@ import {
   Coffee,
   Bell,
   MapPin,
+  X,
 } from 'lucide-react';
 import { NON_WORKING_TYPES } from '@/context/AppContext';
 import { safeInitials } from '@/lib/initials';
@@ -24,6 +29,19 @@ import Solicitudes from './Solicitudes';
 import InstallBanner from './InstallBanner';
 import AvisosBanner from './AvisosBanner';
 import { apagarAvisosAlSalir, useMisTurnosEnVivo } from '@/lib/misTurnosVivo';
+
+// Letra manuscrita para el título «Mis Turnos» (guardada en el proyecto, como la otra)
+const letraTitulo = localFont({
+  src: '../../fonts/KaushanScript-latin.woff2',
+  weight: '400',
+  display: 'swap',
+});
+
+/** Lleva la pantalla a una sección (calendario, solicitudes) */
+function irA(id: string) {
+  if (id === 'arriba') return window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 // ¿Hay una sesión de la app de administración abierta en este navegador? Solo para mostrar
 // el acceso directo: la administración pide su propio inicio de sesión igual.
@@ -397,40 +415,40 @@ function heroKind(d: PublishedDay | null | undefined): keyof typeof HERO_STYLE {
 }
 
 /** Tarjeta de hoy: blanca y sobria, el color del turno solo en la franja y la etiqueta */
-function TodayHero({ label, d }: { label: string; d: PublishedDay | null | undefined }) {
+function TodayHero({
+  label,
+  d,
+  manana,
+}: {
+  label: string;
+  d: PublishedDay | null | undefined;
+  /** Mañana, en una línea chica abajo */
+  manana?: { label: string; d: PublishedDay | null | undefined };
+}) {
   const k = heroKind(d);
-  const { bar, soft, Icon, short } = HERO_STYLE[k];
   const turno = d?.s && d?.e && !d.esp;
   const horas = dayHours(d);
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/70 shadow-sm px-5 py-4 pl-6">
-      <span
-        className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${bar}`}
-        aria-hidden="true"
-      />
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-          {label}
-        </span>
-        {short && (
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ${soft}`}
-          >
-            <Icon size={13} aria-hidden="true" />
-            {short}
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-50 to-sky-100 border border-blue-100 shadow-sm px-5 py-4">
+      <div className="relative flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 min-w-0">
+          <span className="shrink-0 rounded-full bg-blue-700 text-white text-[14px] font-bold px-3 py-0.5">
+            Hoy
           </span>
-        )}
+          <span className="text-[13px] font-medium text-slate-600 truncate">{label}</span>
+        </span>
       </div>
       {turno ? (
         <>
-          <p className="mt-2 text-[clamp(28px,8.5vw,36px)] leading-none font-semibold tracking-tight text-slate-900 tabular-nums whitespace-nowrap">
+          <p className="relative mt-3 text-[clamp(32px,10vw,42px)] leading-none font-extrabold tracking-tight text-slate-900 tabular-nums whitespace-nowrap">
             {d.s}
-            <span className="mx-2 text-slate-300 font-light">–</span>
+            <span className="mx-2">–</span>
             {d.e}
           </p>
-          <p className="mt-2 text-[14px] font-medium text-slate-500">
+          <p className="relative mt-3 flex items-center gap-1.5 text-[14px] font-medium text-slate-700">
+            <Clock size={16} className="shrink-0" aria-hidden="true" />
             {fmtHoras(horas)} h de trabajo
-            {d.col ? ` · colación ${d.col} min` : ''}
+            {d.col ? ` • Colación: ${d.col} min` : ''}
           </p>
         </>
       ) : (
@@ -439,28 +457,23 @@ function TodayHero({ label, d }: { label: string; d: PublishedDay | null | undef
           {k === 'libre' ? 'Día libre' : dayText(d)}
         </p>
       )}
-    </div>
-  );
-}
-
-/** Fila chica para mañana */
-function TomorrowRow({ label, d }: { label: string; d: PublishedDay | null | undefined }) {
-  const k = heroKind(d);
-  const { soft, Icon } = HERO_STYLE[k];
-  return (
-    <div className="flex items-center gap-3 bg-white rounded-2xl px-3.5 py-3 shadow-sm border border-slate-100">
-      <span className={`w-10 h-10 shrink-0 rounded-xl ${soft} flex items-center justify-center`}>
-        <Icon size={19} aria-hidden="true" />
-      </span>
-      <span className="flex flex-col min-w-0">
-        <span className="text-[12px] font-bold uppercase tracking-wider text-slate-500">
-          {label}
-        </span>
-        <span className="text-[16px] font-extrabold text-slate-900 truncate">
-          {k === 'especial' && <span className="mr-1">{specialIcon(d)}</span>}
-          {k === 'libre' ? 'Libre' : dayText(d)}
-        </span>
-      </span>
+      {manana && (
+        <p className="relative mt-3 pt-3 border-t border-blue-200/60 flex items-center gap-2 text-[14px] text-slate-600">
+          {(() => {
+            const MIcon = HERO_STYLE[heroKind(manana.d)].Icon;
+            return <MIcon size={15} className="text-slate-400 shrink-0" aria-hidden="true" />;
+          })()}
+          <span className="truncate">
+            {manana.label}:{' '}
+            <span className="font-semibold text-slate-900">
+              {heroKind(manana.d) === 'especial' && (
+                <span className="mr-1">{specialIcon(manana.d)}</span>
+              )}
+              {heroKind(manana.d) === 'libre' ? 'Libre' : dayText(manana.d)}
+            </span>
+          </span>
+        </p>
+      )}
     </div>
   );
 }
@@ -490,6 +503,8 @@ function MonthScreen({
   const [selected, setSelected] = useState<number | null>(null);
   const seenKey = `${SEEN_KEY}:${monthKey}`;
   const [seen, setSeen] = useState(() => readLocal(seenKey));
+  // Solicitudes que esperan algo (número en la campanita)
+  const [pendientes, setPendientes] = useState(0);
 
   useEffect(() => {
     // Sin día elegido al abrir: el de hoy ya sale arriba en grande
@@ -500,8 +515,8 @@ function MonthScreen({
 
   if (!monthKey) {
     return (
-      <Shell data={data} onLogout={onLogout}>
-        <div className="relative -mt-8 mx-3 lg:mx-auto lg:max-w-xl bg-white rounded-3xl shadow-lg p-6 text-center flex flex-col gap-3">
+      <Shell data={data} onLogout={onLogout} pendientes={pendientes}>
+        <div className="mx-3 lg:mx-auto lg:max-w-xl bg-white rounded-3xl border border-slate-200/70 p-6 text-center flex flex-col gap-3">
           <span className="mx-auto w-14 h-14 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
             <CalendarDays size={28} aria-hidden="true" />
           </span>
@@ -518,8 +533,15 @@ function MonthScreen({
         </div>
         {/* Las solicitudes se pueden hacer y responder aunque aún no haya malla publicada */}
         <div className="m-3 lg:mx-auto lg:max-w-xl flex flex-col gap-3">
-          <AvisosBanner token={token} />
-          <Solicitudes token={token} fecha={null} onSessionEnd={onSessionEnd} />
+          <div className="bg-white rounded-2xl border border-slate-200/70 empty:hidden">
+            <AvisosBanner token={token} />
+          </div>
+          <Solicitudes
+            token={token}
+            fecha={null}
+            onSessionEnd={onSessionEnd}
+            onPendientes={setPendientes}
+          />
         </div>
       </Shell>
     );
@@ -541,7 +563,6 @@ function MonthScreen({
   const weeks: (number | null)[][] = [];
   for (let n = 0; n < cells.length; n += 7) weeks.push(cells.slice(n, n + 7));
 
-  const mesCorto = MES_CORTO[month - 1];
   const mesLargo = MES_LARGO[month - 1];
   const sel = selected !== null ? days[selected] : undefined;
   const selDate = selected !== null ? new Date(year, month - 1, selected + 1) : null;
@@ -552,67 +573,45 @@ function MonthScreen({
   const diasLibres = days.filter((d) => dayKind(d) === 'descanso').length;
 
   return (
-    <Shell data={data} onLogout={onLogout}>
-      {/* Mes y resumen, montado sobre el encabezado */}
-      <div className="relative -mt-8 mx-3 lg:mx-6 bg-white rounded-3xl shadow-lg px-3 pt-3 pb-3.5">
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => prevMonth && onChangeMonth(prevMonth)}
-            disabled={!prevMonth || loading}
-            aria-label="Mes anterior"
-            className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center disabled:opacity-30"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <span className="text-[19px] font-extrabold text-slate-900">
-            {monthKeyToLabel(monthKey)}
-          </span>
-          <button
-            type="button"
-            onClick={() => nextMonth && onChangeMonth(nextMonth)}
-            disabled={!nextMonth || loading}
-            aria-label="Mes siguiente"
-            className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center disabled:opacity-30"
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-2xl bg-blue-50 py-2">
-            <p className="text-[20px] font-black text-blue-700 leading-tight">
-              {fmtHoras(horasMes)}
-            </p>
-            <p className="text-[11px] font-semibold text-blue-700/80">horas</p>
-          </div>
-          <div className="rounded-2xl bg-sky-50 py-2">
-            <p className="text-[20px] font-black text-sky-700 leading-tight">{diasTrabajo}</p>
-            <p className="text-[11px] font-semibold text-sky-700/80">días de turno</p>
-          </div>
-          <div className="rounded-2xl bg-emerald-50 py-2">
-            <p className="text-[20px] font-black text-emerald-700 leading-tight">{diasLibres}</p>
-            <p className="text-[11px] font-semibold text-emerald-700/80">días libres</p>
-          </div>
-        </div>
-      </div>
-
+    <Shell data={data} onLogout={onLogout} pendientes={pendientes}>
       <div className="p-3 flex flex-col gap-3 lg:p-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6">
         <div className="flex flex-col gap-3 lg:gap-4">
           {/* Primero lo que más se mira: el turno de hoy y de mañana */}
           {isCurrentMonth && (
             <>
               <TodayHero
-                label={`Hoy · ${DOW_NAMES[hoy.date.getDay()].toLowerCase()} ${hoy.day} de ${mesLargo}`}
+                label={`${DOW_NAMES[hoy.date.getDay()]} ${hoy.day} de ${mesLargo}`}
                 d={today}
+                manana={
+                  manana !== undefined
+                    ? {
+                        label: `Mañana ${DOW_NAMES[(hoy.date.getDay() + 1) % 7].toLowerCase()} ${hoy.day + 1}`,
+                        d: manana,
+                      }
+                    : undefined
+                }
               />
-              {manana !== undefined && (
-                <TomorrowRow
-                  label={`Mañana · ${DOW_NAMES[(hoy.date.getDay() + 1) % 7].toLowerCase()} ${hoy.day + 1} de ${mesLargo}`}
-                  d={manana}
-                />
-              )}
             </>
           )}
+
+          {/* Horas y días del mes */}
+          <div className="grid grid-cols-3 gap-2.5">
+            {(
+              [
+                ['text-blue-700', `${fmtHoras(horasMes)} h`, `Trabajadas en ${mesLargo}`],
+                ['text-violet-700', String(diasTrabajo), 'Días con turno'],
+                ['text-amber-600', String(diasLibres), 'Días libres'],
+              ] as const
+            ).map(([color, valor, texto]) => (
+              <div
+                key={texto}
+                className="bg-white rounded-2xl border border-slate-200/70 shadow-sm px-2 py-3 flex flex-col items-center text-center"
+              >
+                <p className={`text-[22px] font-extrabold leading-tight ${color}`}>{valor}</p>
+                <p className="text-[12px] leading-tight text-slate-600">{texto}</p>
+              </div>
+            ))}
+          </div>
           {showNotice && (
             <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 flex gap-3">
               <span className="w-10 h-10 shrink-0 rounded-xl bg-amber-400 text-amber-950 flex items-center justify-center">
@@ -640,11 +639,49 @@ function MonthScreen({
             </div>
           )}
 
-          <InstallBanner />
-          <AvisosBanner token={token} />
+          {/* Avisos de instalar y de cambios, en una franja chica */}
+          <div className="bg-white rounded-2xl border border-slate-200/70 divide-y divide-slate-100 empty:hidden">
+            <InstallBanner />
+            <AvisosBanner token={token} />
+          </div>
 
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-2 lg:p-3">
-            <div className="grid grid-cols-7 gap-1 mb-1">
+          <div
+            id="calendario"
+            className="scroll-mt-3 bg-white rounded-3xl border border-slate-200/70 shadow-sm p-2 lg:p-3"
+          >
+            {/* «Mi Calendario» y el mes */}
+            <div className="flex items-center justify-between gap-2 px-2 pt-1.5 pb-2">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-[16px] lg:text-[17px] font-bold text-slate-900 whitespace-nowrap">
+                  <CalendarDays size={22} className="text-blue-700 shrink-0" aria-hidden="true" />
+                  Mi Calendario
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-[13px] lg:text-[14px] font-bold text-slate-900 mr-0.5 whitespace-nowrap">
+                  {monthKeyToLabel(monthKey)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => prevMonth && onChangeMonth(prevMonth)}
+                  disabled={!prevMonth || loading}
+                  aria-label="Mes anterior"
+                  className="w-9 h-9 rounded-full border border-slate-200 text-slate-600 flex items-center justify-center disabled:opacity-30"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => nextMonth && onChangeMonth(nextMonth)}
+                  disabled={!nextMonth || loading}
+                  aria-label="Mes siguiente"
+                  className="w-9 h-9 rounded-full border border-slate-200 text-slate-600 flex items-center justify-center disabled:opacity-30"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-[repeat(7,minmax(0,1fr))_30px] lg:grid-cols-[repeat(7,minmax(0,1fr))_44px] gap-1 mb-1">
               {DOWS.map((d) => (
                 <span
                   key={d}
@@ -653,6 +690,9 @@ function MonthScreen({
                   {d}
                 </span>
               ))}
+              <span className="text-center text-[10px] lg:text-[12px] font-extrabold text-slate-300 py-1.5">
+                h
+              </span>
             </div>
             {weeks.map((week, w) => {
               const horas = week.reduce<number>(
@@ -662,7 +702,7 @@ function MonthScreen({
               const parcial = week.some((i) => i === null);
               return (
                 <React.Fragment key={w}>
-                  <div className="grid grid-cols-7 gap-1">
+                  <div className="grid grid-cols-[repeat(7,minmax(0,1fr))_30px] lg:grid-cols-[repeat(7,minmax(0,1fr))_44px] gap-1 mb-1">
                     {week.map((i, n) => {
                       if (i === null)
                         return <div key={`v${w}-${n}`} className="min-h-[62px] lg:min-h-[88px]" />;
@@ -672,14 +712,19 @@ function MonthScreen({
                       const isSel = selected === i;
                       const wasChanged = changed.has(i);
                       const tile = isToday
-                        ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md'
-                        : k === 'especial'
-                          ? 'bg-violet-50 text-violet-800'
-                          : k === 'libre'
-                            ? 'bg-white text-slate-400 border border-dashed border-slate-200'
-                            : k === 'tarde'
-                              ? 'bg-amber-50 text-amber-800'
-                              : 'bg-sky-50 text-sky-800';
+                        ? 'bg-blue-700 text-white'
+                        : k === 'libre'
+                          ? 'bg-slate-100 text-slate-500'
+                          : 'bg-white text-slate-700 border border-slate-200/80';
+                      // Rayita de color: mañana celeste, tarde ámbar, vacaciones/permiso morado
+                      const raya =
+                        k === 'manana'
+                          ? 'bg-sky-400'
+                          : k === 'tarde'
+                            ? 'bg-amber-400'
+                            : k === 'especial'
+                              ? 'bg-violet-400'
+                              : '';
                       return (
                         <button
                           key={i}
@@ -694,33 +739,28 @@ function MonthScreen({
                           <span
                             className={`text-[13px] lg:text-sm font-extrabold leading-none ${isToday ? 'text-white' : 'text-slate-800'}`}
                           >
-                            {String(i + 1).padStart(2, '0')}
-                            <span
-                              className={`ml-0.5 text-[9px] lg:text-[11px] font-bold ${isToday ? 'text-white/85' : 'text-slate-500'}`}
-                            >
-                              {mesCorto}
-                            </span>
+                            {i + 1}
                           </span>
+                          {raya && !isToday && (
+                            <span
+                              className={`absolute top-0 left-2 right-2 h-[3px] rounded-b-full ${raya}`}
+                              aria-hidden="true"
+                            />
+                          )}
                           {k === 'especial' ? (
                             <span className="text-[15px] leading-none mt-0.5">
                               {specialIcon(d)}
                             </span>
                           ) : k === 'libre' ? (
-                            <span className="text-[10px] font-semibold mt-0.5">libre</span>
+                            <span className="text-[10px] lg:text-[12px] font-semibold mt-0.5">
+                              Libre
+                            </span>
                           ) : (
-                            <span className="text-[10px] lg:text-[13px] font-bold leading-tight whitespace-pre-line">
+                            <span className="text-[10px] lg:text-[13px] font-semibold leading-tight whitespace-pre-line">
                               {dayShort(d)}
                             </span>
                           )}
-                          {k !== 'especial' && k !== 'libre' && d?.col ? (
-                            <span
-                              className={`flex items-center gap-0.5 whitespace-nowrap text-[9px] lg:text-[11px] font-semibold leading-none ${isToday ? 'text-white/80' : 'opacity-70'}`}
-                              title={`Colación ${d.col} min`}
-                            >
-                              <Coffee size={9} className="shrink-0" aria-hidden="true" />
-                              {d.col}m
-                            </span>
-                          ) : null}
+
                           {wasChanged && (
                             <span
                               className="absolute top-1 right-1 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white"
@@ -730,61 +770,70 @@ function MonthScreen({
                         </button>
                       );
                     })}
+                    {/* Horas de la semana */}
+                    <span
+                      className="flex items-center justify-center text-[11px] lg:text-[13px] font-semibold text-slate-400 tabular-nums"
+                      title={parcial ? 'Parte de esta semana es de otro mes' : undefined}
+                    >
+                      {horas > 0 ? fmtHoras(horas) : ''}
+                    </span>
                   </div>
-                  <p className="px-1.5 pt-1 pb-1.5 text-right text-[11px] font-semibold text-slate-400">
-                    {horas > 0 && (
-                      <>
-                        Semana {fmtHoras(horas)} h{parcial ? ' (parte en otro mes)' : ''}
-                      </>
-                    )}
-                  </p>
                 </React.Fragment>
               );
             })}
-            <div className="flex flex-wrap gap-1.5 px-1 pt-1 text-[11px] font-semibold">
-              <span className="px-2 py-1 rounded-full bg-sky-50 text-sky-800">☀️ Mañana</span>
-              <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-800">🌇 Tarde</span>
-              <span className="px-2 py-1 rounded-full border border-dashed border-slate-300 text-slate-500">
-                Libre
-              </span>
-              <span className="px-2 py-1 rounded-full bg-violet-50 text-violet-800">
-                🌴 Vacaciones y permisos
-              </span>
-              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-50 text-slate-600">
-                <Coffee size={11} aria-hidden="true" /> 60m = colación en minutos
-              </span>
+            <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 px-2 pt-2 pb-1 text-[12px] text-slate-600">
+              {(
+                [
+                  ['bg-sky-400', 'Mañana'],
+                  ['bg-amber-400', 'Tarde'],
+                  ['bg-violet-400', 'Permisos'],
+                  ['bg-slate-300', 'Libre'],
+                ] as const
+              ).map(([c, t]) => (
+                <span key={t} className="flex items-center gap-1.5">
+                  <span className={`w-2.5 h-2.5 rounded-full ${c}`} aria-hidden="true" />
+                  {t}
+                </span>
+              ))}
             </div>
+            <p className="text-center text-[11px] text-slate-400 pb-1">
+              Columna h: horas de la semana · Toca un día para ver la colación
+            </p>
           </div>
         </div>
 
         <div className="flex flex-col gap-3 lg:gap-4 lg:sticky lg:top-4">
           {selected !== null && selDate && (
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-4 flex items-start gap-3">
-              <span
-                className={`w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br ${HERO_STYLE[heroKind(sel)].bg} text-white flex flex-col items-center justify-center leading-none`}
-              >
-                <span className="text-[17px] font-black">{selected + 1}</span>
-                <span className="text-[10px] font-bold opacity-90">{mesCorto}</span>
-              </span>
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-[13px] font-bold text-slate-500">
-                  {DOW_NAMES[selDate.getDay()]} {selected + 1} de {mesLargo}
-                </span>
-                <span className="text-[18px] font-extrabold text-slate-900">
+            // En el celular sale como ventanita abajo; en el computador, en la columna
+            <div className="fixed inset-x-3 bottom-[76px] z-40 shadow-lg lg:static lg:inset-auto lg:z-auto lg:shadow-sm bg-white rounded-2xl border border-slate-200 pl-3 pr-1 py-1.5 flex flex-col">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className={`w-1.5 h-6 shrink-0 rounded-full bg-gradient-to-b ${HERO_STYLE[heroKind(sel)].bg}`}
+                  aria-hidden="true"
+                />
+                <span className="text-[13px] text-slate-700 truncate">
+                  <b className="text-slate-900">
+                    {DOW_NAMES[selDate.getDay()].slice(0, 3)} {selected + 1}
+                  </b>
+                  {' · '}
                   {heroKind(sel) === 'especial' && <span className="mr-1">{specialIcon(sel)}</span>}
                   {dayText(sel)}
+                  {sel?.col && !sel.esp ? ` · colación ${sel.col} min` : ''}
                 </span>
-                {sel?.col && !sel.esp ? (
-                  <span className="text-[13px] text-slate-500">
-                    {fmtHoras(dayHours(sel))} h · colación {sel.col} min
-                  </span>
-                ) : null}
-                {changed.has(selected) && data.prev_days && (
-                  <span className="text-sm text-orange-800 bg-orange-50 rounded-lg px-2.5 py-1.5 mt-1">
-                    Cambió. Antes: {dayText(data.prev_days[selected])}
-                  </span>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setSelected(null)}
+                  aria-label="Cerrar"
+                  className="ml-auto w-8 h-8 shrink-0 rounded-full text-slate-400 flex items-center justify-center hover:bg-slate-100"
+                >
+                  <X size={16} />
+                </button>
               </div>
+              {changed.has(selected) && data.prev_days && (
+                <span className="text-[12px] text-orange-800 pb-1 pl-3.5">
+                  Cambió. Antes: {dayText(data.prev_days[selected])}
+                </span>
+              )}
             </div>
           )}
 
@@ -796,6 +845,7 @@ function MonthScreen({
                 : null
             }
             onSessionEnd={onSessionEnd}
+            onPendientes={setPendientes}
           />
 
           <p className="text-xs text-slate-400 text-center">
@@ -810,54 +860,115 @@ function MonthScreen({
 function Shell({
   data,
   onLogout,
+  pendientes = 0,
   children,
 }: {
   data: MonthData;
   onLogout: () => void;
+  /** Solicitudes que esperan algo: número en la campanita */
+  pendientes?: number;
   children: React.ReactNode;
 }) {
   const adminSession = useHasAdminSession();
   const primerNombre = data.name.split(' ')[0];
   return (
-    <div className="min-h-[var(--app-height,100dvh)] bg-slate-100 text-slate-900">
-      <div className="max-w-md lg:max-w-6xl mx-auto pb-6">
-        {/* Saludo, sucursal y botones; el mes va montado encima del borde de abajo */}
-        <header className="bg-gradient-to-br from-[#0f2744] via-[#16386a] to-[#1d4ed8] text-white px-5 lg:px-6 pt-6 pb-14 rounded-b-[32px]">
-          {/* Arriba la sucursal y los botones; abajo el saludo con todo el ancho para el nombre */}
-          <div className="flex items-center justify-between gap-2">
-            <p className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold text-blue-100">
-              <MapPin size={13} className="shrink-0" aria-hidden="true" />
-              <span className="truncate">{data.sucursal}</span>
-            </p>
-            <div className="flex items-center gap-2 shrink-0">
-              {adminSession && (
-                <AdminLink
-                  label={<span className="hidden sm:inline">Admin</span>}
-                  className="h-9 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold flex items-center gap-1.5"
-                />
-              )}
-              <button
-                type="button"
-                onClick={onLogout}
-                className="h-9 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold flex items-center gap-1.5"
-              >
-                <LogOut size={15} />
-                Salir
-              </button>
-            </div>
-          </div>
-          <div className="mt-4 flex items-center gap-3">
-            <span className="w-12 h-12 shrink-0 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-[17px] font-black">
-              {safeInitials('', data.name)}
+    <div className="min-h-[var(--app-height,100dvh)] bg-slate-50 text-slate-900">
+      <div className="max-w-md lg:max-w-6xl mx-auto pb-24 lg:pb-6">
+        {/* Encabezado azul con el nombre de la app y la campanita */}
+        <header className="relative bg-gradient-to-br from-blue-800 via-blue-700 to-blue-500 text-white px-5 lg:px-6 pt-5 pb-12 overflow-hidden">
+          <div className="relative flex items-center gap-3">
+            <span className="w-12 h-12 shrink-0 rounded-2xl border-2 border-white/80 flex items-center justify-center">
+              <CalendarDays size={26} aria-hidden="true" />
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] text-blue-100 whitespace-nowrap">Hola 👋</p>
-              <h1 className="text-[22px] font-extrabold leading-tight truncate">{primerNombre}</h1>
+            <div className="flex-1 min-w-0">
+              <p className={`${letraTitulo.className} text-[30px] leading-none`}>Mis Turnos</p>
+              <p className="text-[13px] text-blue-100 mt-1 truncate">
+                Tu calendario, siempre contigo ❤️
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => irA('solicitudes')}
+              aria-label={`Solicitudes${pendientes ? `: ${pendientes} pendientes` : ''}`}
+              className="relative w-11 h-11 shrink-0 rounded-full flex items-center justify-center hover:bg-white/10"
+            >
+              <Bell size={24} aria-hidden="true" />
+              {pendientes > 0 && (
+                <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-[11px] font-bold flex items-center justify-center ring-2 ring-blue-700">
+                  {pendientes}
+                </span>
+              )}
+            </button>
+            {adminSession && (
+              <AdminLink
+                label={<span className="hidden sm:inline">Admin</span>}
+                className="h-9 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold flex items-center gap-1.5"
+              />
+            )}
+            <button
+              type="button"
+              onClick={onLogout}
+              className="hidden lg:flex h-9 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold items-center gap-1.5"
+            >
+              <LogOut size={15} />
+              Salir
+            </button>
           </div>
+          {/* Ola de abajo */}
+          <svg
+            className="absolute bottom-0 left-0 w-full h-8 text-slate-50"
+            viewBox="0 0 400 32"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M0 22 C 90 2, 170 34, 260 16 S 360 4, 400 14 L400 32 L0 32 Z"
+              fill="currentColor"
+            />
+          </svg>
         </header>
+
+        {/* Saludo */}
+        <div className="relative px-5 lg:px-6 -mt-3 pb-3">
+          <h1 className="text-[24px] font-extrabold leading-tight">Hola, {primerNombre} 👋</h1>
+          <p className="text-[14px] text-slate-600">
+            Que tengas un excelente día
+            <span className="text-slate-400"> · {data.sucursal}</span>
+          </p>
+        </div>
+
         {children}
       </div>
+
+      {/* Menú de abajo (celular) */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
+        <div className="max-w-md mx-auto grid grid-cols-3">
+          {(
+            [
+              ['arriba', 'Inicio', Home],
+              ['solicitudes', 'Solicitudes', ClipboardCheck],
+            ] as const
+          ).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => irA(id)}
+              className="h-16 flex flex-col items-center justify-center gap-0.5 text-[12px] font-semibold text-slate-600 active:text-blue-700"
+            >
+              <Icon size={22} aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={onLogout}
+            className="h-16 flex flex-col items-center justify-center gap-0.5 text-[12px] font-semibold text-slate-600"
+          >
+            <LogOut size={22} aria-hidden="true" />
+            Salir
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

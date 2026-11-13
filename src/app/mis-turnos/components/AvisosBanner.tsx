@@ -48,24 +48,22 @@ export default function AvisosBanner({ token }: { token: string }) {
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
-      <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-        {estado === 'bloqueado' ? (
-          <BellOff size={20} className="text-amber-700" />
-        ) : (
-          <BellRing size={20} className="text-amber-700" />
-        )}
-      </div>
+    // Fila compacta: va dentro de la franja de avisos de Mis turnos
+    <div className="px-3 py-2 flex items-center gap-2.5">
+      {estado === 'bloqueado' ? (
+        <BellOff size={17} className="text-amber-700 shrink-0" aria-hidden="true" />
+      ) : (
+        <BellRing size={17} className="text-amber-700 shrink-0" aria-hidden="true" />
+      )}
       <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-bold text-gray-900">Avísame si cambia mi turno</p>
-        <p className="text-[13px] text-gray-600 leading-snug">
+        <p className="text-[13px] text-gray-700 leading-snug">
           {estado === 'bloqueado'
-            ? 'Los avisos están bloqueados. Actívalos en los ajustes del navegador o del celular para esta página.'
-            : 'Te llega una notificación al celular cuando publiquen o cambien tus turnos.'}
+            ? 'Avisos bloqueados: actívalos en los ajustes del celular'
+            : 'Avísame si cambia mi turno'}
         </p>
-        {error && <p className="text-[13px] font-semibold text-red-600 mt-1">{error}</p>}
+        {error && <p className="text-[12px] font-semibold text-red-600">{error}</p>}
       </div>
-      <div className="flex flex-col items-end gap-1 shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
         {estado === 'apagado' && (
           <button
             type="button"
@@ -75,7 +73,7 @@ export default function AvisosBanner({ token }: { token: string }) {
               await activar();
               setActivando(false);
             }}
-            className="h-10 px-3.5 rounded-[10px] bg-amber-500 text-white text-sm font-bold disabled:opacity-60"
+            className="h-8 px-3 rounded-lg bg-amber-500 text-white text-[13px] font-bold disabled:opacity-60"
           >
             {activando ? 'Activando...' : 'Activar'}
           </button>
@@ -83,10 +81,10 @@ export default function AvisosBanner({ token }: { token: string }) {
         <button
           type="button"
           onClick={cerrar}
-          className="h-7 px-1 text-xs text-gray-500 flex items-center gap-1"
+          aria-label="Ahora no"
+          className="w-8 h-8 -mr-1 text-gray-400 flex items-center justify-center"
         >
-          <X size={12} />
-          Ahora no
+          <X size={15} />
         </button>
       </div>
     </div>

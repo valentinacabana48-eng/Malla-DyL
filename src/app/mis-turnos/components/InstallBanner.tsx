@@ -36,33 +36,27 @@ export default function InstallBanner() {
 
   return (
     <>
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-          <Smartphone size={20} className="text-blue-700" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-bold text-gray-900">Tenla en tu celular</p>
-          <p className="text-[13px] text-gray-600 leading-snug">
-            Instala Mis turnos y ábrela con un toque, como cualquier app.
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={installApp ?? (() => setShowIos(true))}
-            className="h-10 px-3.5 rounded-[10px] bg-blue-700 text-white text-sm font-bold"
-          >
-            Instalar
-          </button>
-          <button
-            type="button"
-            onClick={dismiss}
-            className="h-7 px-1 text-xs text-gray-500 flex items-center gap-1"
-          >
-            <X size={12} />
-            Ahora no
-          </button>
-        </div>
+      {/* Fila compacta: va dentro de la franja de avisos de Mis turnos */}
+      <div className="px-3 py-2 flex items-center gap-2.5">
+        <Smartphone size={17} className="text-blue-700 shrink-0" aria-hidden="true" />
+        <p className="flex-1 min-w-0 text-[13px] text-gray-700 leading-snug">
+          Instala Mis turnos en tu celular
+        </p>
+        <button
+          type="button"
+          onClick={installApp ?? (() => setShowIos(true))}
+          className="h-8 px-3 rounded-lg bg-blue-700 text-white text-[13px] font-bold shrink-0"
+        >
+          Instalar
+        </button>
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Ahora no"
+          className="w-8 h-8 -mr-1 text-gray-400 flex items-center justify-center shrink-0"
+        >
+          <X size={15} />
+        </button>
       </div>
       {showIos && (
         <IosInstallModal
