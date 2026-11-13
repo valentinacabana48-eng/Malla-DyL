@@ -19,6 +19,7 @@ import {
   Coffee,
   Bell,
   MapPin,
+  X,
 } from 'lucide-react';
 import { NON_WORKING_TYPES } from '@/context/AppContext';
 import { safeInitials } from '@/lib/initials';
@@ -804,7 +805,8 @@ function MonthScreen({
 
         <div className="flex flex-col gap-3 lg:gap-4 lg:sticky lg:top-4">
           {selected !== null && selDate && (
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-4 flex items-start gap-3">
+            // En el celular sale como ventanita abajo; en el computador, en la columna
+            <div className="fixed inset-x-3 bottom-[76px] z-40 shadow-xl lg:static lg:inset-auto lg:z-auto lg:shadow-sm bg-white rounded-3xl border border-slate-200 p-4 flex items-start gap-3">
               <span
                 className={`w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br ${HERO_STYLE[heroKind(sel)].bg} text-white flex flex-col items-center justify-center leading-none`}
               >
@@ -830,6 +832,14 @@ function MonthScreen({
                   </span>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                aria-label="Cerrar"
+                className="ml-auto -mr-1 -mt-1 w-9 h-9 shrink-0 rounded-full text-slate-400 flex items-center justify-center hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
             </div>
           )}
 

@@ -164,7 +164,15 @@ export default function Solicitudes({
   }, [loadRequests, loadShifts]);
 
   useEffect(() => {
-    onPendientes?.(requests.filter((x) => x.status === 'pendiente').length);
+    // Solo lo que le toca hacer a ella: elegir compañera o responderle a una compañera
+    onPendientes?.(
+      requests.filter(
+        (x) =>
+          x.status === 'pendiente' &&
+          ((x.mia && x.companera_status === 'elegir') ||
+            (!x.mia && x.companera_status === 'pendiente'))
+      ).length
+    );
   }, [requests, onPendientes]);
 
   // En vivo: si la jefatura o una compañera responde, la lista se actualiza sola
@@ -577,6 +585,40 @@ export default function Solicitudes({
                         {st.label}
                       </p>
                     )}
+                    {/* Pasos del cambio con compañera */}
+                    {r.tipo === 'intercambio' &&
+                      r.mia &&
+                      r.status === 'pendiente' &&
+                      (() => {
+                        const paso = ['por_preaprobar', 'elegir', 'pendiente', 'aceptada'].indexOf(
+                          r.companera_status
+                        );
+                        if (paso < 0) return null;
+                        return (
+                          <div className="flex gap-1" aria-label={`Paso ${paso + 1} de 4`}>
+                            {['Jefatura', 'Eliges', 'Compañera', 'Aprobación'].map((label, n) => (
+                              <div key={label} className="flex-1 min-w-0">
+                                <div
+                                  className={`h-1.5 rounded-full ${
+                                    n < paso
+                                      ? 'bg-blue-600'
+                                      : n === paso
+                                        ? 'bg-blue-300'
+                                        : 'bg-slate-200'
+                                  }`}
+                                />
+                                <p
+                                  className={`mt-0.5 text-[10px] truncate ${
+                                    n === paso ? 'font-bold text-blue-800' : 'text-slate-400'
+                                  }`}
+                                >
+                                  {label}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     {r.motivo && <p className="text-[13px] text-gray-500">«{r.motivo}»</p>}
                     {r.respuesta &&
                       (noAcepto && r.status === 'pendiente' ? (
@@ -695,7 +737,7 @@ export default function Solicitudes({
                       <button
                         type="button"
                         onClick={() => cancel(r.id)}
-                        className="h-10 rounded-full border border-blue-700 text-blue-700 text-[13px] font-semibold flex items-center justify-center gap-1"
+                        className="self-start text-[12px] text-gray-500 flex items-center gap-1"
                       >
                         <X size={13} />
                         Cancelar solicitud
