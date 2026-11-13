@@ -1,6 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Send, X } from 'lucide-react';
+import { AlertCircle, ChevronRight, Send, X } from 'lucide-react';
 import { getPublicSupabase } from '@/lib/supabase/publicClient';
 import { EVENTO_CAMBIO } from '@/lib/misTurnosVivo';
 
@@ -129,6 +129,8 @@ export default function Solicitudes({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState('');
+  // Por defecto se ven solo las pendientes; «Ver todas» muestra también las respondidas
+  const [verTodas, setVerTodas] = useState(false);
   const mes = nextMonth();
 
   const loadRequests = useCallback(async () => {
@@ -505,7 +507,7 @@ export default function Solicitudes({
         </p>
       ) : (
         <ul className="flex flex-col gap-2.5">
-          {requests.map((r) => {
+          {(verTodas ? requests : requests.filter((x) => x.status === 'pendiente')).map((r) => {
             const st = statusOf(r);
             const [, mm, dd] = r.fecha.split('-').map(Number);
             const dow = DOW[new Date(Number(r.fecha.slice(0, 4)), mm - 1, dd).getDay()];
@@ -713,6 +715,16 @@ export default function Solicitudes({
             );
           })}
         </ul>
+      )}
+      {requests.some((x) => x.status !== 'pendiente') && (
+        <button
+          type="button"
+          onClick={() => setVerTodas((v) => !v)}
+          className="self-end text-[13px] font-semibold text-blue-700 flex items-center gap-0.5"
+        >
+          {verTodas ? 'Ver solo pendientes' : `Ver todas (${requests.length})`}
+          <ChevronRight size={15} aria-hidden="true" />
+        </button>
       )}
     </div>
   );
