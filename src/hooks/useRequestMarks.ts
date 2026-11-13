@@ -5,7 +5,7 @@ import { useAppContext, type Shift, type ShiftCode } from '@/context/AppContext'
 
 /** Marca de una casilla de la malla que cambió por una solicitud aprobada */
 export interface RequestMark {
-  /** "Cambió con Catherine", "Día libre pedido", "Cambio de turno pedido" */
+  /** "Cambió con Catherine", "Día libre pedido", "Turno pedido" */
   text: string;
   /** Lo que tenía antes, ya escrito: "15:00 a 21:00" o "libre" */
   antes: string;
@@ -108,7 +108,7 @@ export function useRequestMarks(
           });
       } else {
         put(r.worker_id, day, r.turno_pedido, {
-          text: r.tipo === 'libre' ? 'Día libre pedido' : 'Cambio de turno pedido',
+          text: r.tipo === 'libre' ? 'Día libre pedido' : 'Turno pedido',
           antes: shiftText(r.turno_actual, shifts),
           aprobado,
         });

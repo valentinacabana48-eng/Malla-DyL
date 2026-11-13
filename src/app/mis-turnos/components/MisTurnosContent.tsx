@@ -1,7 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import localFont from 'next/font/local';
 import {
   ClipboardCheck,
   Clock,
@@ -19,6 +18,7 @@ import {
   Coffee,
   Bell,
   MapPin,
+  Star,
   X,
 } from 'lucide-react';
 import { NON_WORKING_TYPES } from '@/context/AppContext';
@@ -31,11 +31,6 @@ import AvisosBanner from './AvisosBanner';
 import { apagarAvisosAlSalir, useMisTurnosEnVivo } from '@/lib/misTurnosVivo';
 
 // Letra manuscrita para el título «Mis Turnos» (guardada en el proyecto, como la otra)
-const letraTitulo = localFont({
-  src: '../../fonts/KaushanScript-latin.woff2',
-  weight: '400',
-  display: 'swap',
-});
 
 type Vista = 'inicio' | 'solicitudes';
 
@@ -170,6 +165,49 @@ function hoyChile(): { monthKey: string; day: number; date: Date } {
   }).format(new Date());
   const [y, m, d] = parts.split('-').map(Number);
   return { monthKey: `${y}-${String(m).padStart(2, '0')}`, day: d, date: new Date(y, m - 1, d) };
+}
+
+/** En los últimos 10 días del mes: nombre del mes que viene, para avisar que ya se puede pedir */
+function mesParaPedir(hoy: { date: Date; day: number }): string | null {
+  const ultimo = new Date(hoy.date.getFullYear(), hoy.date.getMonth() + 1, 0).getDate();
+  if (ultimo - hoy.day >= 10) return null;
+  return MES_LARGO[(hoy.date.getMonth() + 1) % 12];
+}
+
+/** Aviso de fin de mes: ya se pueden hacer las solicitudes del mes siguiente */
+function AvisoMesSiguiente({ mes, onIr }: { mes: string; onIr: () => void }) {
+  const [cerrado, setCerrado] = useState(false);
+  if (cerrado) return null;
+  return (
+    <div className="bg-violet-50 border border-violet-200 rounded-2xl pl-3.5 pr-1.5 py-2.5 flex items-center gap-3">
+      <span className="w-9 h-9 shrink-0 rounded-xl bg-violet-600 text-white flex items-center justify-center">
+        <ClipboardCheck size={19} aria-hidden="true" />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-bold text-slate-900 leading-snug">
+          Ya puedes pedir tus turnos de {mes}
+        </p>
+        <p className="text-[12px] text-slate-600 leading-snug">
+          Si necesitas un día libre o un turno en especial, haz tu solicitud ahora.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onIr}
+        className="h-8 px-3 shrink-0 rounded-lg bg-violet-600 text-white text-[13px] font-bold"
+      >
+        Pedir
+      </button>
+      <button
+        type="button"
+        onClick={() => setCerrado(true)}
+        aria-label="Cerrar aviso"
+        className="w-8 h-8 shrink-0 text-slate-400 flex items-center justify-center"
+      >
+        <X size={15} />
+      </button>
+    </div>
+  );
 }
 
 const DOWS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
@@ -439,7 +477,18 @@ function TodayHero({
   const turno = d?.s && d?.e && !d.esp;
   const horas = dayHours(d);
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-50 to-sky-100 border border-blue-100 shadow-sm px-5 py-4">
+    <div className="relative overflow-hidden rounded-3xl bg-white border border-white shadow-[0_12px_30px_-12px_rgba(30,64,175,0.35)] px-5 py-4">
+      {/* Calendario decorativo a la derecha */}
+      <span
+        className="absolute -right-6 -bottom-8 w-36 h-36 rounded-full bg-gradient-to-br from-blue-100 to-sky-50"
+        aria-hidden="true"
+      />
+      <span className="absolute right-4 bottom-4 text-blue-500/80" aria-hidden="true">
+        <CalendarDays size={56} strokeWidth={1.6} />
+        <span className="absolute -right-1.5 -bottom-1.5 w-7 h-7 rounded-full bg-blue-700 text-white flex items-center justify-center ring-2 ring-white">
+          <Clock size={15} strokeWidth={2.4} />
+        </span>
+      </span>
       <div className="relative flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 min-w-0">
           <span className="shrink-0 rounded-full bg-blue-700 text-white text-[14px] font-bold px-3 py-0.5">
@@ -468,7 +517,7 @@ function TodayHero({
         </p>
       )}
       {manana && (
-        <p className="relative mt-3 pt-3 border-t border-blue-200/60 flex items-center gap-2 text-[14px] text-slate-600">
+        <p className="relative mt-3 pt-3 border-t border-slate-200/70 flex items-center gap-2 text-[14px] text-slate-600">
           {(() => {
             const MIcon = HERO_STYLE[heroKind(manana.d)].Icon;
             return <MIcon size={15} className="text-slate-400 shrink-0" aria-hidden="true" />;
@@ -604,6 +653,9 @@ function MonthScreen({
         <div
           className={`${vista === 'solicitudes' ? 'hidden lg:flex' : 'flex'} flex-col gap-3 lg:gap-4`}
         >
+          {mesParaPedir(hoy) && (
+            <AvisoMesSiguiente mes={mesParaPedir(hoy)!} onIr={() => irAVista('solicitudes')} />
+          )}
           {/* Primero lo que más se mira: el turno de hoy y de mañana */}
           {isCurrentMonth && (
             <>
@@ -626,16 +678,17 @@ function MonthScreen({
           <div className="grid grid-cols-3 gap-2.5">
             {(
               [
-                ['text-blue-700', `${fmtHoras(horasMes)} h`, `Trabajadas en ${mesLargo}`],
-                ['text-violet-700', String(diasTrabajo), 'Días con turno'],
-                ['text-amber-600', String(diasLibres), 'Días libres'],
+                [Clock, 'text-blue-600', `${fmtHoras(horasMes)} h`, `Trabajadas en ${mesLargo}`],
+                [CalendarDays, 'text-blue-600', String(diasTrabajo), 'Días con turno'],
+                [Star, 'text-amber-400 fill-amber-400', String(diasLibres), 'Días libres'],
               ] as const
-            ).map(([color, valor, texto]) => (
+            ).map(([Icono, color, valor, texto]) => (
               <div
                 key={texto}
-                className="bg-white rounded-2xl border border-slate-200/70 shadow-sm px-2 py-3 flex flex-col items-center text-center"
+                className="bg-white rounded-2xl border border-white shadow-[0_8px_24px_-10px_rgba(30,64,175,0.25)] px-2 py-3 flex flex-col items-center text-center"
               >
-                <p className={`text-[22px] font-extrabold leading-tight ${color}`}>{valor}</p>
+                <Icono size={24} className={`mb-1 ${color}`} aria-hidden="true" />
+                <p className="text-[21px] font-extrabold leading-tight text-slate-900">{valor}</p>
                 <p className="text-[12px] leading-tight text-slate-600">{texto}</p>
               </div>
             ))}
@@ -668,14 +721,14 @@ function MonthScreen({
           )}
 
           {/* Avisos de instalar y de cambios, en una franja chica */}
-          <div className="bg-white rounded-2xl border border-slate-200/70 divide-y divide-slate-100 empty:hidden">
+          <div className="bg-white rounded-2xl shadow-[0_8px_24px_-10px_rgba(30,64,175,0.25)] divide-y divide-slate-100 empty:hidden">
             <InstallBanner />
             <AvisosBanner token={token} />
           </div>
 
           <div
             id="calendario"
-            className="scroll-mt-3 bg-white rounded-3xl border border-slate-200/70 shadow-sm p-2 lg:p-3"
+            className="scroll-mt-3 bg-white rounded-3xl shadow-[0_8px_24px_-10px_rgba(30,64,175,0.25)] p-2 lg:p-3"
           >
             {/* «Mi Calendario» y el mes */}
             <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 pt-1.5 pb-2">
@@ -740,10 +793,10 @@ function MonthScreen({
                       const isSel = selected === i;
                       const wasChanged = changed.has(i);
                       const tile = isToday
-                        ? 'bg-blue-700 text-white'
+                        ? 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-md shadow-blue-700/30'
                         : k === 'libre'
                           ? 'bg-slate-100 text-slate-500'
-                          : 'bg-white text-slate-700 border border-slate-200/80';
+                          : 'bg-white text-slate-700 border border-slate-100 shadow-[0_2px_6px_-2px_rgba(15,23,42,0.12)]';
                       // Rayita de color: mañana celeste, tarde ámbar, vacaciones/permiso morado
                       const raya =
                         k === 'manana'
@@ -911,10 +964,19 @@ function Shell({
   const adminSession = useHasAdminSession();
   const primerNombre = data.name.split(' ')[0];
   return (
-    <div className="min-h-[var(--app-height,100dvh)] bg-slate-50 text-slate-900">
+    <div className="min-h-[var(--app-height,100dvh)] bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-100 text-slate-900">
       <div className="max-w-md lg:max-w-6xl mx-auto pb-24 lg:pb-6">
         {/* Encabezado azul con el nombre de la app y la campanita */}
-        <header className="relative bg-gradient-to-br from-blue-800 via-blue-700 to-blue-500 text-white px-5 lg:px-6 pt-5 pb-12 overflow-hidden">
+        <header className="relative bg-gradient-to-br from-blue-800 via-blue-700 to-blue-500 text-white px-5 lg:px-6 pt-5 pb-20 overflow-hidden">
+          {/* Manchas suaves de fondo */}
+          <span
+            className="absolute -top-16 -right-10 w-56 h-56 rounded-full bg-white/10"
+            aria-hidden="true"
+          />
+          <span
+            className="absolute top-10 -left-16 w-44 h-44 rounded-full bg-sky-300/15"
+            aria-hidden="true"
+          />
           <div className="relative flex items-center gap-3">
             <span className="w-14 h-14 shrink-0 rounded-full bg-white shadow-md flex items-center justify-center p-0.5">
               <AppImage
@@ -925,9 +987,11 @@ function Shell({
                 className="object-contain w-full h-full"
               />
             </span>
-            <p className={`${letraTitulo.className} flex-1 min-w-0 text-[30px] leading-none`}>
-              Mis Turnos
-            </p>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-[23px] font-extrabold leading-tight">Hola, {primerNombre} 👋</h1>
+              <p className="text-[13px] text-blue-100 leading-snug">Que tengas un excelente día</p>
+              <p className="text-[12px] text-blue-200/90 leading-snug truncate">{data.sucursal}</p>
+            </div>
             <button
               type="button"
               onClick={() => (onVista ? onVista('solicitudes') : irA('solicitudes'))}
@@ -970,16 +1034,8 @@ function Shell({
           </svg>
         </header>
 
-        {/* Saludo */}
-        <div className="relative px-5 lg:px-6 -mt-3 pb-3">
-          <h1 className="text-[24px] font-extrabold leading-tight">Hola, {primerNombre} 👋</h1>
-          <p className="text-[14px] text-slate-600">
-            Que tengas un excelente día
-            <span className="text-slate-400"> · {data.sucursal}</span>
-          </p>
-        </div>
-
-        {children}
+        {/* El contenido sube y se monta sobre el azul */}
+        <div className="relative -mt-14">{children}</div>
       </div>
 
       {/* Menú de abajo (celular) */}
