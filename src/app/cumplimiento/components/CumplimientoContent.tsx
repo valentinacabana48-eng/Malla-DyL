@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ShieldCheck, CheckCircle2, XCircle, Search, Info } from 'lucide-react';
 import { useAppContext, monthLabelToKey, MESES } from '@/context/AppContext';
 import { evaluateMonth, MAX_CONSECUTIVE_DAYS, MIN_SUNDAYS_OFF } from '@/lib/compliance';
@@ -67,10 +67,19 @@ export default function CumplimientoContent() {
     setSelectedMes,
     sucursales,
     areas,
+    globalSucursal,
+    globalArea,
   } = useAppContext();
 
-  const [selectedSucursal, setSelectedSucursal] = useState('Todas');
-  const [selectedArea, setSelectedArea] = useState('Todas');
+  // Parten con la sucursal y el área elegidas arriba en la app (se pueden cambiar aquí)
+  const [selectedSucursal, setSelectedSucursal] = useState(globalSucursal || 'Todas');
+  const [selectedArea, setSelectedArea] = useState(globalArea || 'Todas');
+  useEffect(() => {
+    setSelectedSucursal(globalSucursal || 'Todas');
+  }, [globalSucursal]);
+  useEffect(() => {
+    setSelectedArea(globalArea || 'Todas');
+  }, [globalArea]);
   const [nameSearch, setNameSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pass' | 'fail'>('all');
   const [expandedWorker, setExpandedWorker] = useState<string | null>(null);

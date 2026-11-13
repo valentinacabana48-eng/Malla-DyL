@@ -106,13 +106,18 @@ export default function ExtrasContent() {
     areaCargos,
     getAllNonWorkingTypes,
     globalSucursal,
+    globalArea,
     ensureMonths,
     loading: appLoading,
   } = useAppContext();
 
   const [fecha, setFecha] = useState(hoyISO);
   const [sucursal, setSucursal] = useState('');
-  const [area, setArea] = useState('Todas');
+  // Parte con el área elegida arriba en la app (se puede cambiar aquí)
+  const [area, setArea] = useState(globalArea || 'Todas');
+  useEffect(() => {
+    setArea(globalArea || 'Todas');
+  }, [globalArea]);
   const [cargo, setCargo] = useState('Todos');
   /** En el formulario: se eligió "Otro" y se escribe el cargo a mano */
   const [cargoLibre, setCargoLibre] = useState(false);
@@ -143,6 +148,8 @@ export default function ExtrasContent() {
     [areasDeSucursales, sucursal]
   );
   useEffect(() => {
+    // Mientras se carga la sucursal todavía no hay áreas: no se toca la elegida
+    if (areaOptions.length === 0) return;
     if (area !== 'Todas' && !areaOptions.includes(area)) setArea('Todas');
   }, [areaOptions, area]);
 

@@ -890,6 +890,7 @@ export default function VistaPreviaContent() {
     selectedMes,
     getAllNonWorkingTypes,
     globalSucursal,
+    globalArea,
     ensureMonths,
   } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
@@ -897,7 +898,9 @@ export default function VistaPreviaContent() {
   const canImprimir = useAuth().can('vista_previa_imprimir');
 
   // [] = todas / todos
-  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [selectedAreas, setSelectedAreas] = useState<string[]>(
+    globalArea && globalArea !== 'Todas' ? [globalArea] : []
+  );
   const [selectedCargos, setSelectedCargos] = useState<string[]>([]);
   const [selectedSucursales, setSelectedSucursales] = useState<string[]>(
     globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []
@@ -913,6 +916,11 @@ export default function VistaPreviaContent() {
     setSelectedSucursales(globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []);
     setSelectedWorkerId('');
   }, [globalSucursal]);
+
+  React.useEffect(() => {
+    setSelectedAreas(globalArea && globalArea !== 'Todas' ? [globalArea] : []);
+    setSelectedWorkerId('');
+  }, [globalArea]);
 
   // El mes elegido puede no estar cargado todavía (solo se cargan los cercanos)
   React.useEffect(() => {
