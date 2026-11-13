@@ -408,22 +408,21 @@ function TodayHero({
   manana?: { label: string; d: PublishedDay | null | undefined };
 }) {
   const k = heroKind(d);
-  const { bar, soft, Icon, short } = HERO_STYLE[k];
+  const { soft, Icon, short } = HERO_STYLE[k];
   const turno = d?.s && d?.e && !d.esp;
   const horas = dayHours(d);
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/70 shadow-sm px-5 py-4 pl-6">
-      <span
-        className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${bar}`}
-        aria-hidden="true"
-      />
+    <div className="rounded-3xl bg-blue-50/80 border border-blue-100 px-5 py-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-          {label}
+        <span className="flex items-center gap-2 min-w-0">
+          <span className="shrink-0 rounded-full bg-blue-700 text-white text-[12px] font-bold px-2.5 py-0.5">
+            Hoy
+          </span>
+          <span className="text-[13px] font-medium text-slate-600 truncate">{label}</span>
         </span>
         {short && (
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ${soft}`}
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[12px] font-semibold ${soft.split(' ')[1]}`}
           >
             <Icon size={13} aria-hidden="true" />
             {short}
@@ -449,7 +448,7 @@ function TodayHero({
         </p>
       )}
       {manana && (
-        <p className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 text-[14px] text-slate-600">
+        <p className="mt-3 pt-3 border-t border-blue-100 flex items-center gap-2 text-[14px] text-slate-600">
           {(() => {
             const MIcon = HERO_STYLE[heroKind(manana.d)].Icon;
             return <MIcon size={15} className="text-slate-400 shrink-0" aria-hidden="true" />;
@@ -559,41 +558,13 @@ function MonthScreen({
 
   return (
     <Shell data={data} onLogout={onLogout}>
-      {/* Mes y resumen en una línea */}
-      <div className="mx-3 lg:mx-auto lg:w-full lg:max-w-md flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => prevMonth && onChangeMonth(prevMonth)}
-          disabled={!prevMonth || loading}
-          aria-label="Mes anterior"
-          className="w-10 h-10 rounded-full text-slate-600 flex items-center justify-center hover:bg-slate-100 disabled:opacity-25"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <div className="text-center">
-          <p className="text-[18px] font-bold text-slate-900">{monthKeyToLabel(monthKey)}</p>
-          <p className="text-[13px] text-slate-500">
-            {fmtHoras(horasMes)} h · {diasTrabajo} días de turno · {diasLibres} libres
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => nextMonth && onChangeMonth(nextMonth)}
-          disabled={!nextMonth || loading}
-          aria-label="Mes siguiente"
-          className="w-10 h-10 rounded-full text-slate-600 flex items-center justify-center hover:bg-slate-100 disabled:opacity-25"
-        >
-          <ChevronRight size={20} />
-        </button>
-      </div>
-
       <div className="p-3 flex flex-col gap-3 lg:p-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6">
         <div className="flex flex-col gap-3 lg:gap-4">
           {/* Primero lo que más se mira: el turno de hoy y de mañana */}
           {isCurrentMonth && (
             <>
               <TodayHero
-                label={`Hoy · ${DOW_NAMES[hoy.date.getDay()].toLowerCase()} ${hoy.day} de ${mesLargo}`}
+                label={`${DOW_NAMES[hoy.date.getDay()]} ${hoy.day} de ${mesLargo}`}
                 d={today}
                 manana={
                   manana !== undefined
@@ -640,6 +611,38 @@ function MonthScreen({
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200/70 p-2 lg:p-3">
+            {/* Mes y resumen, dentro del calendario */}
+            <div className="flex items-center justify-between gap-2 px-2 pt-1.5 pb-2">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-[16px] font-bold text-slate-900">
+                  <CalendarDays size={18} className="text-blue-700 shrink-0" aria-hidden="true" />
+                  {monthKeyToLabel(monthKey)}
+                </p>
+                <p className="text-[12px] text-slate-500 mt-0.5">
+                  {fmtHoras(horasMes)} h · {diasTrabajo} días de turno · {diasLibres} libres
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => prevMonth && onChangeMonth(prevMonth)}
+                  disabled={!prevMonth || loading}
+                  aria-label="Mes anterior"
+                  className="w-9 h-9 rounded-full border border-slate-200 text-slate-600 flex items-center justify-center disabled:opacity-30"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => nextMonth && onChangeMonth(nextMonth)}
+                  disabled={!nextMonth || loading}
+                  aria-label="Mes siguiente"
+                  className="w-9 h-9 rounded-full border border-slate-200 text-slate-600 flex items-center justify-center disabled:opacity-30"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
             <div className="grid grid-cols-[repeat(7,minmax(0,1fr))_30px] lg:grid-cols-[repeat(7,minmax(0,1fr))_44px] gap-1 mb-1">
               {DOWS.map((d) => (
                 <span
@@ -673,7 +676,7 @@ function MonthScreen({
                       const tile = isToday
                         ? 'bg-blue-700 text-white'
                         : k === 'libre'
-                          ? 'bg-slate-50 text-slate-400'
+                          ? 'bg-slate-100 text-slate-500'
                           : 'bg-white text-slate-700 border border-slate-200/80';
                       // Rayita de color: mañana celeste, tarde ámbar, vacaciones/permiso morado
                       const raya =
@@ -711,7 +714,9 @@ function MonthScreen({
                               {specialIcon(d)}
                             </span>
                           ) : k === 'libre' ? (
-                            <span className="text-[10px] font-semibold mt-0.5">libre</span>
+                            <span className="text-[10px] lg:text-[12px] font-semibold mt-0.5">
+                              Libre
+                            </span>
                           ) : (
                             <span className="text-[10px] lg:text-[13px] font-semibold leading-tight whitespace-pre-line">
                               {dayShort(d)}
@@ -738,20 +743,24 @@ function MonthScreen({
                 </React.Fragment>
               );
             })}
-            <div className="flex flex-wrap gap-x-4 gap-y-1 px-2 pt-1 pb-1 text-[12px] text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-[3px] rounded-full bg-sky-400" aria-hidden="true" /> Mañana
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-[3px] rounded-full bg-amber-400" aria-hidden="true" /> Tarde
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-[3px] rounded-full bg-violet-400" aria-hidden="true" />{' '}
-                Vacaciones y permisos
-              </span>
-              <span>Columna h: horas de la semana</span>
-              <span>Toca un día para ver la colación</span>
+            <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 px-2 pt-2 pb-1 text-[12px] text-slate-600">
+              {(
+                [
+                  ['bg-sky-400', 'Mañana'],
+                  ['bg-amber-400', 'Tarde'],
+                  ['bg-violet-400', 'Permisos'],
+                  ['bg-slate-300', 'Libre'],
+                ] as const
+              ).map(([c, t]) => (
+                <span key={t} className="flex items-center gap-1.5">
+                  <span className={`w-2.5 h-2.5 rounded-full ${c}`} aria-hidden="true" />
+                  {t}
+                </span>
+              ))}
             </div>
+            <p className="text-center text-[11px] text-slate-400 pb-1">
+              Columna h: horas de la semana · Toca un día para ver la colación
+            </p>
           </div>
         </div>
 
