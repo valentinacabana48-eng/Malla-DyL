@@ -882,7 +882,7 @@ function Shell({
             </span>
             <div className="flex-1 min-w-0">
               <p className={`${letraTitulo.className} text-[30px] leading-none`}>Mis Turnos</p>
-              <p className="text-[13px] text-blue-100 mt-1 truncate">
+              <p className="text-[13px] text-blue-100 mt-1 leading-snug">
                 Tu calendario, siempre contigo ❤️
               </p>
             </div>
