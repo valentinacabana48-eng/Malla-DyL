@@ -397,7 +397,16 @@ function heroKind(d: PublishedDay | null | undefined): keyof typeof HERO_STYLE {
 }
 
 /** Tarjeta de hoy: blanca y sobria, el color del turno solo en la franja y la etiqueta */
-function TodayHero({ label, d }: { label: string; d: PublishedDay | null | undefined }) {
+function TodayHero({
+  label,
+  d,
+  manana,
+}: {
+  label: string;
+  d: PublishedDay | null | undefined;
+  /** Mañana, en una línea chica abajo */
+  manana?: { label: string; d: PublishedDay | null | undefined };
+}) {
   const k = heroKind(d);
   const { bar, soft, Icon, short } = HERO_STYLE[k];
   const turno = d?.s && d?.e && !d.esp;
@@ -439,28 +448,23 @@ function TodayHero({ label, d }: { label: string; d: PublishedDay | null | undef
           {k === 'libre' ? 'Día libre' : dayText(d)}
         </p>
       )}
-    </div>
-  );
-}
-
-/** Fila chica para mañana */
-function TomorrowRow({ label, d }: { label: string; d: PublishedDay | null | undefined }) {
-  const k = heroKind(d);
-  const { soft, Icon } = HERO_STYLE[k];
-  return (
-    <div className="flex items-center gap-3 bg-white rounded-2xl px-3.5 py-3 shadow-sm border border-slate-100">
-      <span className={`w-10 h-10 shrink-0 rounded-xl ${soft} flex items-center justify-center`}>
-        <Icon size={19} aria-hidden="true" />
-      </span>
-      <span className="flex flex-col min-w-0">
-        <span className="text-[12px] font-bold uppercase tracking-wider text-slate-500">
-          {label}
-        </span>
-        <span className="text-[16px] font-extrabold text-slate-900 truncate">
-          {k === 'especial' && <span className="mr-1">{specialIcon(d)}</span>}
-          {k === 'libre' ? 'Libre' : dayText(d)}
-        </span>
-      </span>
+      {manana && (
+        <p className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 text-[14px] text-slate-600">
+          {(() => {
+            const MIcon = HERO_STYLE[heroKind(manana.d)].Icon;
+            return <MIcon size={15} className="text-slate-400 shrink-0" aria-hidden="true" />;
+          })()}
+          <span className="truncate">
+            {manana.label}:{' '}
+            <span className="font-semibold text-slate-900">
+              {heroKind(manana.d) === 'especial' && (
+                <span className="mr-1">{specialIcon(manana.d)}</span>
+              )}
+              {heroKind(manana.d) === 'libre' ? 'Libre' : dayText(manana.d)}
+            </span>
+          </span>
+        </p>
+      )}
     </div>
   );
 }
@@ -518,7 +522,9 @@ function MonthScreen({
         </div>
         {/* Las solicitudes se pueden hacer y responder aunque aún no haya malla publicada */}
         <div className="m-3 lg:mx-auto lg:max-w-xl flex flex-col gap-3">
-          <AvisosBanner token={token} />
+          <div className="bg-white rounded-2xl border border-slate-200/70 empty:hidden">
+            <AvisosBanner token={token} />
+          </div>
           <Solicitudes token={token} fecha={null} onSessionEnd={onSessionEnd} />
         </div>
       </Shell>
@@ -589,13 +595,15 @@ function MonthScreen({
               <TodayHero
                 label={`Hoy · ${DOW_NAMES[hoy.date.getDay()].toLowerCase()} ${hoy.day} de ${mesLargo}`}
                 d={today}
+                manana={
+                  manana !== undefined
+                    ? {
+                        label: `Mañana ${DOW_NAMES[(hoy.date.getDay() + 1) % 7].toLowerCase()} ${hoy.day + 1}`,
+                        d: manana,
+                      }
+                    : undefined
+                }
               />
-              {manana !== undefined && (
-                <TomorrowRow
-                  label={`Mañana · ${DOW_NAMES[(hoy.date.getDay() + 1) % 7].toLowerCase()} ${hoy.day + 1} de ${mesLargo}`}
-                  d={manana}
-                />
-              )}
             </>
           )}
           {showNotice && (
@@ -625,11 +633,14 @@ function MonthScreen({
             </div>
           )}
 
-          <InstallBanner />
-          <AvisosBanner token={token} />
+          {/* Avisos de instalar y de cambios, en una franja chica */}
+          <div className="bg-white rounded-2xl border border-slate-200/70 divide-y divide-slate-100 empty:hidden">
+            <InstallBanner />
+            <AvisosBanner token={token} />
+          </div>
 
           <div className="bg-white rounded-3xl border border-slate-200/70 p-2 lg:p-3">
-            <div className="grid grid-cols-7 gap-1 mb-1">
+            <div className="grid grid-cols-[repeat(7,minmax(0,1fr))_30px] lg:grid-cols-[repeat(7,minmax(0,1fr))_44px] gap-1 mb-1">
               {DOWS.map((d) => (
                 <span
                   key={d}
@@ -638,6 +649,9 @@ function MonthScreen({
                   {d}
                 </span>
               ))}
+              <span className="text-center text-[10px] lg:text-[12px] font-extrabold text-slate-300 py-1.5">
+                h
+              </span>
             </div>
             {weeks.map((week, w) => {
               const horas = week.reduce<number>(
@@ -647,7 +661,7 @@ function MonthScreen({
               const parcial = week.some((i) => i === null);
               return (
                 <React.Fragment key={w}>
-                  <div className="grid grid-cols-7 gap-1">
+                  <div className="grid grid-cols-[repeat(7,minmax(0,1fr))_30px] lg:grid-cols-[repeat(7,minmax(0,1fr))_44px] gap-1 mb-1">
                     {week.map((i, n) => {
                       if (i === null)
                         return <div key={`v${w}-${n}`} className="min-h-[62px] lg:min-h-[88px]" />;
@@ -713,14 +727,14 @@ function MonthScreen({
                         </button>
                       );
                     })}
+                    {/* Horas de la semana */}
+                    <span
+                      className="flex items-center justify-center text-[11px] lg:text-[13px] font-semibold text-slate-400 tabular-nums"
+                      title={parcial ? 'Parte de esta semana es de otro mes' : undefined}
+                    >
+                      {horas > 0 ? fmtHoras(horas) : ''}
+                    </span>
                   </div>
-                  <p className="px-1.5 pt-0.5 pb-1 text-right text-[11px] text-slate-400">
-                    {horas > 0 && (
-                      <>
-                        Semana {fmtHoras(horas)} h{parcial ? ' (parte en otro mes)' : ''}
-                      </>
-                    )}
-                  </p>
                 </React.Fragment>
               );
             })}
@@ -735,6 +749,7 @@ function MonthScreen({
                 <span className="w-3 h-[3px] rounded-full bg-violet-400" aria-hidden="true" />{' '}
                 Vacaciones y permisos
               </span>
+              <span>Columna h: horas de la semana</span>
               <span>Toca un día para ver la colación</span>
             </div>
           </div>
