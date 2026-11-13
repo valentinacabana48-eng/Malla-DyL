@@ -37,6 +37,8 @@ const letraTitulo = localFont({
   display: 'swap',
 });
 
+type Vista = 'inicio' | 'solicitudes';
+
 /** Lleva la pantalla a una sección (calendario, solicitudes) */
 function irA(id: string) {
   if (id === 'arriba') return window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -65,6 +67,14 @@ const BRANCH_LOGOS = [
   { src: '/assets/images/descarga__1_-1784608578251.png', alt: 'Mayorista DyL' },
   { src: '/assets/images/descarga-1784608578238.png', alt: 'Envases DyL' },
 ];
+
+/** Logo de la empresa de la sucursal (Distribuidora, Mayorista o Envases) */
+function logoSucursal(sucursal: string) {
+  const s = sucursal.toLowerCase();
+  if (s.includes('mayorista')) return BRANCH_LOGOS[1];
+  if (s.includes('envase')) return BRANCH_LOGOS[2];
+  return BRANCH_LOGOS[0];
+}
 
 function AdminLink({
   className,
@@ -505,6 +515,22 @@ function MonthScreen({
   const [seen, setSeen] = useState(() => readLocal(seenKey));
   // Solicitudes que esperan algo (número en la campanita)
   const [pendientes, setPendientes] = useState(0);
+  // En el celular, Inicio y Solicitudes son pantallas separadas (en el computador se ven juntas)
+  const [vista, setVista] = useState<Vista>('inicio');
+  useEffect(() => {
+    const onPop = () => setVista(history.state?.vista === 'solicitudes' ? 'solicitudes' : 'inicio');
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  const irAVista = (v: Vista) => {
+    if (v !== vista) {
+      // El botón «atrás» del celular vuelve a Inicio
+      if (v === 'solicitudes') history.pushState({ vista: 'solicitudes' }, '');
+      else if (history.state?.vista === 'solicitudes') history.back();
+      setVista(v);
+    }
+    window.scrollTo({ top: 0 });
+  };
 
   useEffect(() => {
     // Sin día elegido al abrir: el de hoy ya sale arriba en grande
@@ -573,9 +599,11 @@ function MonthScreen({
   const diasLibres = days.filter((d) => dayKind(d) === 'descanso').length;
 
   return (
-    <Shell data={data} onLogout={onLogout} pendientes={pendientes}>
+    <Shell data={data} onLogout={onLogout} pendientes={pendientes} vista={vista} onVista={irAVista}>
       <div className="p-3 flex flex-col gap-3 lg:p-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6">
-        <div className="flex flex-col gap-3 lg:gap-4">
+        <div
+          className={`${vista === 'solicitudes' ? 'hidden lg:flex' : 'flex'} flex-col gap-3 lg:gap-4`}
+        >
           {/* Primero lo que más se mira: el turno de hoy y de mañana */}
           {isCurrentMonth && (
             <>
@@ -650,14 +678,14 @@ function MonthScreen({
             className="scroll-mt-3 bg-white rounded-3xl border border-slate-200/70 shadow-sm p-2 lg:p-3"
           >
             {/* «Mi Calendario» y el mes */}
-            <div className="flex items-center justify-between gap-2 px-2 pt-1.5 pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 pt-1.5 pb-2">
               <div className="min-w-0">
                 <p className="flex items-center gap-2 text-[16px] lg:text-[17px] font-bold text-slate-900 whitespace-nowrap">
                   <CalendarDays size={22} className="text-blue-700 shrink-0" aria-hidden="true" />
                   Mi Calendario
                 </p>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="ml-auto flex items-center gap-1 shrink-0">
                 <span className="text-[13px] lg:text-[14px] font-bold text-slate-900 mr-0.5 whitespace-nowrap">
                   {monthKeyToLabel(monthKey)}
                 </span>
@@ -805,7 +833,9 @@ function MonthScreen({
         <div className="flex flex-col gap-3 lg:gap-4 lg:sticky lg:top-4">
           {selected !== null && selDate && (
             // En el celular sale como ventanita abajo; en el computador, en la columna
-            <div className="fixed inset-x-3 bottom-[76px] z-40 shadow-lg lg:static lg:inset-auto lg:z-auto lg:shadow-sm bg-white rounded-2xl border border-slate-200 pl-3 pr-1 py-1.5 flex flex-col">
+            <div
+              className={`fixed inset-x-3 bottom-[76px] z-40 shadow-lg lg:static lg:inset-auto lg:z-auto lg:shadow-sm bg-white rounded-2xl border border-slate-200 pl-3 pr-1 py-1.5 ${vista === 'solicitudes' ? 'hidden lg:flex' : 'flex'} flex-col`}
+            >
               <div className="flex items-center gap-2 min-w-0">
                 <span
                   className={`w-1.5 h-6 shrink-0 rounded-full bg-gradient-to-b ${HERO_STYLE[heroKind(sel)].bg}`}
@@ -837,18 +867,22 @@ function MonthScreen({
             </div>
           )}
 
-          <Solicitudes
-            token={token}
-            fecha={
-              selected !== null && data.month_key
-                ? `${data.month_key}-${String(selected + 1).padStart(2, '0')}`
-                : null
-            }
-            onSessionEnd={onSessionEnd}
-            onPendientes={setPendientes}
-          />
+          <div className={vista === 'inicio' ? 'hidden lg:block' : ''}>
+            <Solicitudes
+              token={token}
+              fecha={
+                selected !== null && data.month_key
+                  ? `${data.month_key}-${String(selected + 1).padStart(2, '0')}`
+                  : null
+              }
+              onSessionEnd={onSessionEnd}
+              onPendientes={setPendientes}
+            />
+          </div>
 
-          <p className="text-xs text-slate-400 text-center">
+          <p
+            className={`${vista === 'solicitudes' ? 'hidden lg:block' : ''} text-xs text-slate-400 text-center`}
+          >
             Publicada el {formatFecha(data.published_at)}
           </p>
         </div>
@@ -861,10 +895,15 @@ function Shell({
   data,
   onLogout,
   pendientes = 0,
+  vista,
+  onVista,
   children,
 }: {
   data: MonthData;
   onLogout: () => void;
+  /** Pantalla del celular; sin esto, los botones solo bajan hasta la sección */
+  vista?: Vista;
+  onVista?: (v: Vista) => void;
   /** Solicitudes que esperan algo: número en la campanita */
   pendientes?: number;
   children: React.ReactNode;
@@ -877,18 +916,21 @@ function Shell({
         {/* Encabezado azul con el nombre de la app y la campanita */}
         <header className="relative bg-gradient-to-br from-blue-800 via-blue-700 to-blue-500 text-white px-5 lg:px-6 pt-5 pb-12 overflow-hidden">
           <div className="relative flex items-center gap-3">
-            <span className="w-12 h-12 shrink-0 rounded-2xl border-2 border-white/80 flex items-center justify-center">
-              <CalendarDays size={26} aria-hidden="true" />
+            <span className="w-14 h-14 shrink-0 rounded-full bg-white shadow-md flex items-center justify-center p-0.5">
+              <AppImage
+                src={logoSucursal(data.sucursal).src}
+                alt={logoSucursal(data.sucursal).alt}
+                width={56}
+                height={56}
+                className="object-contain w-full h-full"
+              />
             </span>
-            <div className="flex-1 min-w-0">
-              <p className={`${letraTitulo.className} text-[30px] leading-none`}>Mis Turnos</p>
-              <p className="text-[13px] text-blue-100 mt-1 truncate">
-                Tu calendario, siempre contigo ❤️
-              </p>
-            </div>
+            <p className={`${letraTitulo.className} flex-1 min-w-0 text-[30px] leading-none`}>
+              Mis Turnos
+            </p>
             <button
               type="button"
-              onClick={() => irA('solicitudes')}
+              onClick={() => (onVista ? onVista('solicitudes') : irA('solicitudes'))}
               aria-label={`Solicitudes${pendientes ? `: ${pendientes} pendientes` : ''}`}
               className="relative w-11 h-11 shrink-0 rounded-full flex items-center justify-center hover:bg-white/10"
             >
@@ -945,15 +987,18 @@ function Shell({
         <div className="max-w-md mx-auto grid grid-cols-3">
           {(
             [
-              ['arriba', 'Inicio', Home],
-              ['solicitudes', 'Solicitudes', ClipboardCheck],
+              ['inicio', 'arriba', 'Inicio', Home],
+              ['solicitudes', 'solicitudes', 'Solicitudes', ClipboardCheck],
             ] as const
-          ).map(([id, label, Icon]) => (
+          ).map(([v, id, label, Icon]) => (
             <button
-              key={id}
+              key={v}
               type="button"
-              onClick={() => irA(id)}
-              className="h-16 flex flex-col items-center justify-center gap-0.5 text-[12px] font-semibold text-slate-600 active:text-blue-700"
+              onClick={() => (onVista ? onVista(v) : irA(id))}
+              aria-current={vista === v ? 'page' : undefined}
+              className={`h-16 flex flex-col items-center justify-center gap-0.5 text-[12px] font-semibold ${
+                vista === v ? 'text-blue-700' : 'text-slate-600'
+              } active:text-blue-700`}
             >
               <Icon size={22} aria-hidden="true" />
               {label}
