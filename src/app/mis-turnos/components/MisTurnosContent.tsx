@@ -938,11 +938,10 @@ function Shell({
 
       {/* Menú de abajo (celular) */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
-        <div className="max-w-md mx-auto grid grid-cols-4">
+        <div className="max-w-md mx-auto grid grid-cols-3">
           {(
             [
               ['arriba', 'Inicio', Home],
-              ['calendario', 'Calendario', CalendarDays],
               ['solicitudes', 'Solicitudes', ClipboardCheck],
             ] as const
           ).map(([id, label, Icon]) => (
