@@ -482,7 +482,7 @@ function TodayHero({
   const turno = d?.s && d?.e && !d.esp;
   const horas = dayHours(d);
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-50 to-sky-100 border border-blue-100 shadow-sm px-5 py-4">
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-100 via-sky-50 to-white border border-white shadow-[0_8px_24px_-10px_rgba(30,64,175,0.25)] px-5 py-4">
       <div className="relative flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 min-w-0">
           <span className="shrink-0 rounded-full bg-blue-700 text-white text-[14px] font-bold px-3 py-0.5">
@@ -672,14 +672,19 @@ function MonthScreen({
           <div className="grid grid-cols-3 gap-2.5">
             {(
               [
-                ['text-blue-700', `${fmtHoras(horasMes)} h`, `Trabajadas en ${mesLargo}`],
-                ['text-violet-700', String(diasTrabajo), 'Días con turno'],
-                ['text-amber-600', String(diasLibres), 'Días libres'],
+                [
+                  'text-blue-700',
+                  'from-blue-50',
+                  `${fmtHoras(horasMes)} h`,
+                  `Trabajadas en ${mesLargo}`,
+                ],
+                ['text-violet-700', 'from-violet-50', String(diasTrabajo), 'Días con turno'],
+                ['text-amber-600', 'from-amber-50', String(diasLibres), 'Días libres'],
               ] as const
-            ).map(([color, valor, texto]) => (
+            ).map(([color, fondo, valor, texto]) => (
               <div
                 key={texto}
-                className="bg-white rounded-2xl border border-slate-200/70 shadow-sm px-2 py-3 flex flex-col items-center text-center"
+                className={`bg-gradient-to-b ${fondo} to-white rounded-2xl border border-white shadow-[0_8px_24px_-10px_rgba(30,64,175,0.25)] px-2 py-3 flex flex-col items-center text-center`}
               >
                 <p className={`text-[22px] font-extrabold leading-tight ${color}`}>{valor}</p>
                 <p className="text-[12px] leading-tight text-slate-600">{texto}</p>
@@ -714,14 +719,14 @@ function MonthScreen({
           )}
 
           {/* Avisos de instalar y de cambios, en una franja chica */}
-          <div className="bg-white rounded-2xl border border-slate-200/70 divide-y divide-slate-100 empty:hidden">
+          <div className="bg-white rounded-2xl shadow-[0_8px_24px_-10px_rgba(30,64,175,0.25)] divide-y divide-slate-100 empty:hidden">
             <InstallBanner />
             <AvisosBanner token={token} />
           </div>
 
           <div
             id="calendario"
-            className="scroll-mt-3 bg-white rounded-3xl border border-slate-200/70 shadow-sm p-2 lg:p-3"
+            className="scroll-mt-3 bg-white rounded-3xl shadow-[0_8px_24px_-10px_rgba(30,64,175,0.25)] p-2 lg:p-3"
           >
             {/* «Mi Calendario» y el mes */}
             <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 pt-1.5 pb-2">
@@ -786,10 +791,10 @@ function MonthScreen({
                       const isSel = selected === i;
                       const wasChanged = changed.has(i);
                       const tile = isToday
-                        ? 'bg-blue-700 text-white'
+                        ? 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-md shadow-blue-700/30'
                         : k === 'libre'
                           ? 'bg-slate-100 text-slate-500'
-                          : 'bg-white text-slate-700 border border-slate-200/80';
+                          : 'bg-white text-slate-700 border border-slate-100 shadow-[0_2px_6px_-2px_rgba(15,23,42,0.12)]';
                       // Rayita de color: mañana celeste, tarde ámbar, vacaciones/permiso morado
                       const raya =
                         k === 'manana'
@@ -957,7 +962,7 @@ function Shell({
   const adminSession = useHasAdminSession();
   const primerNombre = data.name.split(' ')[0];
   return (
-    <div className="min-h-[var(--app-height,100dvh)] bg-slate-50 text-slate-900">
+    <div className="min-h-[var(--app-height,100dvh)] bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-100 text-slate-900">
       <div className="max-w-md lg:max-w-6xl mx-auto pb-24 lg:pb-6">
         {/* Encabezado azul con el nombre de la app y la campanita */}
         <header className="relative bg-gradient-to-br from-blue-800 via-blue-700 to-blue-500 text-white px-5 lg:px-6 pt-5 pb-12 overflow-hidden">

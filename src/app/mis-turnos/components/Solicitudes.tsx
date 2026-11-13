@@ -366,7 +366,7 @@ export default function Solicitudes({
   return (
     <div
       id="solicitudes"
-      className="scroll-mt-3 bg-white border border-slate-200/70 shadow-sm rounded-3xl overflow-hidden"
+      className="scroll-mt-3 bg-white shadow-[0_8px_24px_-10px_rgba(30,64,175,0.25)] rounded-3xl overflow-hidden"
     >
       <div className="bg-violet-50 px-4 py-3 flex items-center justify-between gap-2">
         <span className="flex items-center gap-2.5 text-[17px] font-bold text-slate-900">
