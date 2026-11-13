@@ -650,14 +650,14 @@ function MonthScreen({
             className="scroll-mt-3 bg-white rounded-3xl border border-slate-200/70 shadow-sm p-2 lg:p-3"
           >
             {/* «Mi Calendario» y el mes */}
-            <div className="flex items-center justify-between gap-2 px-2 pt-1.5 pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 pt-1.5 pb-2">
               <div className="min-w-0">
                 <p className="flex items-center gap-2 text-[16px] lg:text-[17px] font-bold text-slate-900 whitespace-nowrap">
                   <CalendarDays size={22} className="text-blue-700 shrink-0" aria-hidden="true" />
                   Mi Calendario
                 </p>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="ml-auto flex items-center gap-1 shrink-0">
                 <span className="text-[13px] lg:text-[14px] font-bold text-slate-900 mr-0.5 whitespace-nowrap">
                   {monthKeyToLabel(monthKey)}
                 </span>
