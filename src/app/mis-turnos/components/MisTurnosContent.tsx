@@ -796,11 +796,7 @@ function MonthScreen({
                         ? 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-md shadow-blue-700/30'
                         : k === 'libre'
                           ? 'bg-slate-100 text-slate-500'
-                          : k === 'manana'
-                            ? 'bg-sky-50 text-slate-700 border border-sky-100 shadow-[0_2px_6px_-2px_rgba(14,116,144,0.18)]'
-                            : k === 'tarde'
-                              ? 'bg-amber-50 text-slate-700 border border-amber-100 shadow-[0_2px_6px_-2px_rgba(180,83,9,0.16)]'
-                              : 'bg-white text-slate-700 border border-slate-100 shadow-[0_2px_6px_-2px_rgba(15,23,42,0.12)]';
+                          : 'bg-white text-slate-700 border border-slate-100 shadow-[0_2px_6px_-2px_rgba(15,23,42,0.12)]';
                       // Rayita de color: mañana celeste, tarde ámbar, vacaciones/permiso morado
                       const raya =
                         k === 'manana'
