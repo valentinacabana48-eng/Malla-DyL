@@ -172,6 +172,49 @@ function hoyChile(): { monthKey: string; day: number; date: Date } {
   return { monthKey: `${y}-${String(m).padStart(2, '0')}`, day: d, date: new Date(y, m - 1, d) };
 }
 
+/** En los últimos 10 días del mes: nombre del mes que viene, para avisar que ya se puede pedir */
+function mesParaPedir(hoy: { date: Date; day: number }): string | null {
+  const ultimo = new Date(hoy.date.getFullYear(), hoy.date.getMonth() + 1, 0).getDate();
+  if (ultimo - hoy.day >= 10) return null;
+  return MES_LARGO[(hoy.date.getMonth() + 1) % 12];
+}
+
+/** Aviso de fin de mes: ya se pueden hacer las solicitudes del mes siguiente */
+function AvisoMesSiguiente({ mes, onIr }: { mes: string; onIr: () => void }) {
+  const [cerrado, setCerrado] = useState(false);
+  if (cerrado) return null;
+  return (
+    <div className="bg-violet-50 border border-violet-200 rounded-2xl pl-3.5 pr-1.5 py-2.5 flex items-center gap-3">
+      <span className="w-9 h-9 shrink-0 rounded-xl bg-violet-600 text-white flex items-center justify-center">
+        <ClipboardCheck size={19} aria-hidden="true" />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-bold text-slate-900 leading-snug">
+          Ya puedes pedir tus turnos de {mes}
+        </p>
+        <p className="text-[12px] text-slate-600 leading-snug">
+          Si necesitas un día libre o un turno en especial, haz tu solicitud ahora.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onIr}
+        className="h-8 px-3 shrink-0 rounded-lg bg-violet-600 text-white text-[13px] font-bold"
+      >
+        Pedir
+      </button>
+      <button
+        type="button"
+        onClick={() => setCerrado(true)}
+        aria-label="Cerrar aviso"
+        className="w-8 h-8 shrink-0 text-slate-400 flex items-center justify-center"
+      >
+        <X size={15} />
+      </button>
+    </div>
+  );
+}
+
 const DOWS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
 const MES_CORTO = [
   'ene',
@@ -604,6 +647,9 @@ function MonthScreen({
         <div
           className={`${vista === 'solicitudes' ? 'hidden lg:flex' : 'flex'} flex-col gap-3 lg:gap-4`}
         >
+          {mesParaPedir(hoy) && (
+            <AvisoMesSiguiente mes={mesParaPedir(hoy)!} onIr={() => irAVista('solicitudes')} />
+          )}
           {/* Primero lo que más se mira: el turno de hoy y de mañana */}
           {isCurrentMonth && (
             <>

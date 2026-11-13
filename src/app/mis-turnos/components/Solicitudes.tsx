@@ -100,7 +100,7 @@ function todayIso() {
   return isoOf(new Date());
 }
 
-// «Otro turno» se pide solo para el mes siguiente: el mes en curso ya está armado
+// «Pedir turno» se pide solo para el mes siguiente: el mes en curso ya está armado
 function nextMonth() {
   const now = new Date();
   const first = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -265,7 +265,7 @@ export default function Solicitudes({
     e.preventDefault();
     if (!day) return setError('Elige el día.');
     if (tipo === 'cambio' && (day < mes.min || day > mes.max))
-      return setError(`Otro turno se pide solo para días de ${mes.name}.`);
+      return setError(`Un turno en especial se pide solo para días de ${mes.name}.`);
     if (tipo === 'cambio' && !turno) return setError('Elige el turno que quieres.');
     if (tipo === 'intercambio' && turnos.length === 0)
       return setError('Marca al menos un turno que te sirva.');
@@ -397,7 +397,7 @@ export default function Solicitudes({
               {(
                 [
                   ['libre', 'Día libre'],
-                  ['cambio', 'Otro turno'],
+                  ['cambio', 'Pedir turno'],
                   ['intercambio', 'Con compañera'],
                 ] as const
               ).map(([key, label]) => (
@@ -430,7 +430,8 @@ export default function Solicitudes({
               />
               {tipo === 'cambio' && (
                 <span className="text-[13px] text-gray-500">
-                  Otro turno se pide solo para días de {mes.name}. El mes en curso ya está armado.
+                  Pide el horario que necesitas un día de {mes.name}. El mes en curso ya está
+                  armado.
                 </span>
               )}
             </label>

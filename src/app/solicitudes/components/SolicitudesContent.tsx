@@ -394,7 +394,7 @@ export default function SolicitudesContent() {
                     {r.tipo === 'libre'
                       ? 'Día libre'
                       : r.tipo === 'cambio'
-                        ? 'Cambio de turno'
+                        ? 'Turno pedido'
                         : comp
                           ? `Cambio con ${comp.name}`
                           : 'Cambio con compañera'}{' '}
