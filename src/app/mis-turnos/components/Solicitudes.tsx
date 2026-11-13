@@ -1,6 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Send, X } from 'lucide-react';
+import { AlertCircle, Send, X } from 'lucide-react';
 import { getPublicSupabase } from '@/lib/supabase/publicClient';
 import { EVENTO_CAMBIO } from '@/lib/misTurnosVivo';
 
@@ -338,7 +338,7 @@ export default function Solicitudes({
   };
 
   return (
-    <div className="bg-white border border-slate-100 shadow-sm rounded-3xl p-4 flex flex-col gap-3">
+    <div className="bg-white border border-slate-200/70 rounded-3xl p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[15px] font-extrabold">Solicitudes</span>
         {!open && (
@@ -504,159 +504,214 @@ export default function Solicitudes({
           Si necesitas un día libre o cambiar un turno, pídelo aquí.
         </p>
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-100">
-          {requests.map((r) => (
-            <li key={r.id} className="py-2.5 flex flex-col gap-1">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-gray-900">{title(r)}</p>
-                  <p className="text-[13px] text-gray-600">{fechaText(r.fecha)}</p>
-                  {r.tipo === 'intercambio' && (
-                    <p className="text-[13px] text-gray-600">
-                      {(() => {
-                        // Solo su propio turno; el de la compañera no se muestra.
-                        // Al aprobar, la jefa pudo ajustar el turno de la compañera
-                        const verbo = r.status === 'aprobada' ? 'Quedaste' : 'Quedarías';
-                        // Antes de elegir compañera: cualquiera de los turnos que marcó
-                        if (
-                          r.mia &&
-                          r.status === 'pendiente' &&
-                          (r.companera_status === 'por_preaprobar' ||
-                            r.companera_status === 'elegir')
-                        )
-                          return `${verbo} ${opcionesText(r)}`;
-                        const yo = r.mia ? r.turno_pedido : r.turno_companera || r.turno_actual;
-                        return `${verbo} ${shiftText(yo)}`;
-                      })()}
-                    </p>
-                  )}
+        <ul className="flex flex-col gap-2.5">
+          {requests.map((r) => {
+            const st = statusOf(r);
+            const [, mm, dd] = r.fecha.split('-').map(Number);
+            const dow = DOW[new Date(Number(r.fecha.slice(0, 4)), mm - 1, dd).getDay()];
+            const noAcepto = /no aceptó/.test(r.respuesta);
+            // Paso del cambio con compañera en que va (solo las suyas, mientras está pendiente)
+            const paso =
+              r.tipo === 'intercambio' && r.mia && r.status === 'pendiente'
+                ? ['por_preaprobar', 'elegir', 'pendiente', 'aceptada'].indexOf(r.companera_status)
+                : -1;
+            return (
+              <li
+                key={r.id}
+                className={`rounded-2xl border p-3 flex gap-3 ${
+                  r.status === 'pendiente'
+                    ? 'border-slate-200 bg-white'
+                    : 'border-slate-100 bg-slate-50/60'
+                }`}
+              >
+                {/* Fecha como hoja de calendario */}
+                <div className="w-12 shrink-0 h-14 rounded-xl bg-slate-100 flex flex-col items-center justify-center leading-none">
+                  <span className="text-[10px] font-semibold uppercase text-slate-500">
+                    {dow.slice(0, 3)}
+                  </span>
+                  <span className="text-[20px] font-bold text-slate-900 mt-0.5">{dd}</span>
+                  <span className="text-[10px] font-semibold uppercase text-slate-500 mt-0.5">
+                    {MONTHS[mm - 1].slice(0, 3)}
+                  </span>
                 </div>
-                <span
-                  className={`shrink-0 text-xs font-bold rounded-full px-2.5 py-1 text-center ${statusOf(r).cls}`}
-                >
-                  {statusOf(r).label}
-                </span>
-              </div>
-              {r.motivo && <p className="text-[13px] text-gray-500">«{r.motivo}»</p>}
-              {r.respuesta && (
-                <p className="text-[13px] text-gray-800 bg-gray-50 rounded-lg px-2.5 py-1.5">
-                  Respuesta: {r.respuesta}
-                </p>
-              )}
-              {!r.mia && r.status === 'pendiente' && r.companera_status === 'pendiente' && (
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => answer(r.id, false)}
-                    className="h-11 rounded-xl border border-gray-300 text-gray-700 text-sm font-semibold"
-                  >
-                    No acepto
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => answer(r.id, true)}
-                    className="h-11 rounded-xl bg-blue-700 text-white text-sm font-bold"
-                  >
-                    Acepto el cambio
-                  </button>
-                </div>
-              )}
-              {r.mia &&
-                r.status === 'pendiente' &&
-                r.companera_status === 'elegir' &&
-                (picking !== r.id ? (
-                  <button
-                    type="button"
-                    onClick={() => openPick(r.id)}
-                    className="self-start h-11 px-3.5 mt-1 rounded-xl bg-blue-700 text-white text-sm font-bold"
-                  >
-                    Elegir compañera
-                  </button>
-                ) : (
-                  <div className="flex flex-col gap-2 mt-1">
-                    <span className="text-sm font-semibold text-gray-700">
-                      Compañeras con {opcionesText(r)} ese día:
-                    </span>
-                    {coworkers === null ? (
-                      <p className="text-sm text-gray-500">Buscando compañeras…</p>
-                    ) : coworkers.length === 0 ? (
-                      <p className="text-sm text-gray-500">
-                        No queda ninguna compañera con ese turno ese día. Puedes cancelar la
-                        solicitud y hacer otra.
+                <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                  <div>
+                    <p className="text-[15px] font-bold text-gray-900">{title(r)}</p>
+                    {r.tipo === 'intercambio' && (
+                      <p className="text-[13px] text-gray-600">
+                        {(() => {
+                          // Solo su propio turno; el de la compañera no se muestra.
+                          // Al aprobar, la jefa pudo ajustar el turno de la compañera
+                          const verbo = r.status === 'aprobada' ? 'Quedaste' : 'Quedarías';
+                          // Antes de elegir compañera: cualquiera de los turnos que marcó
+                          if (
+                            r.mia &&
+                            r.status === 'pendiente' &&
+                            (r.companera_status === 'por_preaprobar' ||
+                              r.companera_status === 'elegir')
+                          )
+                            return `${verbo} ${opcionesText(r)}`;
+                          const yo = r.mia ? r.turno_pedido : r.turno_companera || r.turno_actual;
+                          return `${verbo} ${shiftText(yo)}`;
+                        })()}
                       </p>
-                    ) : (
-                      <div className="flex flex-col rounded-xl border border-gray-300 overflow-hidden max-h-64 overflow-y-auto">
-                        {coworkers.map((c) => (
-                          <label
-                            key={c.id}
-                            className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 last:border-b-0 ${
-                              companera === c.id ? 'bg-blue-50' : 'bg-white'
+                    )}
+                    <span
+                      className={`inline-block mt-1 text-[12px] font-semibold rounded-full px-2 py-0.5 ${st.cls}`}
+                    >
+                      {st.label}
+                    </span>
+                  </div>
+
+                  {paso >= 0 && (
+                    <div className="flex gap-1" aria-label={`Paso ${paso + 1} de 4`}>
+                      {['Jefatura', 'Eliges', 'Compañera', 'Aprobación'].map((label, n) => (
+                        <div key={label} className="flex-1 min-w-0">
+                          <div
+                            className={`h-1 rounded-full ${
+                              n < paso ? 'bg-blue-600' : n === paso ? 'bg-blue-300' : 'bg-slate-200'
+                            }`}
+                          />
+                          <p
+                            className={`mt-0.5 text-[10px] truncate ${
+                              n === paso ? 'font-bold text-blue-800' : 'text-slate-400'
                             }`}
                           >
-                            <input
-                              type="radio"
-                              name={`companera-${r.id}`}
-                              checked={companera === c.id}
-                              onChange={() => setCompanera(c.id)}
-                              className="w-5 h-5 accent-blue-700"
-                            />
-                            <span className="flex-1 min-w-0 text-sm font-semibold text-gray-900 truncate">
-                              {c.name}
-                            </span>
-                            {(r.turnos_opciones?.length ?? 0) > 1 && (
-                              <span className="shrink-0 text-[13px] text-gray-600">
-                                quedarías {shiftText(c.turno)}
-                              </span>
-                            )}
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                    {pickError && (
-                      <p role="alert" className="text-sm text-red-700">
-                        {pickError}
+                            {label}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {r.motivo && <p className="text-[13px] text-gray-500">«{r.motivo}»</p>}
+                  {r.respuesta &&
+                    (noAcepto && r.status === 'pendiente' ? (
+                      <p className="flex items-start gap-1.5 text-[13px] text-amber-900 bg-amber-50 rounded-lg px-2.5 py-1.5">
+                        <AlertCircle size={15} className="shrink-0 mt-px" aria-hidden="true" />
+                        {r.respuesta}
                       </p>
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
+                    ) : (
+                      <p className="text-[13px] text-gray-700 bg-slate-100/70 rounded-lg px-2.5 py-1.5">
+                        {r.respuesta}
+                      </p>
+                    ))}
+                  {!r.mia && r.status === 'pendiente' && r.companera_status === 'pendiente' && (
+                    <div className="grid grid-cols-2 gap-2 mt-1">
                       <button
                         type="button"
-                        onClick={() => setPicking(null)}
+                        onClick={() => answer(r.id, false)}
                         className="h-11 rounded-xl border border-gray-300 text-gray-700 text-sm font-semibold"
                       >
-                        Volver
+                        No acepto
                       </button>
                       <button
                         type="button"
-                        disabled={saving || !coworkers?.length}
-                        onClick={() => pick(r.id)}
-                        className="h-11 rounded-xl bg-blue-700 text-white text-sm font-bold disabled:opacity-60"
+                        onClick={() => answer(r.id, true)}
+                        className="h-11 rounded-xl bg-blue-700 text-white text-sm font-bold"
                       >
-                        {saving ? 'Enviando...' : 'Pedirle el cambio'}
+                        Acepto el cambio
                       </button>
                     </div>
-                  </div>
-                ))}
-              {r.mia && r.status === 'pendiente' && r.companera_status === 'pendiente' && (
-                <button
-                  type="button"
-                  onClick={() => otra(r.id)}
-                  className="self-start h-10 px-3 mt-1 rounded-xl border border-gray-300 text-gray-700 text-[13px] font-semibold"
-                >
-                  Pedírselo a otra compañera
-                </button>
-              )}
-              {r.mia && r.status === 'pendiente' && (
-                <button
-                  type="button"
-                  onClick={() => cancel(r.id)}
-                  className="self-start text-[13px] text-gray-600 underline flex items-center gap-1"
-                >
-                  <X size={13} />
-                  Cancelar solicitud
-                </button>
-              )}
-            </li>
-          ))}
+                  )}
+                  {r.mia &&
+                    r.status === 'pendiente' &&
+                    r.companera_status === 'elegir' &&
+                    (picking !== r.id ? (
+                      <button
+                        type="button"
+                        onClick={() => openPick(r.id)}
+                        className="self-start h-11 px-3.5 rounded-xl bg-blue-700 text-white text-sm font-bold"
+                      >
+                        {noAcepto ? 'Elegir otra compañera' : 'Elegir compañera'}
+                      </button>
+                    ) : (
+                      <div className="flex flex-col gap-2 mt-1">
+                        <span className="text-sm font-semibold text-gray-700">
+                          Compañeras con {opcionesText(r)} ese día:
+                        </span>
+                        {coworkers === null ? (
+                          <p className="text-sm text-gray-500">Buscando compañeras…</p>
+                        ) : coworkers.length === 0 ? (
+                          <p className="text-sm text-gray-500">
+                            No queda ninguna compañera con ese turno ese día. Puedes cancelar la
+                            solicitud y hacer otra.
+                          </p>
+                        ) : (
+                          <div className="flex flex-col rounded-xl border border-gray-300 overflow-hidden max-h-64 overflow-y-auto">
+                            {coworkers.map((c) => (
+                              <label
+                                key={c.id}
+                                className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 last:border-b-0 ${
+                                  companera === c.id ? 'bg-blue-50' : 'bg-white'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`companera-${r.id}`}
+                                  checked={companera === c.id}
+                                  onChange={() => setCompanera(c.id)}
+                                  className="w-5 h-5 accent-blue-700"
+                                />
+                                <span className="flex-1 min-w-0 text-sm font-semibold text-gray-900 truncate">
+                                  {c.name}
+                                </span>
+                                {(r.turnos_opciones?.length ?? 0) > 1 && (
+                                  <span className="shrink-0 text-[13px] text-gray-600">
+                                    quedarías {shiftText(c.turno)}
+                                  </span>
+                                )}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        {pickError && (
+                          <p role="alert" className="text-sm text-red-700">
+                            {pickError}
+                          </p>
+                        )}
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPicking(null)}
+                            className="h-11 rounded-xl border border-gray-300 text-gray-700 text-sm font-semibold"
+                          >
+                            Volver
+                          </button>
+                          <button
+                            type="button"
+                            disabled={saving || !coworkers?.length}
+                            onClick={() => pick(r.id)}
+                            className="h-11 rounded-xl bg-blue-700 text-white text-sm font-bold disabled:opacity-60"
+                          >
+                            {saving ? 'Enviando...' : 'Pedirle el cambio'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  {r.mia && r.status === 'pendiente' && r.companera_status === 'pendiente' && (
+                    <button
+                      type="button"
+                      onClick={() => otra(r.id)}
+                      className="self-start h-10 px-3 rounded-xl border border-gray-300 text-gray-700 text-[13px] font-semibold"
+                    >
+                      Pedírselo a otra compañera
+                    </button>
+                  )}
+                  {r.mia && r.status === 'pendiente' && (
+                    <button
+                      type="button"
+                      onClick={() => cancel(r.id)}
+                      className="self-start text-[12px] text-gray-500 flex items-center gap-1"
+                    >
+                      <X size={13} />
+                      Cancelar solicitud
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

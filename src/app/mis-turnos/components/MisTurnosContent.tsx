@@ -501,7 +501,7 @@ function MonthScreen({
   if (!monthKey) {
     return (
       <Shell data={data} onLogout={onLogout}>
-        <div className="relative -mt-8 mx-3 lg:mx-auto lg:max-w-xl bg-white rounded-3xl shadow-lg p-6 text-center flex flex-col gap-3">
+        <div className="mx-3 lg:mx-auto lg:max-w-xl bg-white rounded-3xl border border-slate-200/70 p-6 text-center flex flex-col gap-3">
           <span className="mx-auto w-14 h-14 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
             <CalendarDays size={28} aria-hidden="true" />
           </span>
@@ -553,47 +553,32 @@ function MonthScreen({
 
   return (
     <Shell data={data} onLogout={onLogout}>
-      {/* Mes y resumen, montado sobre el encabezado */}
-      <div className="relative -mt-8 mx-3 lg:mx-6 bg-white rounded-3xl shadow-lg px-3 pt-3 pb-3.5">
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => prevMonth && onChangeMonth(prevMonth)}
-            disabled={!prevMonth || loading}
-            aria-label="Mes anterior"
-            className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center disabled:opacity-30"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <span className="text-[19px] font-extrabold text-slate-900">
-            {monthKeyToLabel(monthKey)}
-          </span>
-          <button
-            type="button"
-            onClick={() => nextMonth && onChangeMonth(nextMonth)}
-            disabled={!nextMonth || loading}
-            aria-label="Mes siguiente"
-            className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center disabled:opacity-30"
-          >
-            <ChevronRight size={20} />
-          </button>
+      {/* Mes y resumen en una línea */}
+      <div className="mx-3 lg:mx-auto lg:w-full lg:max-w-md flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => prevMonth && onChangeMonth(prevMonth)}
+          disabled={!prevMonth || loading}
+          aria-label="Mes anterior"
+          className="w-10 h-10 rounded-full text-slate-600 flex items-center justify-center hover:bg-slate-100 disabled:opacity-25"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <div className="text-center">
+          <p className="text-[18px] font-bold text-slate-900">{monthKeyToLabel(monthKey)}</p>
+          <p className="text-[13px] text-slate-500">
+            {fmtHoras(horasMes)} h · {diasTrabajo} días de turno · {diasLibres} libres
+          </p>
         </div>
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-2xl bg-blue-50 py-2">
-            <p className="text-[20px] font-black text-blue-700 leading-tight">
-              {fmtHoras(horasMes)}
-            </p>
-            <p className="text-[11px] font-semibold text-blue-700/80">horas</p>
-          </div>
-          <div className="rounded-2xl bg-sky-50 py-2">
-            <p className="text-[20px] font-black text-sky-700 leading-tight">{diasTrabajo}</p>
-            <p className="text-[11px] font-semibold text-sky-700/80">días de turno</p>
-          </div>
-          <div className="rounded-2xl bg-emerald-50 py-2">
-            <p className="text-[20px] font-black text-emerald-700 leading-tight">{diasLibres}</p>
-            <p className="text-[11px] font-semibold text-emerald-700/80">días libres</p>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => nextMonth && onChangeMonth(nextMonth)}
+          disabled={!nextMonth || loading}
+          aria-label="Mes siguiente"
+          className="w-10 h-10 rounded-full text-slate-600 flex items-center justify-center hover:bg-slate-100 disabled:opacity-25"
+        >
+          <ChevronRight size={20} />
+        </button>
       </div>
 
       <div className="p-3 flex flex-col gap-3 lg:p-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6">
@@ -643,7 +628,7 @@ function MonthScreen({
           <InstallBanner />
           <AvisosBanner token={token} />
 
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-2 lg:p-3">
+          <div className="bg-white rounded-3xl border border-slate-200/70 p-2 lg:p-3">
             <div className="grid grid-cols-7 gap-1 mb-1">
               {DOWS.map((d) => (
                 <span
@@ -672,14 +657,19 @@ function MonthScreen({
                       const isSel = selected === i;
                       const wasChanged = changed.has(i);
                       const tile = isToday
-                        ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md'
-                        : k === 'especial'
-                          ? 'bg-violet-50 text-violet-800'
-                          : k === 'libre'
-                            ? 'bg-white text-slate-400 border border-dashed border-slate-200'
-                            : k === 'tarde'
-                              ? 'bg-amber-50 text-amber-800'
-                              : 'bg-sky-50 text-sky-800';
+                        ? 'bg-blue-700 text-white'
+                        : k === 'libre'
+                          ? 'bg-slate-50 text-slate-400'
+                          : 'bg-white text-slate-700 border border-slate-200/80';
+                      // Rayita de color: mañana celeste, tarde ámbar, vacaciones/permiso morado
+                      const raya =
+                        k === 'manana'
+                          ? 'bg-sky-400'
+                          : k === 'tarde'
+                            ? 'bg-amber-400'
+                            : k === 'especial'
+                              ? 'bg-violet-400'
+                              : '';
                       return (
                         <button
                           key={i}
@@ -694,13 +684,14 @@ function MonthScreen({
                           <span
                             className={`text-[13px] lg:text-sm font-extrabold leading-none ${isToday ? 'text-white' : 'text-slate-800'}`}
                           >
-                            {String(i + 1).padStart(2, '0')}
-                            <span
-                              className={`ml-0.5 text-[9px] lg:text-[11px] font-bold ${isToday ? 'text-white/85' : 'text-slate-500'}`}
-                            >
-                              {mesCorto}
-                            </span>
+                            {i + 1}
                           </span>
+                          {raya && !isToday && (
+                            <span
+                              className={`absolute top-0 left-2 right-2 h-[3px] rounded-b-full ${raya}`}
+                              aria-hidden="true"
+                            />
+                          )}
                           {k === 'especial' ? (
                             <span className="text-[15px] leading-none mt-0.5">
                               {specialIcon(d)}
@@ -708,19 +699,11 @@ function MonthScreen({
                           ) : k === 'libre' ? (
                             <span className="text-[10px] font-semibold mt-0.5">libre</span>
                           ) : (
-                            <span className="text-[10px] lg:text-[13px] font-bold leading-tight whitespace-pre-line">
+                            <span className="text-[10px] lg:text-[13px] font-semibold leading-tight whitespace-pre-line">
                               {dayShort(d)}
                             </span>
                           )}
-                          {k !== 'especial' && k !== 'libre' && d?.col ? (
-                            <span
-                              className={`flex items-center gap-0.5 whitespace-nowrap text-[9px] lg:text-[11px] font-semibold leading-none ${isToday ? 'text-white/80' : 'opacity-70'}`}
-                              title={`Colación ${d.col} min`}
-                            >
-                              <Coffee size={9} className="shrink-0" aria-hidden="true" />
-                              {d.col}m
-                            </span>
-                          ) : null}
+
                           {wasChanged && (
                             <span
                               className="absolute top-1 right-1 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white"
@@ -731,7 +714,7 @@ function MonthScreen({
                       );
                     })}
                   </div>
-                  <p className="px-1.5 pt-1 pb-1.5 text-right text-[11px] font-semibold text-slate-400">
+                  <p className="px-1.5 pt-0.5 pb-1 text-right text-[11px] text-slate-400">
                     {horas > 0 && (
                       <>
                         Semana {fmtHoras(horas)} h{parcial ? ' (parte en otro mes)' : ''}
@@ -741,18 +724,18 @@ function MonthScreen({
                 </React.Fragment>
               );
             })}
-            <div className="flex flex-wrap gap-1.5 px-1 pt-1 text-[11px] font-semibold">
-              <span className="px-2 py-1 rounded-full bg-sky-50 text-sky-800">☀️ Mañana</span>
-              <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-800">🌇 Tarde</span>
-              <span className="px-2 py-1 rounded-full border border-dashed border-slate-300 text-slate-500">
-                Libre
+            <div className="flex flex-wrap gap-x-4 gap-y-1 px-2 pt-1 pb-1 text-[12px] text-slate-500">
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-[3px] rounded-full bg-sky-400" aria-hidden="true" /> Mañana
               </span>
-              <span className="px-2 py-1 rounded-full bg-violet-50 text-violet-800">
-                🌴 Vacaciones y permisos
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-[3px] rounded-full bg-amber-400" aria-hidden="true" /> Tarde
               </span>
-              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-50 text-slate-600">
-                <Coffee size={11} aria-hidden="true" /> 60m = colación en minutos
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-[3px] rounded-full bg-violet-400" aria-hidden="true" />{' '}
+                Vacaciones y permisos
               </span>
+              <span>Toca un día para ver la colación</span>
             </div>
           </div>
         </div>
@@ -819,41 +802,37 @@ function Shell({
   const adminSession = useHasAdminSession();
   const primerNombre = data.name.split(' ')[0];
   return (
-    <div className="min-h-[var(--app-height,100dvh)] bg-slate-100 text-slate-900">
+    <div className="min-h-[var(--app-height,100dvh)] bg-slate-50 text-slate-900">
       <div className="max-w-md lg:max-w-6xl mx-auto pb-6">
-        {/* Saludo, sucursal y botones; el mes va montado encima del borde de abajo */}
-        <header className="bg-gradient-to-br from-[#0f2744] via-[#16386a] to-[#1d4ed8] text-white px-5 lg:px-6 pt-6 pb-14 rounded-b-[32px]">
-          {/* Arriba la sucursal y los botones; abajo el saludo con todo el ancho para el nombre */}
-          <div className="flex items-center justify-between gap-2">
-            <p className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold text-blue-100">
-              <MapPin size={13} className="shrink-0" aria-hidden="true" />
-              <span className="truncate">{data.sucursal}</span>
-            </p>
-            <div className="flex items-center gap-2 shrink-0">
-              {adminSession && (
-                <AdminLink
-                  label={<span className="hidden sm:inline">Admin</span>}
-                  className="h-9 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold flex items-center gap-1.5"
-                />
-              )}
-              <button
-                type="button"
-                onClick={onLogout}
-                className="h-9 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold flex items-center gap-1.5"
-              >
-                <LogOut size={15} />
-                Salir
-              </button>
-            </div>
-          </div>
-          <div className="mt-4 flex items-center gap-3">
-            <span className="w-12 h-12 shrink-0 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-[17px] font-black">
+        {/* Encabezado simple: saludo, sucursal y salir */}
+        <header className="flex items-center justify-between gap-3 px-4 lg:px-6 pt-5 pb-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-10 h-10 shrink-0 rounded-full bg-blue-700 text-white flex items-center justify-center text-[14px] font-bold">
               {safeInitials('', data.name)}
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] text-blue-100 whitespace-nowrap">Hola 👋</p>
-              <h1 className="text-[22px] font-extrabold leading-tight truncate">{primerNombre}</h1>
+            <div className="min-w-0">
+              <h1 className="text-[18px] font-bold leading-tight truncate">Hola, {primerNombre}</h1>
+              <p className="flex items-center gap-1 text-[13px] text-slate-500 truncate">
+                <MapPin size={12} className="shrink-0" aria-hidden="true" />
+                {data.sucursal}
+              </p>
             </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {adminSession && (
+              <AdminLink
+                label={<span className="hidden sm:inline">Admin</span>}
+                className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-[13px] font-semibold flex items-center gap-1.5"
+              />
+            )}
+            <button
+              type="button"
+              onClick={onLogout}
+              className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-600 text-[13px] font-semibold flex items-center gap-1.5"
+            >
+              <LogOut size={15} />
+              Salir
+            </button>
           </div>
         </header>
         {children}
