@@ -82,8 +82,8 @@ export const NON_WORKING_TYPES: NonWorkingType[] = [
   {
     code: 'LICENCIA',
     label: 'Licencia',
-    colorClass: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
-    legendColor: 'bg-yellow-500',
+    colorClass: 'bg-violet-100 text-violet-800 border border-violet-300',
+    legendColor: 'bg-violet-500',
     maxDaysPerMonth: null,
     icon: '🏥',
   },
@@ -124,8 +124,8 @@ export const NON_WORKING_TYPES: NonWorkingType[] = [
   {
     code: 'VACACIONES',
     label: 'Vacaciones',
-    colorClass: 'bg-green-100 text-green-800 border border-green-300',
-    legendColor: 'bg-green-500',
+    colorClass: 'bg-cyan-100 text-cyan-800 border border-cyan-300',
+    legendColor: 'bg-cyan-500',
     maxDaysPerMonth: null,
     icon: '🌴',
   },
@@ -138,9 +138,9 @@ export const NON_WORKING_COLOR_OPTIONS = [
     legendColor: 'bg-slate-400',
   },
   {
-    label: 'Amarillo',
-    colorClass: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
-    legendColor: 'bg-yellow-500',
+    label: 'Violeta',
+    colorClass: 'bg-violet-100 text-violet-800 border border-violet-300',
+    legendColor: 'bg-violet-500',
   },
   {
     label: 'Rosado',
@@ -153,14 +153,14 @@ export const NON_WORKING_COLOR_OPTIONS = [
     legendColor: 'bg-teal-500',
   },
   {
-    label: 'Verde',
-    colorClass: 'bg-green-100 text-green-800 border border-green-300',
-    legendColor: 'bg-green-500',
+    label: 'Celeste',
+    colorClass: 'bg-cyan-100 text-cyan-800 border border-cyan-300',
+    legendColor: 'bg-cyan-500',
   },
   {
-    label: 'Azul',
-    colorClass: 'bg-blue-100 text-blue-800 border border-blue-300',
-    legendColor: 'bg-blue-500',
+    label: 'Índigo',
+    colorClass: 'bg-indigo-100 text-indigo-800 border border-indigo-300',
+    legendColor: 'bg-indigo-500',
   },
   {
     label: 'Morado',
@@ -178,19 +178,9 @@ export const NON_WORKING_COLOR_OPTIONS = [
     legendColor: 'bg-red-500',
   },
   {
-    label: 'Celeste',
-    colorClass: 'bg-cyan-100 text-cyan-800 border border-cyan-300',
-    legendColor: 'bg-cyan-500',
-  },
-  {
-    label: 'Índigo',
-    colorClass: 'bg-indigo-100 text-indigo-800 border border-indigo-300',
-    legendColor: 'bg-indigo-500',
-  },
-  {
-    label: 'Lima',
-    colorClass: 'bg-lime-100 text-lime-800 border border-lime-300',
-    legendColor: 'bg-lime-500',
+    label: 'Fucsia',
+    colorClass: 'bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-300',
+    legendColor: 'bg-fuchsia-500',
   },
 ];
 
@@ -760,12 +750,40 @@ function shiftToRow(s: Shift) {
 // El descanso va en un gris muy suave, para que los días con turno resalten más
 const DESCANSO_COLOR = 'bg-slate-50 text-slate-400 border border-slate-200';
 
+// Los días especiales no usan los colores de los turnos (azul, verde, amarillo), para no
+// confundir p. ej. una licencia con un cierre o unas vacaciones con un intermedio
+const VIOLETA = {
+  colorClass: 'bg-violet-100 text-violet-800 border border-violet-300',
+  legendColor: 'bg-violet-500',
+};
+const CELESTE = {
+  colorClass: 'bg-cyan-100 text-cyan-800 border border-cyan-300',
+  legendColor: 'bg-cyan-500',
+};
+const INDIGO = {
+  colorClass: 'bg-indigo-100 text-indigo-800 border border-indigo-300',
+  legendColor: 'bg-indigo-500',
+};
+
+function specialDayColor(code: string, colorClass: string, legendColor: string) {
+  if (code === 'DESCANSO') return { colorClass: DESCANSO_COLOR, legendColor: 'bg-slate-300' };
+  if (/\bbg-(yellow|amber)-/.test(colorClass)) return VIOLETA;
+  if (/\bbg-(green|emerald|lime)-/.test(colorClass)) return CELESTE;
+  if (/\bbg-blue-/.test(colorClass)) return INDIGO;
+  return { colorClass, legendColor };
+}
+
 function rowToNWT(row: Record<string, unknown>): NonWorkingType {
+  const color = specialDayColor(
+    row.code as string,
+    (row.color_class as string) || '',
+    (row.legend_color as string) || ''
+  );
   return {
     code: row.code as string,
     label: row.label as string,
-    colorClass: row.code === 'DESCANSO' ? DESCANSO_COLOR : (row.color_class as string) || '',
-    legendColor: (row.legend_color as string) || '',
+    colorClass: color.colorClass,
+    legendColor: color.legendColor,
     maxDaysPerMonth: row.max_days_per_month != null ? (row.max_days_per_month as number) : null,
     icon: (row.icon as string) || '',
   };
