@@ -17,7 +17,8 @@ export default function AndroidInstallModal({ onClose }: { onClose: () => void }
       icon: <Download size={24} className="text-blue-600" />,
       text: (
         <>
-          Elige <strong>«Instalar app»</strong> o <strong>«Agregar a la pantalla principal»</strong>.
+          Elige <strong>«Instalar app»</strong> o <strong>«Agregar a la pantalla principal»</strong>
+          .
         </>
       ),
     },
@@ -71,8 +72,8 @@ export default function AndroidInstallModal({ onClose }: { onClose: () => void }
           ))}
         </ol>
         <p className="mt-4 text-xs text-gray-500">
-          Si abriste el link desde Facebook, Instagram u otra app y no ves esas opciones, ábrelo
-          en Chrome.
+          Si abriste el link desde Facebook, Instagram u otra app y no ves esas opciones, ábrelo en
+          Chrome.
         </p>
         <p className="mt-2 text-xs text-gray-500">
           La primera vez que abras la app instalada, ingresa de nuevo con tu RUT y tu clave.
