@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   BarChart2,
   ArrowDownToLine,
@@ -689,6 +689,23 @@ export default function MallaSummary({
     [daysInMonth, monthLabel]
   );
 
+  // Día de hoy dentro del mes que se está viendo (0 = día 1), o -1 si hoy es de otro mes
+  const todayIdx = useMemo(() => {
+    const [year, monthIdx] = monthYear(monthLabel);
+    const now = new Date();
+    return now.getFullYear() === year && now.getMonth() === monthIdx ? now.getDate() - 1 : -1;
+  }, [monthLabel]);
+
+  // Al abrir (o cambiar de mes) se parte en la semana de hoy; si hoy es de otro mes, en la primera.
+  // Después se puede elegir otra semana a mano.
+  useEffect(() => {
+    const idx =
+      todayIdx >= 0
+        ? weekOptions.findIndex((w) => todayIdx + 1 >= w.startDay && todayIdx + 1 <= w.endDay)
+        : -1;
+    setSelectedWeekIdx(idx >= 0 ? idx : 0);
+  }, [weekOptions, todayIdx]);
+
   const cajasOnlyCargo = selectedCargo === 'Cajera';
 
   // Días de la semana fuera del mes: se leen del mes anterior o siguiente
@@ -1135,7 +1152,11 @@ export default function MallaSummary({
           <div className="flex items-center flex-wrap gap-2 ml-auto">
             <div className="flex items-center rounded-lg border border-border overflow-hidden text-xs">
               <button
-                onClick={() => setPrintMode('day')}
+                onClick={() => {
+                  setPrintMode('day');
+                  // «Por día» parte en el día de hoy si todavía no se eligió uno
+                  if (selectedDay < 0 && todayIdx >= 0) setSelectedDay(todayIdx);
+                }}
                 className={`px-2.5 py-1.5 font-medium transition-colors ${printMode === 'day' ? 'bg-secondary text-white' : 'bg-background text-muted-foreground hover:bg-muted/50'}`}
               >
                 Por día
