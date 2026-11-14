@@ -25,7 +25,13 @@ export function buildPrintDocument(el: HTMLElement, opts: PrintOptions = {}): st
 <title>${title}</title>
 ${styles}
 <style>
-  @page { size: A4 ${opts.landscape ? 'landscape' : 'portrait'}; margin: 10mm; }
+  /* Sin margen de página: así el navegador no agrega su propio encabezado (fecha y título,
+     que repetía el título de la hoja) ni el pie con la dirección. El margen lo dan las filas
+     vacías de .print-frame, que se repiten arriba y abajo de cada hoja */
+  @page { size: A4 ${opts.landscape ? 'landscape' : 'portrait'}; margin: 0; }
+  .print-frame { width: 100%; border-collapse: collapse; }
+  .print-frame > thead > tr > td, .print-frame > tfoot > tr > td { height: 10mm; padding: 0; }
+  .print-frame > tbody > tr > td { padding: 0 10mm; }
   html, body { background: #fff !important; margin: 0; padding: 0; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-root { overflow: visible !important; width: 100% !important; }
@@ -38,7 +44,11 @@ ${styles}
 </style>
 </head>
 <body class="${bodyClass}">
-<div class="print-root">${el.outerHTML}</div>
+<table class="print-frame">
+<thead><tr><td></td></tr></thead>
+<tfoot><tr><td></td></tr></tfoot>
+<tbody><tr><td><div class="print-root">${el.outerHTML}</div></td></tr></tbody>
+</table>
 </body>
 </html>`;
 }

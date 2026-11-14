@@ -68,6 +68,7 @@ const ORDER_BOX_STYLE: React.CSSProperties = {
   border: '1.5px solid #374151',
   borderRadius: '3px',
 };
+const FONDO_BOX_STYLE: React.CSSProperties = { ...ORDER_BOX_STYLE, width: '44px' };
 const CAJA_BOX_STYLE: React.CSSProperties = {
   display: 'inline-block',
   width: '28px',
@@ -310,9 +311,9 @@ export function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[]
   const showCajas = workerDetails.length > 0 && workerDetails.every((w) => w.area === 'Cajas');
   // Columna de sucursal solo si la hoja mezcla varias sucursales
   const multiSucursal = new Set(workerDetails.map((w) => w.sucursal)).size > 1;
-  // Orden, Nombre, (Sucursal), (Cajas), 3 × (hora + casilla), HE
+  // (N° de fondo), Orden, Nombre, (Sucursal), (Cajas), 3 × (hora + casilla), HE
   const dayColumnCount =
-    2 + (multiSucursal ? 1 : 0) + (showCajas ? 1 : 0) + TIME_GROUPS.length * 2 + 1;
+    2 + (multiSucursal ? 1 : 0) + (showCajas ? 2 : 0) + TIME_GROUPS.length * 2 + 1;
   // Totales de mañana y tarde (la lista viene ordenada por hora de entrada)
   const mananaCount = workerDetails.filter((w) => !isTardeShift(w)).length;
   const tardeCount = workerDetails.length - mananaCount;
@@ -321,6 +322,12 @@ export function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[]
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
         <thead>
           <tr style={{ background: '#f3f4f6' }}>
+            {/* N° de fondo (de caja) para anotarlo a mano, solo en la hoja de Cajas */}
+            {showCajas && (
+              <th rowSpan={2} style={{ ...TH, width: '48px' }}>
+                N° de fondo
+              </th>
+            )}
             <th rowSpan={2} style={{ ...TH, width: '34px' }}>
               Orden
             </th>
@@ -406,6 +413,11 @@ export function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[]
                     ...(wd.extra ? EXTRA_ROW_STYLE : {}),
                   }}
                 >
+                  {showCajas && (
+                    <td style={{ ...TD, textAlign: 'center' }}>
+                      <span style={FONDO_BOX_STYLE} />
+                    </td>
+                  )}
                   <td style={{ ...TD, textAlign: 'center' }}>
                     <span style={ORDER_BOX_STYLE} />
                   </td>
@@ -482,6 +494,7 @@ export function DaySheet({ workerDetails }: { workerDetails: WorkerShiftDetail[]
         Total del día: <strong>{workerDetails.length}</strong> (mañana {mananaCount} · tarde{' '}
         {tardeCount})
         <span style={{ marginLeft: '16px' }}>
+          {showCajas && 'N° de fondo: anotar el fondo que se le entrega. '}
           Orden: anotar en qué orden llegaron. Marcar ✓ al llegar, al salir a colación y al irse.
           HE: anotar horas extra del día.
         </span>
