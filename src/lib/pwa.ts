@@ -54,6 +54,14 @@ export function useInstallPrompt(): (() => Promise<void>) | null {
   };
 }
 
+/** La página ya se abrió como app instalada (desde el ícono) */
+function isStandalone(): boolean {
+  return (
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches
+  );
+}
+
 /** iPhone/iPad sin la app instalada: Safari no ofrece el botón de instalar, hay que hacerlo a mano. */
 export function useIosInstallable(): boolean {
   const [installable, setInstallable] = useState(false);
@@ -63,10 +71,20 @@ export function useIosInstallable(): boolean {
       /iPhone|iPad|iPod/.test(ua) ||
       // iPad con iPadOS se presenta como Mac
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const isStandalone =
-      (navigator as Navigator & { standalone?: boolean }).standalone === true ||
-      window.matchMedia('(display-mode: standalone)').matches;
-    setInstallable(isIos && !isStandalone);
+    setInstallable(isIos && !isStandalone());
+  }, []);
+  return installable;
+}
+
+/**
+ * Android abierto en el navegador (no desde el ícono). Sirve para mostrar los pasos a mano
+ * cuando el navegador no ofrece su aviso de instalar (p. ej. dentro de Facebook o Instagram,
+ * o mientras Chrome todavía no lo da).
+ */
+export function useAndroidInstallable(): boolean {
+  const [installable, setInstallable] = useState(false);
+  useEffect(() => {
+    setInstallable(/Android/i.test(navigator.userAgent) && !isStandalone());
   }, []);
   return installable;
 }

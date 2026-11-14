@@ -403,6 +403,7 @@ function LoginScreen({
         <p className="text-[13px] text-gray-600 text-center leading-relaxed">
           ¿No tienes clave o la olvidaste? Pídesela a tu jefatura.
         </p>
+        <InstallBanner variant="login" />
         {adminSession && (
           <AdminLink className="h-12 rounded-[14px] border border-gray-300 text-gray-700 text-[15px] font-semibold flex items-center justify-center gap-2" />
         )}
