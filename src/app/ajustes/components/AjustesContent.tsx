@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import {
   useAppContext,
-  SHIFT_COLOR_OPTIONS,
+  shiftColor,
   NON_WORKING_COLOR_OPTIONS,
   NON_WORKING_TYPES,
   type Shift,
@@ -84,14 +84,9 @@ function startHour(start: string): number | null {
   return Number.isNaN(h) ? null : h;
 }
 
-// El color se asigna solo según la hora de entrada: el mismo que ya tienen los turnos que
-// entran a esa hora; si no hay ninguno, uno fijo de la paleta para esa hora
-function autoShiftColor(start: string, shifts: Shift[]) {
-  const hour = startHour(start);
-  const same = shifts.find((s) => s.colorClass && startHour(s.start) === hour);
-  if (same) return { colorClass: same.colorClass, legendColor: same.legendColor };
-  const opt = SHIFT_COLOR_OPTIONS[(hour ?? 0) % SHIFT_COLOR_OPTIONS.length];
-  return { colorClass: opt.colorClass, legendColor: opt.legendColor };
+// El color se asigna solo según el horario: apertura, intermedio, cierre o media jornada
+function autoShiftColor(start: string, end: string) {
+  return shiftColor(start, end);
 }
 
 function generateNwtCode(label: string): string {
@@ -148,7 +143,7 @@ interface ShiftFormProps {
   /** Si se puede crear un turno para todas las sucursales (solo el admin general) */
   allowAll: boolean;
   /** Color que tendrá el turno (se asigna solo) */
-  previewColor: (start: string) => { colorClass: string };
+  previewColor: (start: string, end: string) => { colorClass: string };
   onSave: (data: ShiftFormData) => void;
   onCancel: () => void;
 }
@@ -202,7 +197,7 @@ function ShiftForm({
     onSave(form);
   }
 
-  const selectedColor = previewColor(form.start);
+  const selectedColor = previewColor(form.start, form.end);
 
   return (
     <form
@@ -335,7 +330,8 @@ function ShiftForm({
       {form.label && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground">
-            Así se verá (el color se asigna solo según la hora de entrada):
+            Así se verá (el color sale solo del horario: apertura, intermedio, cierre o media
+            jornada):
           </span>
           <span
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${selectedColor.colorClass}`}
@@ -2401,11 +2397,8 @@ export default function AjustesContent() {
   function handleSave(data: ShiftFormData) {
     const code = editingCode || makeShiftCode(data.label, data.sucursal);
     const prev = editingCode ? shifts[editingCode] : undefined;
-    // Turno existente: conserva su color; turno nuevo: color según la hora de entrada
-    const color =
-      prev && prev.colorClass
-        ? { colorClass: prev.colorClass, legendColor: prev.legendColor }
-        : autoShiftColor(data.start, allShifts);
+    // El color sale solo del horario (apertura, intermedio, cierre o media jornada)
+    const color = autoShiftColor(data.start, data.end);
     const shift: Shift = {
       code,
       label: data.label.trim(),
@@ -2533,11 +2526,7 @@ export default function AjustesContent() {
                 editingCode={editingCode || undefined}
                 sucursalOptions={mySucursales}
                 allowAll={isGlobalAdmin}
-                previewColor={(start) =>
-                  editingCode && shifts[editingCode]?.colorClass
-                    ? shifts[editingCode]
-                    : autoShiftColor(start, allShifts)
-                }
+                previewColor={(start, end) => autoShiftColor(start, end)}
                 onSave={handleSave}
                 onCancel={handleCancelForm}
               />

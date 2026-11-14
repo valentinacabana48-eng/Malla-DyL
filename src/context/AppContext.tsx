@@ -58,7 +58,7 @@ export const NON_WORKING_TYPES: NonWorkingType[] = [
   {
     code: 'DESCANSO',
     label: 'Descanso',
-    colorClass: 'bg-slate-100 text-slate-700 border border-slate-300',
+    colorClass: 'bg-slate-50 text-slate-400 border border-slate-200',
     legendColor: 'bg-slate-400',
     maxDaysPerMonth: null,
     icon: '😴',
@@ -452,6 +452,70 @@ export function calcNetHours(shift: Shift): number {
   return Math.round(grossHours * 100) / 100;
 }
 
+// ─── Color de los turnos según el tipo ────────────────────────────────────────
+// El color ya no se elige: sale solo del horario, para que la malla se lea de un vistazo.
+//   Cierre: sale a las 21:00 o más tarde, o pasa la medianoche (p. ej. 17:00–01:30)
+//   Media jornada: 6 horas o menos
+//   Apertura: entra antes de las 9:00
+//   Intermedio: todo lo demás
+
+export type ShiftKind = 'apertura' | 'intermedio' | 'cierre' | 'media';
+
+export const SHIFT_KIND_COLORS: Record<
+  ShiftKind,
+  { label: string; colorClass: string; legendColor: string }
+> = {
+  apertura: {
+    label: 'Apertura',
+    colorClass: 'bg-blue-100 text-blue-800 border border-blue-300',
+    legendColor: 'bg-blue-500',
+  },
+  intermedio: {
+    label: 'Intermedio',
+    colorClass: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
+    legendColor: 'bg-emerald-500',
+  },
+  cierre: {
+    label: 'Cierre',
+    colorClass: 'bg-amber-100 text-amber-900 border border-amber-300',
+    legendColor: 'bg-amber-400',
+  },
+  media: {
+    label: 'Media jornada',
+    colorClass: 'bg-slate-100 text-slate-700 border border-slate-300',
+    legendColor: 'bg-slate-400',
+  },
+};
+
+function toMinutes(t: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t || '');
+  return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
+}
+
+export function shiftKind(start: string, end: string): ShiftKind | null {
+  const a = toMinutes(start);
+  const b = toMinutes(end);
+  if (a === null || b === null) return null;
+  const pasaMedianoche = b < a;
+  const largo = pasaMedianoche ? b + 24 * 60 - a : b - a;
+  if (pasaMedianoche || b >= 21 * 60) return 'cierre';
+  if (largo <= 6 * 60) return 'media';
+  if (a < 9 * 60) return 'apertura';
+  return 'intermedio';
+}
+
+/** Color del turno según su horario; si no tiene horario, el que tenía guardado */
+export function shiftColor(
+  start: string,
+  end: string,
+  fallback?: { colorClass: string; legendColor: string }
+) {
+  const kind = shiftKind(start, end);
+  if (!kind) return fallback ?? SHIFT_KIND_COLORS.media;
+  const { colorClass, legendColor } = SHIFT_KIND_COLORS[kind];
+  return { colorClass, legendColor };
+}
+
 export const SHIFT_COLOR_OPTIONS = [
   {
     label: 'Azul',
@@ -662,13 +726,19 @@ function workerToRow(w: Worker) {
 }
 
 function rowToShift(row: Record<string, unknown>): Shift {
+  const start = (row.start_time as string) || '';
+  const end = (row.end_time as string) || '';
+  const color = shiftColor(start, end, {
+    colorClass: (row.color_class as string) || '',
+    legendColor: (row.legend_color as string) || '',
+  });
   return {
     code: row.code as string,
     label: row.label as string,
-    start: (row.start_time as string) || '',
-    end: (row.end_time as string) || '',
-    colorClass: (row.color_class as string) || '',
-    legendColor: (row.legend_color as string) || '',
+    start,
+    end,
+    colorClass: color.colorClass,
+    legendColor: color.legendColor,
     colacion: (row.colacion as number) || 0,
     sucursal: (row.sucursal as string | null) ?? null,
   };
@@ -687,11 +757,14 @@ function shiftToRow(s: Shift) {
   };
 }
 
+// El descanso va en un gris muy suave, para que los días con turno resalten más
+const DESCANSO_COLOR = 'bg-slate-50 text-slate-400 border border-slate-200';
+
 function rowToNWT(row: Record<string, unknown>): NonWorkingType {
   return {
     code: row.code as string,
     label: row.label as string,
-    colorClass: (row.color_class as string) || '',
+    colorClass: row.code === 'DESCANSO' ? DESCANSO_COLOR : (row.color_class as string) || '',
     legendColor: (row.legend_color as string) || '',
     maxDaysPerMonth: row.max_days_per_month != null ? (row.max_days_per_month as number) : null,
     icon: (row.icon as string) || '',
