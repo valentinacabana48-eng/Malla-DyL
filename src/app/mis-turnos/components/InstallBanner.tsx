@@ -11,7 +11,6 @@ const HIDE_KEY = 'dyl_mis_turnos_instalar_oculto_hasta';
 const OLD_HIDE_KEY = 'dyl_mis_turnos_sin_instalar';
 // Se instaló desde este navegador (Android avisa con `appinstalled`)
 const INSTALLED_KEY = 'dyl_mis_turnos_instalada';
-const HIDE_DAYS = 7;
 
 function readNumber(key: string): number {
   try {
@@ -32,7 +31,7 @@ function write(key: string, value: string) {
 // Invita a dejar Mis turnos como app en la pantalla de inicio.
 // - Android: si Chrome ofrece su aviso, el botón lo abre; si no, muestra los pasos a mano.
 // - iPhone: muestra los pasos de Safari.
-// variant "row": fila chica dentro de Mis turnos, se puede cerrar y vuelve a la semana.
+// variant "row": fila chica dentro de Mis turnos, se puede cerrar y vuelve al día siguiente.
 // variant "login": tarjeta en la pantalla de ingreso, siempre visible mientras no esté instalada.
 export default function InstallBanner({ variant = 'row' }: { variant?: 'row' | 'login' }) {
   const installApp = useInstallPrompt();
@@ -73,7 +72,10 @@ export default function InstallBanner({ variant = 'row' }: { variant?: 'row' | '
 
   const dismiss = () => {
     setHidden(true);
-    write(HIDE_KEY, String(Date.now() + HIDE_DAYS * 24 * 60 * 60 * 1000));
+    // Oculto solo por hoy: vuelve a aparecer mañana
+    const manana = new Date();
+    manana.setHours(24, 0, 0, 0);
+    write(HIDE_KEY, String(manana.getTime()));
   };
 
   const modals = (
