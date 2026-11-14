@@ -14,8 +14,11 @@ import { getPublicSupabase } from '@/lib/supabase/publicClient';
 import { EVENTO_CAMBIO } from '@/lib/misTurnosVivo';
 
 // Solicitudes de la trabajadora: pedir un día libre o un cambio de turno, y ver cómo van.
+// El día libre es de dos tipos: «libre» (para la malla del mes siguiente) o «permiso»
+// (un día del mes en curso, con o sin goce).
 
-type Tipo = 'libre' | 'cambio' | 'intercambio';
+type Tipo = 'libre' | 'permiso' | 'cambio' | 'intercambio';
+type Goce = 'PERMISO_CG' | 'PERMISO_SG';
 
 interface Request {
   id: string;
@@ -108,6 +111,13 @@ function nextMonth() {
   return { min: isoOf(first), max: isoOf(last), name: MONTHS[first.getMonth()] };
 }
 
+// Permiso: desde hoy hasta fin del mes en curso
+function thisMonth() {
+  const now = new Date();
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { min: isoOf(now), max: isoOf(last), name: MONTHS[now.getMonth()] };
+}
+
 export default function Solicitudes({
   token,
   fecha,
@@ -138,12 +148,28 @@ export default function Solicitudes({
   // Con compañera: puede marcar varios turnos que le sirven
   const [turnos, setTurnos] = useState<string[]>([]);
   const [motivo, setMotivo] = useState('');
+  // Permiso: lo pide con goce o sin goce
+  const [goce, setGoce] = useState<Goce>('PERMISO_CG');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState('');
   // Por defecto se ven solo las pendientes; «Ver todas» muestra también las respondidas
   const [verTodas, setVerTodas] = useState(false);
   const mes = nextMonth();
+  const mesActual = thisMonth();
+  // Días que se pueden elegir según lo que pide
+  const rango =
+    tipo === 'libre' || tipo === 'cambio'
+      ? mes
+      : tipo === 'permiso'
+        ? mesActual
+        : { min: todayIso(), max: undefined as string | undefined };
+  const fueraDeRango = (t: Tipo, d: string) =>
+    t === 'libre' || t === 'cambio'
+      ? d < mes.min || d > mes.max
+      : t === 'permiso'
+        ? d < mesActual.min || d > mesActual.max
+        : false;
 
   const loadRequests = useCallback(async () => {
     const { data } = await getPublicSupabase().rpc('mis_turnos_requests', { p_token: token });
@@ -250,8 +276,11 @@ export default function Solicitudes({
 
   const openForm = async () => {
     const min = todayIso();
-    setDay(fecha && fecha >= min ? fecha : '');
-    setTipo('libre');
+    const dia = fecha && fecha >= min ? fecha : '';
+    setDay(dia);
+    // Si tocó un día de este mes, parte como permiso; si no, día libre del mes siguiente
+    setTipo(dia && dia <= mesActual.max ? 'permiso' : 'libre');
+    setGoce('PERMISO_CG');
     setTurno('');
     setTurnos([]);
     setMotivo('');
@@ -264,8 +293,16 @@ export default function Solicitudes({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!day) return setError('Elige el día.');
-    if (tipo === 'cambio' && (day < mes.min || day > mes.max))
+    if (tipo === 'cambio' && fueraDeRango(tipo, day))
       return setError(`Un turno en especial se pide solo para días de ${mes.name}.`);
+    if (tipo === 'libre' && fueraDeRango(tipo, day))
+      return setError(
+        `El día libre se pide para ${mes.name}. Para un día de ${mesActual.name}, pide permiso.`
+      );
+    if (tipo === 'permiso' && fueraDeRango(tipo, day))
+      return setError(
+        `El permiso es para días de ${mesActual.name}. Para ${mes.name}, pide día libre.`
+      );
     if (tipo === 'cambio' && !turno) return setError('Elige el turno que quieres.');
     if (tipo === 'intercambio' && turnos.length === 0)
       return setError('Marca al menos un turno que te sirva.');
@@ -276,7 +313,14 @@ export default function Solicitudes({
         p_token: token,
         p_tipo: tipo,
         p_fecha: day,
-        p_turno: tipo === 'libre' ? null : tipo === 'intercambio' ? turnos[0] : turno,
+        p_turno:
+          tipo === 'libre'
+            ? null
+            : tipo === 'permiso'
+              ? goce
+              : tipo === 'intercambio'
+                ? turnos[0]
+                : turno,
         p_motivo: motivo,
         ...(tipo === 'intercambio' ? { p_turnos: turnos } : {}),
       });
@@ -342,13 +386,19 @@ export default function Solicitudes({
   const title = (r: Request) =>
     r.tipo === 'libre'
       ? 'Día libre'
-      : r.tipo === 'cambio'
-        ? `Turno ${shiftText(r.turno_pedido)}`
-        : r.mia
-          ? r.otra
-            ? `Cambio con ${r.otra}`
-            : 'Cambio con compañera'
-          : `${r.otra ?? 'Una compañera'} te pide cambiar`;
+      : r.tipo === 'permiso'
+        ? r.status === 'pendiente' && r.turno_pedido === 'PERMISO_SG'
+          ? 'Permiso sin goce'
+          : r.status === 'pendiente' && r.turno_pedido === 'PERMISO_CG'
+            ? 'Permiso con goce'
+            : 'Permiso'
+        : r.tipo === 'cambio'
+          ? `Turno ${shiftText(r.turno_pedido)}`
+          : r.mia
+            ? r.otra
+              ? `Cambio con ${r.otra}`
+              : 'Cambio con compañera'
+            : `${r.otra ?? 'Una compañera'} te pide cambiar`;
 
   // Estado que ve ella en un cambio con compañera: pre aprobación, elegir, que acepte la compañera
   const statusOf = (r: Request) => {
@@ -405,12 +455,19 @@ export default function Solicitudes({
                   key={key}
                   type="button"
                   onClick={() => {
-                    setTipo(key);
-                    if (key === 'cambio' && day && (day < mes.min || day > mes.max)) setDay('');
+                    // «Día libre» parte según el día elegido: este mes es permiso
+                    const t: Tipo =
+                      key === 'libre' && day && !fueraDeRango('permiso', day) ? 'permiso' : key;
+                    setTipo(t);
+                    if (day && fueraDeRango(t, day)) setDay('');
                   }}
-                  aria-pressed={tipo === key}
+                  aria-pressed={
+                    key === 'libre' ? tipo === 'libre' || tipo === 'permiso' : tipo === key
+                  }
                   className={`py-2.5 px-1 rounded-lg text-[13px] leading-tight font-bold ${
-                    tipo === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                    (key === 'libre' ? tipo === 'libre' || tipo === 'permiso' : tipo === key)
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500'
                   }`}
                 >
                   {label}
@@ -418,13 +475,45 @@ export default function Solicitudes({
               ))}
             </div>
 
+            {(tipo === 'libre' || tipo === 'permiso') && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm font-semibold text-gray-700">¿Para cuándo?</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      ['libre', `Libre en ${mes.name}`, 'Para la próxima malla'],
+                      ['permiso', `Permiso en ${mesActual.name}`, 'Un día de este mes'],
+                    ] as const
+                  ).map(([key, label, sub]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setTipo(key);
+                        if (day && fueraDeRango(key, day)) setDay('');
+                      }}
+                      aria-pressed={tipo === key}
+                      className={`text-left px-3 py-2.5 rounded-xl border-2 ${
+                        tipo === key ? 'border-blue-700 bg-blue-50' : 'border-gray-200 bg-white'
+                      }`}
+                    >
+                      <span className="block text-[14px] font-bold text-gray-900">{label}</span>
+                      <span className="block text-[12px] text-gray-500 leading-tight mt-0.5">
+                        {sub}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <label className="flex flex-col gap-1">
               <span className="text-sm font-semibold text-gray-700">Día</span>
               <input
                 type="date"
                 value={day}
-                min={tipo === 'cambio' ? mes.min : todayIso()}
-                max={tipo === 'cambio' ? mes.max : undefined}
+                min={rango.min}
+                max={rango.max}
                 onChange={(e) => setDay(e.target.value)}
                 className="h-12 px-3 rounded-xl border border-gray-300 bg-gray-50 text-base"
               />
@@ -434,7 +523,44 @@ export default function Solicitudes({
                   armado.
                 </span>
               )}
+              {tipo === 'libre' && (
+                <span className="text-[13px] text-gray-500">
+                  Elige un día de {mes.name}. Si lo aprueban, queda libre en la malla de {mes.name}.
+                </span>
+              )}
+              {tipo === 'permiso' && (
+                <span className="text-[13px] text-gray-500">
+                  Elige un día de {mesActual.name}. Si lo aprueban, queda como permiso y se firma la
+                  hoja de permiso.
+                </span>
+              )}
             </label>
+
+            {tipo === 'permiso' && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm font-semibold text-gray-700">Permiso</span>
+                <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl">
+                  {(
+                    [
+                      ['PERMISO_CG', 'Con goce'],
+                      ['PERMISO_SG', 'Sin goce'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setGoce(key)}
+                      aria-pressed={goce === key}
+                      className={`py-2.5 rounded-lg text-[13px] font-bold ${
+                        goce === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                      }`}
+                    >
+                      {label} de sueldo
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {tipo === 'cambio' && (
               <label className="flex flex-col gap-1">
@@ -554,7 +680,7 @@ export default function Solicitudes({
                       : { Icon: X, label: 'Cancelada', cls: 'bg-slate-100 text-slate-600' };
               // Turno con que quedaría (o quedó)
               const turnoTxt =
-                r.tipo === 'libre'
+                r.tipo === 'libre' || r.tipo === 'permiso'
                   ? ''
                   : r.tipo === 'cambio'
                     ? shiftText(r.turno_pedido)

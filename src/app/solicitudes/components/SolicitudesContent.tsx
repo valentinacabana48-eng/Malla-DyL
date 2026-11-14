@@ -20,7 +20,7 @@ import { imprimirHoja, tipoLabel } from '@/app/malla-de-turnos/components/Licenc
 interface Request {
   id: string;
   worker_id: string;
-  tipo: 'libre' | 'cambio' | 'intercambio';
+  tipo: 'libre' | 'permiso' | 'cambio' | 'intercambio';
   companera_id: string | null;
   /** Cambio con compañera: por_preaprobar → elegir → pendiente (responde ella) → aceptada */
   companera_status: '' | 'por_preaprobar' | 'elegir' | 'pendiente' | 'aceptada' | 'rechazada';
@@ -147,9 +147,17 @@ export default function SolicitudesContent() {
       .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
 
   const defaults = (r: Request) => ({
-    turno: chosen[r.id]?.turno ?? (r.tipo === 'libre' ? 'DESC' : r.turno_pedido),
+    turno:
+      chosen[r.id]?.turno ?? (r.tipo === 'libre' || r.tipo === 'permiso' ? 'DESC' : r.turno_pedido),
     comp: chosen[r.id]?.comp ?? (r.turno_actual || 'DESC'),
-    dia: chosen[r.id]?.dia ?? 'DESC',
+    // Permiso: parte con lo que pidió ella (con o sin goce)
+    dia:
+      chosen[r.id]?.dia ??
+      (r.tipo === 'permiso'
+        ? r.turno_pedido === 'PERMISO_SG'
+          ? 'PERMISO_SG'
+          : 'PERMISO_CG'
+        : 'DESC'),
   });
 
   // Turno que tiene en la malla el día de la solicitud (si tiene uno de verdad)
@@ -225,11 +233,11 @@ export default function SolicitudesContent() {
   const resolve = async (r: Request, aprobar: boolean) => {
     setBusy(r.id);
     const pick = defaults(r);
-    // Día libre como permiso: la malla mantiene el turno y después se marca el permiso,
+    // Permiso: la malla mantiene el turno y después se marca el permiso,
     // que guarda el turno que tenía (igual que una licencia)
     const actual = turnoHoy(r);
     const comoPermiso =
-      aprobar && r.tipo === 'libre' && pick.turno === 'DESC' && pick.dia !== 'DESC' && !!actual;
+      aprobar && r.tipo === 'permiso' && pick.turno === 'DESC' && pick.dia !== 'DESC' && !!actual;
     const nota = (notes[r.id] ?? '').trim();
     const { error } = await supabase.rpc('resolve_shift_request', {
       p_id: r.id,
@@ -282,7 +290,7 @@ export default function SolicitudesContent() {
           Solicitudes
         </h1>
         <p className="text-muted-foreground text-sm mt-1 ml-3">
-          Días libres y cambios de turno pedidos desde Mis turnos
+          Días libres, permisos y cambios de turno pedidos desde Mis turnos
         </p>
       </div>
 
@@ -392,12 +400,18 @@ export default function SolicitudesContent() {
                 <div className="text-sm">
                   <span className="font-bold text-foreground">
                     {r.tipo === 'libre'
-                      ? 'Día libre'
-                      : r.tipo === 'cambio'
-                        ? 'Turno pedido'
-                        : comp
-                          ? `Cambio con ${comp.name}`
-                          : 'Cambio con compañera'}{' '}
+                      ? 'Día libre (próxima malla)'
+                      : r.tipo === 'permiso'
+                        ? r.status === 'pendiente'
+                          ? r.turno_pedido === 'PERMISO_SG'
+                            ? 'Permiso sin goce'
+                            : 'Permiso con goce'
+                          : 'Permiso'
+                        : r.tipo === 'cambio'
+                          ? 'Turno pedido'
+                          : comp
+                            ? `Cambio con ${comp.name}`
+                            : 'Cambio con compañera'}{' '}
                     · {fechaText(r.fecha)}
                   </span>
                   <p className="text-muted-foreground">
@@ -425,7 +439,7 @@ export default function SolicitudesContent() {
                     <p className="text-muted-foreground">
                       Quedó:{' '}
                       <span className="font-semibold text-foreground">
-                        {r.tipo === 'libre' && permisoDe(r)
+                        {(r.tipo === 'libre' || r.tipo === 'permiso') && permisoDe(r)
                           ? tipoLabel(permisoDe(r)!.tipo)
                           : shiftText(r.turno_pedido)}
                       </span>
@@ -469,7 +483,7 @@ export default function SolicitudesContent() {
                     {pickRow(w, r.worker_id, pick.turno, r.turno_actual, (v) =>
                       setChosen((c) => ({ ...c, [r.id]: { ...c[r.id], turno: v } }))
                     )}
-                    {r.tipo === 'libre' && pick.turno === 'DESC' && turnoHoy(r) && (
+                    {r.tipo === 'permiso' && pick.turno === 'DESC' && turnoHoy(r) && (
                       <div className="flex flex-col gap-1.5">
                         <span className="text-xs text-muted-foreground">
                           Ese día tiene turno. ¿Cómo queda?
@@ -627,21 +641,23 @@ export default function SolicitudesContent() {
                         {r.resolved_by_email && <>· {r.resolved_by_email}</>}
                       </p>
                     )}
-                {r.status === 'aprobada' && r.tipo === 'libre' && permisoDe(r) && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      imprimirHoja(permisoDe(r)!, w, {
-                        fecha: r.created_at.slice(0, 10),
-                        autorizada: (r.resolved_at ?? r.created_at).slice(0, 10),
-                      })
-                    }
-                    className="self-start flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted/50"
-                  >
-                    <Printer size={15} />
-                    Imprimir hoja de permiso
-                  </button>
-                )}
+                {r.status === 'aprobada' &&
+                  (r.tipo === 'libre' || r.tipo === 'permiso') &&
+                  permisoDe(r) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        imprimirHoja(permisoDe(r)!, w, {
+                          fecha: r.created_at.slice(0, 10),
+                          autorizada: (r.resolved_at ?? r.created_at).slice(0, 10),
+                        })
+                      }
+                      className="self-start flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted/50"
+                    >
+                      <Printer size={15} />
+                      Imprimir hoja de permiso
+                    </button>
+                  )}
               </li>
             );
           })}

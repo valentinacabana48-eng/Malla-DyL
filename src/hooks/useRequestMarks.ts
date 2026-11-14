@@ -16,7 +16,7 @@ export interface RequestMark {
 interface Row {
   worker_id: string;
   companera_id: string | null;
-  tipo: 'libre' | 'cambio' | 'intercambio';
+  tipo: 'libre' | 'permiso' | 'cambio' | 'intercambio';
   fecha: string;
   turno_actual: string;
   turno_pedido: string;
@@ -108,7 +108,12 @@ export function useRequestMarks(
           });
       } else {
         put(r.worker_id, day, r.turno_pedido, {
-          text: r.tipo === 'libre' ? 'Día libre pedido' : 'Turno pedido',
+          text:
+            r.tipo === 'libre'
+              ? 'Día libre pedido'
+              : r.tipo === 'permiso'
+                ? 'Permiso pedido'
+                : 'Turno pedido',
           antes: shiftText(r.turno_actual, shifts),
           aprobado,
         });
