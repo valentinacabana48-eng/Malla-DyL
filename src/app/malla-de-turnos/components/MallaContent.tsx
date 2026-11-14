@@ -757,6 +757,7 @@ export default function MallaContent() {
         <PublishModal
           state={publishState}
           monthLabel={selectedMes}
+          areas={selectedAreas}
           onClose={() => setShowPublishModal(false)}
         />
       )}

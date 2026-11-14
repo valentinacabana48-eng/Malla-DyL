@@ -233,14 +233,6 @@ function listDays(days: number[]): string {
   return `días ${nums.slice(0, -1).join(', ')} y ${nums[nums.length - 1]}`;
 }
 
-const DOW = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-const hh = (h: number) => `${String(h % 24).padStart(2, '0')}:00`;
-
-function cargoPlural(cargo: string): string {
-  const c = cargo.toLowerCase();
-  return /[aeiou]$/.test(c) ? `${c}s` : `${c}es`;
-}
-
 interface PublishResult {
   firstTime: boolean;
   changedNames: string[];
@@ -256,10 +248,13 @@ export function PublishModal({
   state,
   monthLabel,
   onClose,
+  areas = [],
 }: {
   state: PublishState;
   monthLabel: string;
   onClose: () => void;
+  /** Áreas elegidas en la malla: los avisos muestran solo esas ([] = todas) */
+  areas?: string[];
 }) {
   const { getAllNonWorkingTypes } = useAppContext();
   const { sucursal, monthKey, publishedAt, pending, snapshots, current, sucursalWorkers } = state;
@@ -343,16 +338,20 @@ export function PublishModal({
     ? null
     : [...new Set([...pendientesElegidos.map((p) => p.workerId), ...ocultosCambiados])];
   const todosElegidos = pendientesElegidos.length === pending.length;
-  const [showAllGaps, setShowAllGaps] = useState(false);
   const extraTypes = getAllNonWorkingTypes();
 
-  // Días sin turno y horas sin nadie de un cargo, para avisar antes de publicar
-  const check = useMemo(
-    () => checkMalla(sucursalWorkers, current, nDias, ocultos),
-    [sucursalWorkers, current, nDias, ocultos]
-  );
-  const [year, month] = monthKey.split('-').map(Number);
-  const dow = (d: number) => DOW[new Date(year, month - 1, d + 1).getDay()];
+  // Días sin turno, para avisar antes de publicar (las horas sin nadie no se muestran:
+  // el horario cambia según el día, p. ej. los domingos se abre más tarde)
+  // Solo de las áreas elegidas en la malla (p. ej. Cajas), salvo que pida ver todas
+  const [avisosTodas, setAvisosTodas] = useState(false);
+  const areasAviso = useMemo(() => (avisosTodas ? [] : areas), [avisosTodas, areas]);
+  const check = useMemo(() => {
+    const all = checkMalla(sucursalWorkers, current, nDias, ocultos);
+    if (areasAviso.length === 0) return all;
+    const delArea = sucursalWorkers.filter((w) => areasAviso.includes(w.area));
+    const nombres = new Set(delArea.map((w) => w.name));
+    return { ...all, emptyDays: all.emptyDays.filter((e) => nombres.has(e.name)) };
+  }, [sucursalWorkers, areasAviso, current, nDias, ocultos]);
 
   // Quiénes todavía no tienen clave para entrar a Mis turnos
   useEffect(() => {
@@ -603,11 +602,14 @@ export function PublishModal({
                 </div>
               )}
 
-              {(check.emptyDays.length > 0 || check.gaps.length > 0) && (
+              {check.emptyDays.length > 0 && (
                 <div className="flex flex-col gap-2 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-3 py-2.5">
                   <div className="flex items-start gap-2 font-semibold">
                     <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-                    <span>Revisa esto antes de publicar</span>
+                    <span>
+                      Revisa esto antes de publicar
+                      {areasAviso.length > 0 && ` (${areasAviso.join(', ')})`}
+                    </span>
                   </div>
                   {check.emptyDays.length > 0 && (
                     <div className="flex flex-col gap-1">
@@ -627,34 +629,16 @@ export function PublishModal({
                       </ul>
                     </div>
                   )}
-                  {check.gaps.length > 0 && (
-                    <div className="flex flex-col gap-1">
-                      <p className="text-xs font-semibold uppercase tracking-wide">
-                        Horas sin nadie
-                      </p>
-                      <ul className="flex flex-col gap-0.5 text-xs">
-                        {(showAllGaps ? check.gaps : check.gaps.slice(0, 6)).map((g) => (
-                          <li key={`${g.day}-${g.cargo}`}>
-                            <b>
-                              {dow(g.day)} {g.day + 1}
-                            </b>
-                            : sin {cargoPlural(g.cargo)}{' '}
-                            {g.ranges.map(([a, b]) => `de ${hh(a)} a ${hh(b)}`).join(' y ')}
-                          </li>
-                        ))}
-                      </ul>
-                      {check.gaps.length > 6 && (
-                        <button
-                          type="button"
-                          onClick={() => setShowAllGaps((v) => !v)}
-                          className="self-start text-xs font-semibold underline min-h-[32px]"
-                        >
-                          {showAllGaps ? 'Ver menos' : `Ver los ${check.gaps.length}`}
-                        </button>
-                      )}
-                    </div>
-                  )}
                   <p className="text-xs">Puedes publicar igual y corregirlo después.</p>
+                  {areas.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAvisosTodas((v) => !v)}
+                      className="self-start text-xs font-semibold underline min-h-[32px]"
+                    >
+                      {avisosTodas ? `Ver solo ${areas.join(', ')}` : 'Ver todas las áreas'}
+                    </button>
+                  )}
                 </div>
               )}
 

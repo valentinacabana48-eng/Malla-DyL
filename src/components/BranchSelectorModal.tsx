@@ -22,12 +22,14 @@ const BRANCH_LOGOS = [
   },
 ];
 
+const AREA_POR_DEFECTO = 'Cajas';
+
 interface BranchSelectorModalProps {
   onConfirm: (sucursal: string, area: string) => void;
 }
 
 export default function BranchSelectorModal({ onConfirm }: BranchSelectorModalProps) {
-  const { sucursales, areasDeSucursales } = useAppContext();
+  const { sucursales, areasDeSucursales, globalSucursal, globalArea } = useAppContext();
   const [selectedSucursal, setSelectedSucursal] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
   const [mounted, setMounted] = useState(false);
@@ -40,12 +42,24 @@ export default function BranchSelectorModal({ onConfirm }: BranchSelectorModalPr
 
   useEffect(() => {
     setMounted(true);
-    if (sucursales.length > 0) setSelectedSucursal(sucursales[0].name);
-  }, [sucursales]);
+    // Parte en la sucursal que ya estaba elegida; si no hay, en la primera
+    setSelectedSucursal((prev) => {
+      if (prev && sucursales.some((s) => s.name === prev)) return prev;
+      if (sucursales.some((s) => s.name === globalSucursal)) return globalSucursal;
+      return sucursales[0]?.name ?? '';
+    });
+  }, [sucursales, globalSucursal]);
 
+  // Parte en el área que ya estaba elegida. Si no hay ninguna, en Cajas (antes partía en la
+  // primera por orden alfabético, que es Bodega).
   useEffect(() => {
-    setSelectedArea((prev) => (areas.includes(prev) ? prev : (areas[0] ?? '')));
-  }, [areas]);
+    setSelectedArea((prev) => {
+      if (areas.includes(prev)) return prev;
+      if (areas.includes(globalArea)) return globalArea;
+      if (areas.includes(AREA_POR_DEFECTO)) return AREA_POR_DEFECTO;
+      return areas[0] ?? '';
+    });
+  }, [areas, globalArea]);
 
   const canConfirm = selectedSucursal !== '' && selectedArea !== '';
 
