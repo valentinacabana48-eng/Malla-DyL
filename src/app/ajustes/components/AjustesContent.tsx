@@ -40,6 +40,7 @@ import { ALL_PERMS, PERM_GROUPS, permsFor, type Perm } from '@/lib/permisos';
 import { getSupabase } from '@/lib/supabase/client';
 import ExcelImportPanel from './ExcelImportPanel';
 import BackupPanel from './BackupPanel';
+import { nombreBonito } from '@/lib/nombres';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1997,7 +1998,7 @@ function UsersPanel() {
   }
 
   async function saveNombre(row: UserRoleRow, value: string) {
-    const nombre = value.trim();
+    const nombre = nombreBonito(value);
     if (nombre === (row.nombre ?? '')) return;
     if (row.user_id !== user?.id) {
       saveUser(row.user_id, { nombre });
