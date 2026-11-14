@@ -1218,8 +1218,8 @@ export default function MallaGrid({
             )}
           </p>
         ) : (
-          <div className="hidden lg:flex items-center gap-x-4 gap-y-1 flex-wrap text-xs text-muted-foreground">
-            <span>Haz clic en cada celda para asignar turnos.</span>
+          <div className="flex items-center gap-x-3 lg:gap-x-4 gap-y-1 flex-wrap text-xs text-muted-foreground">
+            <span className="hidden lg:inline">Haz clic en cada celda para asignar turnos.</span>
             {(Object.keys(SHIFT_KIND_COLORS) as (keyof typeof SHIFT_KIND_COLORS)[]).map((k) => (
               <span key={`kind-${k}`} className="inline-flex items-center gap-1.5">
                 <span
