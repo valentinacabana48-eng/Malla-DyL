@@ -1,38 +1,123 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Smartphone, X } from 'lucide-react';
-import { useInstallPrompt, useIosInstallable } from '@/lib/pwa';
+import { useAndroidInstallable, useInstallPrompt, useIosInstallable } from '@/lib/pwa';
 import IosInstallModal from '@/components/IosInstallModal';
+import AndroidInstallModal from './AndroidInstallModal';
 
-const HIDE_KEY = 'dyl_mis_turnos_sin_instalar';
+// Hasta cuándo está oculto el aviso después de tocar la ✕ (fecha en milisegundos)
+const HIDE_KEY = 'dyl_mis_turnos_instalar_oculto_hasta';
+// Antes el aviso se ocultaba para siempre con esta clave: ya no se usa
+const OLD_HIDE_KEY = 'dyl_mis_turnos_sin_instalar';
+// Se instaló desde este navegador (Android avisa con `appinstalled`)
+const INSTALLED_KEY = 'dyl_mis_turnos_instalada';
 
-// Invita a dejar Mis turnos como app en la pantalla de inicio. En Android (Chrome) abre el
-// aviso del navegador; en iPhone muestra los pasos de Safari. Se oculta si ya está instalada
-// o si la trabajadora toca "Ahora no".
-export default function InstallBanner() {
+function readNumber(key: string): number {
+  try {
+    return Number(localStorage.getItem(key)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function write(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // sin almacenamiento el aviso vuelve a aparecer la próxima vez
+  }
+}
+
+// Invita a dejar Mis turnos como app en la pantalla de inicio.
+// - Android: si Chrome ofrece su aviso, el botón lo abre; si no, muestra los pasos a mano.
+// - iPhone: muestra los pasos de Safari.
+// variant "row": fila chica dentro de Mis turnos, se puede cerrar y vuelve al día siguiente.
+// variant "login": tarjeta en la pantalla de ingreso, siempre visible mientras no esté instalada.
+export default function InstallBanner({ variant = 'row' }: { variant?: 'row' | 'login' }) {
   const installApp = useInstallPrompt();
   const ios = useIosInstallable();
+  const android = useAndroidInstallable();
   const [hidden, setHidden] = useState(true);
-  const [showIos, setShowIos] = useState(false);
+  const [installed, setInstalled] = useState(false);
+  const [modal, setModal] = useState<'ios' | 'android' | null>(null);
 
   useEffect(() => {
     try {
-      setHidden(localStorage.getItem(HIDE_KEY) === '1');
+      localStorage.removeItem(OLD_HIDE_KEY);
     } catch {
-      setHidden(false);
+      // nada que borrar
     }
+    setHidden(readNumber(HIDE_KEY) > Date.now());
+    setInstalled(readNumber(INSTALLED_KEY) > 0);
+    const onInstalled = () => {
+      write(INSTALLED_KEY, String(Date.now()));
+      setInstalled(true);
+    };
+    window.addEventListener('appinstalled', onInstalled);
+    return () => window.removeEventListener('appinstalled', onInstalled);
   }, []);
 
-  if (hidden || (!installApp && !ios)) return null;
+  // Chrome volvió a ofrecer instalar: la app ya no está en el celular
+  useEffect(() => {
+    if (installApp) setInstalled(false);
+  }, [installApp]);
+
+  const canInstall = !!installApp || ios || (android && !installed);
+  if (!canInstall || (variant === 'row' && hidden)) return null;
+
+  const onInstall = () => {
+    if (installApp) installApp();
+    else setModal(ios ? 'ios' : 'android');
+  };
 
   const dismiss = () => {
     setHidden(true);
-    try {
-      localStorage.setItem(HIDE_KEY, '1');
-    } catch {
-      // sin almacenamiento vuelve a aparecer la próxima vez
-    }
+    // Oculto solo por hoy: vuelve a aparecer mañana
+    const manana = new Date();
+    manana.setHours(24, 0, 0, 0);
+    write(HIDE_KEY, String(manana.getTime()));
   };
+
+  const modals = (
+    <>
+      {modal === 'ios' && (
+        <IosInstallModal
+          appName="Mis turnos"
+          note="La primera vez que abras la app instalada, ingresa de nuevo con tu RUT y tu clave."
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === 'android' && <AndroidInstallModal onClose={() => setModal(null)} />}
+    </>
+  );
+
+  if (variant === 'login') {
+    return (
+      <>
+        <div className="flex items-center gap-3 rounded-[14px] border border-blue-100 bg-blue-50 px-3.5 py-3">
+          <span className="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center shrink-0">
+            <Smartphone size={20} aria-hidden="true" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[14px] font-bold text-gray-900 leading-snug">
+              Instala Mis turnos en tu celular
+            </p>
+            <p className="text-[12px] text-gray-600 leading-snug">
+              Queda como app y la abres con un toque.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onInstall}
+            className="h-9 px-3.5 rounded-lg bg-blue-700 text-white text-[14px] font-bold shrink-0"
+          >
+            Instalar
+          </button>
+        </div>
+        {modals}
+      </>
+    );
+  }
 
   return (
     <>
@@ -44,7 +129,7 @@ export default function InstallBanner() {
         </p>
         <button
           type="button"
-          onClick={installApp ?? (() => setShowIos(true))}
+          onClick={onInstall}
           className="h-8 px-3 rounded-lg bg-blue-700 text-white text-[13px] font-bold shrink-0"
         >
           Instalar
@@ -58,13 +143,7 @@ export default function InstallBanner() {
           <X size={15} />
         </button>
       </div>
-      {showIos && (
-        <IosInstallModal
-          appName="Mis turnos"
-          note="La primera vez que abras la app instalada, ingresa de nuevo con tu RUT y tu clave."
-          onClose={() => setShowIos(false)}
-        />
-      )}
+      {modals}
     </>
   );
 }
