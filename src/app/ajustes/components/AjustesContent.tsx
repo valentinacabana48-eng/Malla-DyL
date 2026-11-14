@@ -2459,7 +2459,7 @@ export default function AjustesContent() {
   const TABS = isGlobalAdmin ? ALL_TABS : ALL_TABS.filter((t) => t.id === 'turnos');
 
   return (
-    <div className="p-4 lg:p-6 xl:p-8 max-w-4xl">
+    <div className="p-4 lg:p-6 xl:p-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between mb-5 lg:mb-6 gap-4 flex-wrap">
         <div>
