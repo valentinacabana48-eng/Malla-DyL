@@ -1092,7 +1092,7 @@ export default function VistaPreviaContent() {
               <select
                 value={exportMes}
                 onChange={(e) => setExportMes(e.target.value)}
-                className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8"
+                className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8 appearance-none"
               >
                 {MESES.map((m) => (
                   <option key={m} value={m}>
@@ -1175,7 +1175,7 @@ export default function VistaPreviaContent() {
                 <select
                   value={selectedWorkerId}
                   onChange={(e) => setSelectedWorkerId(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8"
+                  className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-8 appearance-none"
                 >
                   <option value="">
                     {filteredWorkers.length === 0 ? '— Sin resultados —' : '— Seleccionar —'}

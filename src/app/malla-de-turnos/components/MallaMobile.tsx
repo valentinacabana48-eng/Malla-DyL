@@ -12,6 +12,8 @@ import {
   type ShiftCode,
   type Worker,
   timeToMinutes,
+  shiftKind,
+  SHIFT_KIND_COLORS,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import CoberturaHoras from './CoberturaHoras';
@@ -284,8 +286,16 @@ export default function MallaMobile({
           {dayGroups.shiftGroups.map(({ code, shift, list }) => (
             <section key={code} className="space-y-2">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-foreground">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${shift?.legendColor || 'bg-slate-400'}`}
+                  />
                   Turno {shiftTime(shift) || shift?.label || code}
+                  {shift && shiftKind(shift.start, shift.end) && (
+                    <span className="font-medium text-muted-foreground">
+                      · {SHIFT_KIND_COLORS[shiftKind(shift.start, shift.end)!].label}
+                    </span>
+                  )}
                 </h2>
                 <span className="text-xs text-muted-foreground">
                   {list.length} persona{list.length !== 1 ? 's' : ''}
@@ -315,7 +325,9 @@ export default function MallaMobile({
                         </p>
                       )}
                     </div>
-                    <span className="text-sm font-semibold text-foreground">
+                    <span
+                      className={`text-sm font-semibold rounded-lg px-2 py-1 ${shift?.colorClass ?? ''}`}
+                    >
                       {shiftTime(shift)}
                     </span>
                   </button>
