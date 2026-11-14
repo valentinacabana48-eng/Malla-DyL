@@ -28,6 +28,7 @@ import AppImage from '@/components/ui/AppImage';
 import Solicitudes from './Solicitudes';
 import InstallBanner from './InstallBanner';
 import AvisosBanner from './AvisosBanner';
+import { Guirnalda, GorroPascuero, Nieve, Pinos, adornoDia, useTema } from './DecoracionNavidad';
 import { apagarAvisosAlSalir, useMisTurnosEnVivo } from '@/lib/misTurnosVivo';
 
 // Letra manuscrita para el título «Mis Turnos» (guardada en el proyecto, como la otra)
@@ -262,6 +263,7 @@ function LoginScreen({
   onLoggedIn: (token: string) => void;
 }) {
   const adminSession = useHasAdminSession();
+  const navidad = useTema() === 'navidad';
   const [rut, setRut] = useState(() => readLocal(RUT_KEY));
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
@@ -308,8 +310,24 @@ function LoginScreen({
   };
 
   return (
-    <div className="min-h-[var(--app-height,100dvh)] flex flex-col bg-gradient-to-br from-[#0f2744] via-[#16386a] to-[#1d4ed8]">
-      <div className="px-6 pt-16 pb-8 flex flex-col items-center gap-2.5 text-white text-center">
+    <div
+      className={`relative min-h-[var(--app-height,100dvh)] flex flex-col bg-gradient-to-br ${navidad ? 'from-[#0b1d3a] via-[#123063] to-[#14532d]' : 'from-[#0f2744] via-[#16386a] to-[#1d4ed8]'}`}
+    >
+      {navidad && (
+        <>
+          <Nieve cantidad={40} caida="100vh" />
+          <Guirnalda luces={14} />
+        </>
+      )}
+      <div
+        className={`relative px-6 pt-16 ${navidad ? 'pb-16' : 'pb-8'} flex flex-col items-center gap-2.5 text-white text-center`}
+      >
+        {navidad && (
+          <>
+            <Pinos className="pointer-events-none absolute -bottom-1 right-1 w-32" />
+            <Pinos className="pointer-events-none absolute -bottom-1 left-1 w-20 opacity-80" />
+          </>
+        )}
         <div className="flex items-center justify-center gap-3 mb-1">
           {BRANCH_LOGOS.map((logo) => (
             <div
@@ -327,11 +345,18 @@ function LoginScreen({
           ))}
         </div>
         <h1 className="text-[28px] font-extrabold">Mis turnos</h1>
-        <p className="text-[15px] text-indigo-200">DyL. Ingresa con tu RUT y tu clave</p>
+        {navidad ? (
+          <p className="text-[15px] text-indigo-100">
+            <span className="font-bold text-amber-300">¡Felices fiestas!</span> Ingresa con tu RUT y
+            tu clave
+          </p>
+        ) : (
+          <p className="text-[15px] text-indigo-200">DyL. Ingresa con tu RUT y tu clave</p>
+        )}
       </div>
       <form
         onSubmit={handleSubmit}
-        className="flex-1 bg-white rounded-t-[28px] px-6 py-8 flex flex-col gap-5 w-full max-w-md mx-auto"
+        className="relative flex-1 bg-white rounded-t-[28px] px-6 py-8 flex flex-col gap-5 w-full max-w-md mx-auto"
       >
         {notice && (
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
@@ -556,6 +581,7 @@ function MonthScreen({
   onLogout: () => void;
 }) {
   const hoy = hoyChile();
+  const navidad = useTema() === 'navidad';
   const monthKey = data.month_key;
   const days = data.days ?? [];
   const changed = useMemo(() => new Set(data.changed_days ?? []), [data.changed_days]);
@@ -843,6 +869,14 @@ function MonthScreen({
                             </span>
                           )}
 
+                          {navidad && month === 12 && adornoDia(i + 1) && (
+                            <span
+                              className="absolute -top-1.5 -right-1 text-[13px] leading-none"
+                              aria-hidden="true"
+                            >
+                              {adornoDia(i + 1)}
+                            </span>
+                          )}
                           {wasChanged && (
                             <span
                               className="absolute top-1 right-1 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white"
@@ -963,12 +997,21 @@ function Shell({
   children: React.ReactNode;
 }) {
   const adminSession = useHasAdminSession();
+  const navidad = useTema() === 'navidad';
   const primerNombre = data.name.split(' ')[0];
   return (
     <div className="min-h-[var(--app-height,100dvh)] bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-100 text-slate-900">
       <div className="max-w-md lg:max-w-6xl mx-auto pb-24 lg:pb-6">
         {/* Encabezado azul con el nombre de la app y la campanita */}
-        <header className="relative bg-gradient-to-br from-blue-800 via-blue-700 to-blue-500 text-white px-5 lg:px-6 pt-5 pb-20 overflow-hidden">
+        <header
+          className={`relative bg-gradient-to-br ${navidad ? 'from-[#0b1d3a] via-[#143a7a] to-[#166534] pt-9' : 'from-blue-800 via-blue-700 to-blue-500 pt-5'} text-white px-5 lg:px-6 pb-20 overflow-hidden`}
+        >
+          {navidad && (
+            <>
+              <Nieve />
+              <Guirnalda />
+            </>
+          )}
           {/* Manchas suaves de fondo */}
           <span
             className="absolute -top-16 -right-10 w-56 h-56 rounded-full bg-white/10"
@@ -979,7 +1022,10 @@ function Shell({
             aria-hidden="true"
           />
           <div className="relative flex items-center gap-3">
-            <span className="w-14 h-14 shrink-0 rounded-full bg-white shadow-md flex items-center justify-center p-0.5">
+            <span className="relative w-14 h-14 shrink-0 rounded-full bg-white shadow-md flex items-center justify-center p-0.5">
+              {navidad && (
+                <GorroPascuero className="absolute -top-[18px] -left-[10px] w-[46px] -rotate-[18deg] z-10" />
+              )}
               <AppImage
                 src={logoSucursal(data.sucursal).src}
                 alt={logoSucursal(data.sucursal).alt}
@@ -989,8 +1035,12 @@ function Shell({
               />
             </span>
             <div className="flex-1 min-w-0">
-              <h1 className="text-[23px] font-extrabold leading-tight">Hola, {primerNombre} 👋</h1>
-              <p className="text-[13px] text-blue-100 leading-snug">Que tengas un excelente día</p>
+              <h1 className="text-[23px] font-extrabold leading-tight">
+                Hola, {primerNombre} {navidad ? '🎄' : '👋'}
+              </h1>
+              <p className="text-[13px] text-blue-100 leading-snug">
+                {navidad ? '¡Felices fiestas!' : 'Que tengas un excelente día'}
+              </p>
               <p className="text-[12px] text-blue-200/90 leading-snug truncate">{data.sucursal}</p>
             </div>
             <button
