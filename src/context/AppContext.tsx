@@ -13,6 +13,7 @@ import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
 import { useAuth } from '@/context/AuthContext';
 import { safeInitials } from '@/lib/initials';
+import { nombreBonito } from '@/lib/nombres';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1303,7 +1304,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Workers ──
   const addWorker = useCallback(
-    async (w: Worker) => {
+    async (nuevo: Worker) => {
+      const w = { ...nuevo, name: nombreBonito(nuevo.name) };
       setWorkers((prev) => [...prev, w]);
       const ok = await dbWrite(
         supabase.from('workers').upsert(workerToRow(w), { onConflict: 'id' }),
@@ -1315,7 +1317,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateWorker = useCallback(
-    async (updated: Worker) => {
+    async (cambiado: Worker) => {
+      const updated = { ...cambiado, name: nombreBonito(cambiado.name) };
       setWorkers((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
       await dbWrite(
         supabase.from('workers').upsert(workerToRow(updated), { onConflict: 'id' }),
