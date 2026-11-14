@@ -8,6 +8,7 @@ import {
   type Shift,
   type Worker,
   type NonWorkingType,
+  SHIFT_KIND_COLORS,
   useAppContext,
   shiftsForSucursales,
   pasilloLabel,
@@ -245,6 +246,19 @@ function ShiftCellText({
   );
 }
 
+// Día sin turno: el descanso va solo con «DESC», sin emoji, para que no recargue la malla;
+// los demás (feriado, licencia, vacaciones…) conservan su ícono
+function SpecialDayText({ code, nwt }: { code: string; nwt?: NonWorkingType }) {
+  const label = nwt?.label?.slice(0, 4).toUpperCase() || code.slice(0, 4);
+  if (code === 'DESCANSO') return <span className="py-[7px] text-[10px] tracking-wide">DESC</span>;
+  return (
+    <>
+      <span>{nwt?.icon || '📌'}</span>
+      <span className="font-normal opacity-80 text-[8px]">{label}</span>
+    </>
+  );
+}
+
 function MarkBadge() {
   return (
     <span
@@ -324,10 +338,7 @@ function ShiftCell({
               : nwt?.label || specialDay
           }
         >
-          <span>{nwt?.icon || '📌'}</span>
-          <span className="font-normal opacity-80 text-[8px]">
-            {nwt?.label?.slice(0, 4).toUpperCase() || specialDay.slice(0, 4)}
-          </span>
+          <SpecialDayText code={specialDay} nwt={nwt} />
           {licenciaTurno && (
             <span className="font-normal opacity-70 text-[8px] line-through">
               {shifts[licenciaTurno]?.start || licenciaTurno}
@@ -550,10 +561,7 @@ function BlockModeCell({
     baseClass = nwt?.colorClass || 'bg-slate-100 text-slate-700';
     content = (
       <>
-        <span>{nwt?.icon || '📌'}</span>
-        <span className="font-normal opacity-80 text-[8px]">
-          {nwt?.label?.slice(0, 4).toUpperCase() || specialDay.slice(0, 4)}
-        </span>
+        <SpecialDayText code={specialDay} nwt={nwt} />
       </>
     );
   } else if (shift) {
@@ -1210,9 +1218,17 @@ export default function MallaGrid({
             )}
           </p>
         ) : (
-          <p className="hidden lg:block text-xs text-muted-foreground">
-            Haz clic en cada celda para asignar turnos, o usa el panel de asignación rápida.
-          </p>
+          <div className="hidden lg:flex items-center gap-x-4 gap-y-1 flex-wrap text-xs text-muted-foreground">
+            <span>Haz clic en cada celda para asignar turnos.</span>
+            {(Object.keys(SHIFT_KIND_COLORS) as (keyof typeof SHIFT_KIND_COLORS)[]).map((k) => (
+              <span key={`kind-${k}`} className="inline-flex items-center gap-1.5">
+                <span
+                  className={`w-3 h-3 rounded ${SHIFT_KIND_COLORS[k].colorClass.replace(/text-\S+/, '')}`}
+                />
+                {SHIFT_KIND_COLORS[k].label}
+              </span>
+            ))}
+          </div>
         )}
         {!panelOpen && (
           <button
