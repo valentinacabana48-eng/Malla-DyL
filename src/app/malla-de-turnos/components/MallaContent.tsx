@@ -9,6 +9,7 @@ import {
   Grid3x3,
   PenLine,
   Send,
+  Sparkles,
   Stethoscope,
   Upload,
   Zap,
@@ -41,6 +42,7 @@ import MallaDownloadModal from './MallaDownloadModal';
 import MallaMobile from './MallaMobile';
 import { usePublishState, PublishModal } from './PublishMalla';
 import LicenciaModal, { LicenciaAvisos, MESES_CAP } from './LicenciaModal';
+import SugerirMallaModal from './SugerirMallaModal';
 
 const DELETED_BIRTHDAYS_KEY = 'malla_deleted_birthdays';
 
@@ -104,6 +106,7 @@ export default function MallaContent() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showBulkShiftModal, setShowBulkShiftModal] = useState(false);
   const [showLicenciaModal, setShowLicenciaModal] = useState(false);
+  const [showSugerir, setShowSugerir] = useState(false);
   // "Hacer turnos nuevos" al volver de licencia: Asignar con esa persona desde el día que vuelve
   const [turnosNuevos, setTurnosNuevos] = useState<{ worker: Worker; fromDay: number } | null>(
     null
@@ -455,6 +458,17 @@ export default function MallaContent() {
     setShowBulkShiftModal(false);
   };
 
+  // Mes casi vacío: se ofrece la malla sugerida
+  const mesCasiVacio = useMemo(() => {
+    if (!filteredWorkers.length) return false;
+    let vacias = 0;
+    filteredWorkers.forEach((w) => {
+      for (let i = 0; i < daysInMonth; i++)
+        if (!currentMonthSchedule[w.id]?.[i] && !currentMonthSpecialDays[w.id]?.[i]) vacias++;
+    });
+    return vacias > filteredWorkers.length * daysInMonth * 0.5;
+  }, [filteredWorkers, currentMonthSchedule, currentMonthSpecialDays, daysInMonth]);
+
   // Turnos que se pueden asignar a las trabajadoras que se están viendo (compartidos + de su sucursal)
   const pickerShifts = useMemo(
     () => shiftsForSucursales(shifts, [...new Set(filteredWorkers.map((w) => w.sucursal))]),
@@ -509,6 +523,13 @@ export default function MallaContent() {
             className="flex-1 lg:flex-none"
             icon={<PenLine size={15} />}
             items={[
+              {
+                label: 'Sugerir malla del mes',
+                hint: 'La app llena los días vacíos siguiendo la rotación',
+                icon: <Sparkles size={15} />,
+                onSelect: () => setShowSugerir(true),
+                disabled: isLocked || isReadonly,
+              },
               {
                 label: 'Un turno a varias personas',
                 hint: 'El mismo turno a varias, en los días que elijas',
@@ -584,6 +605,20 @@ export default function MallaContent() {
             setTurnosNuevos({ worker, fromDay: d - 1 });
           }}
         />
+      )}
+
+      {monthReady && mesCasiVacio && !isReadonly && !isLocked && (
+        <button
+          type="button"
+          onClick={() => setShowSugerir(true)}
+          className="mb-4 w-full text-left flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl px-4 py-3 text-sm font-medium hover:bg-blue-100"
+        >
+          <Sparkles size={16} className="shrink-0" />
+          <span>
+            La malla de {selectedMes} está casi vacía. ¿Quieres que la app te sugiera una?{' '}
+            <strong className="underline">Sugerir malla</strong>
+          </span>
+        </button>
       )}
 
       {canPublish && publishState.pending.length > 0 && (
@@ -767,6 +802,13 @@ export default function MallaContent() {
           shifts={pickerShifts}
           onAssign={handleBulkShiftAssign}
           onClose={() => setShowBulkShiftModal(false)}
+        />
+      )}
+      {showSugerir && (
+        <SugerirMallaModal
+          workers={filteredWorkers}
+          monthLabel={selectedMes}
+          onClose={() => setShowSugerir(false)}
         />
       )}
       {showLicenciaModal && (
