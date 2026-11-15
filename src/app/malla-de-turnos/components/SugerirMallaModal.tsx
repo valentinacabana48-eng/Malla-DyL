@@ -10,9 +10,12 @@ import {
 } from '@/context/AppContext';
 import {
   sugerirMalla,
+  horarioDelGrupo,
+  hhmm,
   LIBRE,
   type Aviso,
   type DiasConMasGente,
+  type Momento,
   type SugerenciaResultado,
 } from '@/lib/mallaSugerida';
 import { MAX_CONSECUTIVE_DAYS, MIN_SUNDAYS_OFF } from '@/lib/compliance';
@@ -257,10 +260,18 @@ export default function SugerirMallaModal({ workers, monthLabel, onClose }: Prop
     return out;
   }, [resultado, filas, monthSched, monthSpecial, daysInMonth]);
   const pedidoPorDia = useMemo(() => {
-    const m = new Map<number, number>();
-    resultado?.diasConMasGente.forEach((g) => m.set(g.day - 1, g.pedido));
+    const m = new Map<number, { pedido: number; quedan: number; texto: string }>();
+    resultado?.diasConMasGente.forEach((g) => {
+      if (!m.has(g.day - 1))
+        m.set(g.day - 1, { pedido: g.pedido, quedan: g.quedan, texto: g.momentoTexto.trim() });
+    });
     return m;
   }, [resultado]);
+  // Hora de apertura y cierre del grupo (lo más común en el mes anterior)
+  const horario = useMemo(
+    () => horarioDelGrupo(grupo, scheduleData[prevKey] || {}, specialDays[prevKey] || {}, shifts),
+    [grupo, scheduleData, specialDays, prevKey, shifts]
+  );
 
   const hora = (t: string | undefined) => {
     if (!t) return '';
@@ -383,8 +394,8 @@ export default function SugerirMallaModal({ workers, monthLabel, onClose }: Prop
             <div>
               <label className="block text-sm font-bold mb-1">Días con más gente este mes</label>
               <p className="text-xs text-muted-foreground mb-2">
-                Por ejemplo el cierre de mes. La app mueve libres de esa semana para tener esa
-                gente.
+                Por ejemplo el cierre de mes. Puedes pedir la gente de todo el día, abriendo,
+                cerrando o a una hora. La app mueve libres y turnos de esa semana para tenerla.
               </p>
               <div className="space-y-2">
                 {dias.map((g, gi) => (
@@ -429,6 +440,53 @@ export default function SugerirMallaModal({ workers, monthLabel, onClose }: Prop
                       >
                         <Trash2 size={14} />
                       </button>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 pb-2.5 flex-wrap">
+                      <select
+                        value={g.momento ?? 'dia'}
+                        onChange={(e) =>
+                          updateDias(
+                            dias.map((x, k) =>
+                              k === gi
+                                ? {
+                                    ...x,
+                                    momento: e.target.value as Momento,
+                                    hora: x.hora ?? '18:00',
+                                  }
+                                : x
+                            )
+                          )
+                        }
+                        className="px-2 py-1.5 text-sm border border-border rounded-lg bg-background"
+                        aria-label="Momento del día"
+                      >
+                        <option value="dia">Todo el día</option>
+                        <option value="apertura">Abriendo</option>
+                        <option value="cierre">Cerrando</option>
+                        <option value="hora">A una hora</option>
+                      </select>
+                      {g.momento === 'hora' && (
+                        <input
+                          type="time"
+                          value={g.hora ?? '18:00'}
+                          onChange={(e) =>
+                            updateDias(
+                              dias.map((x, k) => (k === gi ? { ...x, hora: e.target.value } : x))
+                            )
+                          }
+                          className="px-2 py-1.5 text-sm border border-border rounded-lg bg-background"
+                          aria-label="Hora"
+                        />
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {g.momento === 'cierre' && horario.cierre !== null
+                          ? `Turnos que terminan a las ${hhmm(horario.cierre - 30)} o después`
+                          : g.momento === 'apertura' && horario.apertura !== null
+                            ? `Turnos que empiezan a las ${hhmm(horario.apertura + 30)} o antes`
+                            : g.momento === 'hora'
+                              ? 'Quienes estén trabajando a esa hora'
+                              : 'Quienes trabajen ese día'}
+                      </span>
                     </div>
                     {editing === gi && (
                       <div className="px-3 pb-3">
@@ -576,25 +634,41 @@ export default function SugerirMallaModal({ workers, monthLabel, onClose }: Prop
                       <td className="sticky left-0 bg-card z-10 pr-2 text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
                         Trabajan
                       </td>
-                      {gentePorDia.map((n, i) => {
-                        const pedido = pedidoPorDia.get(i);
-                        const cls =
-                          pedido === undefined
-                            ? 'bg-muted/60 text-muted-foreground'
-                            : n >= pedido
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-amber-100 text-amber-900';
-                        return (
-                          <td key={i}>
-                            <div
-                              className={`text-[10px] font-bold rounded-md py-1 text-center ${cls}`}
-                            >
-                              {pedido === undefined ? n : `${n}/${pedido}`}
-                            </div>
-                          </td>
-                        );
-                      })}
+                      {gentePorDia.map((n, i) => (
+                        <td key={i}>
+                          <div className="text-[10px] font-bold rounded-md py-1 text-center bg-muted/60 text-muted-foreground">
+                            {n}
+                          </div>
+                        </td>
+                      ))}
                     </tr>
+                    {pedidoPorDia.size > 0 && (
+                      <tr>
+                        <td className="sticky left-0 bg-card z-10 pr-2 text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                          Lo que pediste
+                        </td>
+                        {gentePorDia.map((_, i) => {
+                          const g = pedidoPorDia.get(i);
+                          if (!g) return <td key={i} />;
+                          const ok = g.quedan >= g.pedido;
+                          return (
+                            <td key={i}>
+                              <div
+                                title={`${g.quedan} de ${g.pedido}${g.texto ? ` ${g.texto}` : ''}`}
+                                className={`text-[10px] font-bold rounded-md py-1 text-center leading-tight ${ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}
+                              >
+                                {g.quedan}/{g.pedido}
+                                {g.texto && (
+                                  <div className="text-[8px] font-semibold">
+                                    {g.texto.replace('a las ', '')}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

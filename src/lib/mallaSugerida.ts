@@ -13,11 +13,18 @@ import {
 // libres) y para tener la gente pedida en los días con más trabajo (cierre de mes, fiestas).
 // No guarda nada: devuelve la propuesta para que la jefatura la revise y la acepte.
 
+/** En qué momento del día se cuenta la gente */
+export type Momento = 'dia' | 'apertura' | 'cierre' | 'hora';
+
 export interface DiasConMasGente {
   /** Días del mes (desde 1) */
   days: number[];
   /** Personas que deben trabajar ese día (de las que se están sugiriendo) */
   count: number;
+  /** Todo el día (por defecto), abriendo, cerrando o a una hora */
+  momento?: Momento;
+  /** "HH:MM", cuando momento = 'hora' */
+  hora?: string;
 }
 
 export interface SugerenciaInput {
@@ -47,6 +54,8 @@ export interface DiaConMasGenteResultado {
   day: number;
   pedido: number;
   quedan: number;
+  /** "", " abriendo", " cerrando", " a las 18:00" */
+  momentoTexto: string;
 }
 
 export interface SugerenciaResultado {
@@ -95,6 +104,57 @@ function claseDe(code: string | null, shifts: Record<string, Shift>): Clase {
 
 const esLibre = (code: string | null | undefined) => !code || code === 'DESC' || code === 'NOT';
 
+const toMin = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
+/** Inicio y término de un turno en minutos (si termina pasada la medianoche, término > 1440) */
+function spanDe(code: string | null, shifts: Record<string, Shift>): [number, number] | null {
+  const s = code ? shifts[code] : undefined;
+  if (!s || !s.start || !s.end) return null;
+  const a = toMin(s.start);
+  let b = toMin(s.end);
+  if (b <= a) b += 1440;
+  return [a, b];
+}
+
+export const hhmm = (mins: number) => {
+  const m = ((mins % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+};
+
+/** Hora de apertura y de cierre de un grupo: lo más común en el mes anterior (en minutos) */
+export function horarioDelGrupo(
+  workers: Worker[],
+  prevSched: Record<string, ShiftCode[]>,
+  prevSpecial: Record<string, Record<number, string>>,
+  shifts: Record<string, Shift>
+): { apertura: number | null; cierre: number | null } {
+  const aperturas = new Map<number, number>();
+  const cierres = new Map<number, number>();
+  for (let i = 0; i < 31; i++) {
+    let min = Infinity;
+    let max = -Infinity;
+    workers.forEach((w) => {
+      const code = prevSched[w.id]?.[i] ?? null;
+      if (!isWorkedDay(code, prevSpecial[w.id]?.[i])) return;
+      const t = spanDe(code, shifts);
+      if (!t) return;
+      min = Math.min(min, t[0]);
+      max = Math.max(max, t[1]);
+    });
+    if (min !== Infinity) aperturas.set(min, (aperturas.get(min) ?? 0) + 1);
+    if (max !== -Infinity) cierres.set(max, (cierres.get(max) ?? 0) + 1);
+  }
+  const moda = (m: Map<number, number>) =>
+    [...m.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? null;
+  return { apertura: moda(aperturas), cierre: moda(cierres) };
+}
+
+/** Margen para contar como «abriendo» o «cerrando» */
+const MARGEN = 30;
+
 export function sugerirMalla(input: SugerenciaInput): SugerenciaResultado {
   const { year, monthIdx, workers, shifts } = input;
   const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
@@ -119,13 +179,50 @@ export function sugerirMalla(input: SugerenciaInput): SugerenciaResultado {
     return Math.round((monday - firstMonday) / (7 * DAY_MS));
   };
 
-  const peakDays = new Map<number, number>();
-  input.diasConMasGente.forEach((g) =>
+  const horario = horarioDelGrupo(workers, input.prevSched, input.prevSpecial, shifts);
+  interface Pedido {
+    day: number;
+    count: number;
+    momento: Momento;
+    hora: number;
+    texto: string;
+  }
+  const pedidos: Pedido[] = [];
+  input.diasConMasGente.forEach((g) => {
+    let momento: Momento = g.momento ?? 'dia';
+    if (momento === 'cierre' && horario.cierre === null) momento = 'dia';
+    if (momento === 'apertura' && horario.apertura === null) momento = 'dia';
+    if (momento === 'hora' && !g.hora) momento = 'dia';
+    const texto =
+      momento === 'cierre'
+        ? ' cerrando'
+        : momento === 'apertura'
+          ? ' abriendo'
+          : momento === 'hora'
+            ? ` a las ${g.hora}`
+            : '';
     g.days.forEach((d) => {
       if (d >= 1 && d <= daysInMonth && g.count > 0)
-        peakDays.set(d - 1, Math.max(peakDays.get(d - 1) ?? 0, g.count));
-    })
-  );
+        pedidos.push({
+          day: d - 1,
+          count: g.count,
+          momento,
+          hora: momento === 'hora' ? toMin(g.hora as string) : 0,
+          texto,
+        });
+    });
+  });
+  const peakDays = new Set(pedidos.map((q) => q.day));
+  /** ¿Ese turno cuenta para lo pedido? */
+  const calza = (code: string | null, q: Pedido) => {
+    if (esLibre(code)) return false;
+    if (q.momento === 'dia') return true;
+    const t = spanDe(code, shifts);
+    if (!t) return false;
+    if (q.momento === 'cierre') return t[1] >= (horario.cierre as number) - MARGEN;
+    if (q.momento === 'apertura') return t[0] <= (horario.apertura as number) + MARGEN;
+    return (t[0] <= q.hora && t[1] > q.hora) || (t[0] <= q.hora + 1440 && t[1] > q.hora + 1440);
+  };
 
   const avisos: Aviso[] = [];
   const propuesta: Record<string, Record<number, string>> = {};
@@ -140,6 +237,8 @@ export function sugerirMalla(input: SugerenciaInput): SugerenciaResultado {
     sundayRule: boolean;
     /** Horas trabajadas en los días del mes anterior de la semana que cruza */
     prevWeekHours: number;
+    /** Turnos que hizo el mes anterior */
+    codigos: string[];
   }
   const plans: Plan[] = [];
   const sinBase: string[] = [];
@@ -284,6 +383,7 @@ export function sugerirMalla(input: SugerenciaInput): SugerenciaResultado {
       prevTail,
       sundayRule: !w.exentoDomingos && totalSundays >= MIN_SUNDAYS_OFF,
       prevWeekHours,
+      codigos: [...counts.keys()],
     });
 
     if (unknown >= 7) conLicencia.push(w.name);
@@ -441,35 +541,88 @@ export function sugerirMalla(input: SugerenciaInput): SugerenciaResultado {
   });
 
   // ── 4. Días con más gente ──
-  recount();
+  const horasSemana = (p: Plan, i: number) => {
+    const dias = sameWeek(i);
+    return (
+      (dias[0] === 0 ? p.prevWeekHours : 0) +
+      dias.reduce((sum, j) => sum + (worked(p, j) ? shiftNetHours(shifts[p.A[j] as string]) : 0), 0)
+    );
+  };
+  /** Cambia el turno del día por otro de los suyos que sirva, sin pasarse de horas */
+  const cambiarTurno = (p: Plan, day: number, q: Pedido) => {
+    const actual = p.A[day];
+    const horasActual = shiftNetHours(shifts[actual as string]);
+    const opciones = p.codigos
+      .filter((c) => calza(c, q))
+      .sort(
+        (a, b) =>
+          Math.abs(shiftNetHours(shifts[a]) - horasActual) -
+          Math.abs(shiftNetHours(shifts[b]) - horasActual)
+      );
+    for (const c of opciones) {
+      p.A[day] = c;
+      if (Math.round(horasSemana(p, day) * 10) / 10 <= (p.worker.horasContratadas ?? 42))
+        return true;
+    }
+    p.A[day] = actual;
+    return false;
+  };
+
   const pocos: DiaConMasGenteResultado[] = [];
-  [...peakDays.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .forEach(([day, pedido]) => {
-      if (headcount[day] < pedido) {
-        // Quienes tienen libre sugerido ese día; primero los que trabajaron menos esa semana
-        const candidatos = plans
-          .filter((p) => p.editable[day] && !worked(p, day))
-          .sort(
-            (a, b) =>
-              sameWeek(day).filter((j) => worked(a, j)).length -
-              sameWeek(day).filter((j) => worked(b, j)).length
-          );
-        for (const p of candidatos) {
-          if (headcount[day] >= pedido) break;
-          const dias = sameWeek(day)
-            .filter((j) => j !== day && p.editable[j] && worked(p, j) && !peakDays.has(j))
-            .sort((a, b) => headcount[b] - headcount[a]);
-          for (const j of dias) {
-            if (swap(p, day, j, () => sundaysOk(p))) {
-              headcount[day]++;
-              headcount[j]--;
-              break;
-            }
+  pedidos
+    .sort((a, b) => a.day - b.day)
+    .forEach((q) => {
+      const { day } = q;
+      const cuenta = () => plans.filter((p) => worked(p, day) && calza(p.A[day], q)).length;
+      const semana = sameWeek(day);
+      const otrosDias = (p: Plan) =>
+        semana
+          .filter((j) => j !== day && p.editable[j] && worked(p, j) && !peakDays.has(j))
+          .sort((a, b) => headcount[b] - headcount[a]);
+      const trabajados = (p: Plan) => semana.filter((j) => worked(p, j)).length;
+
+      // a) Quien tiene libre sugerido ese día lo pasa a otro día de la semana que tenía un turno que sirve
+      const libres = plans
+        .filter((p) => p.editable[day] && !worked(p, day))
+        .sort((a, b) => trabajados(a) - trabajados(b));
+      for (const p of libres) {
+        if (cuenta() >= q.count) break;
+        for (const j of otrosDias(p).filter((j) => calza(p.A[j], q))) {
+          if (swap(p, day, j, () => sundaysOk(p))) {
+            headcount[day]++;
+            headcount[j]--;
+            break;
           }
         }
       }
-      pocos.push({ day: day + 1, pedido, quedan: headcount[day] });
+      // b) Quien trabaja ese día con otro horario lo cambia por un turno suyo de la misma semana
+      for (const p of plans) {
+        if (cuenta() >= q.count) break;
+        if (!p.editable[day] || !worked(p, day) || calza(p.A[day], q)) continue;
+        const j = otrosDias(p).find((j) => calza(p.A[j], q));
+        if (j === undefined) continue;
+        [p.A[day], p.A[j]] = [p.A[j], p.A[day]];
+      }
+      // c) Si todavía falta: se le da otro turno de los que ya hace (sin pasarse de horas)
+      for (const p of plans) {
+        if (cuenta() >= q.count) break;
+        if (!p.editable[day] || !worked(p, day) || calza(p.A[day], q)) continue;
+        cambiarTurno(p, day, q);
+      }
+      for (const p of libres) {
+        if (cuenta() >= q.count) break;
+        if (worked(p, day)) continue;
+        for (const j of otrosDias(p)) {
+          if (!swap(p, day, j, () => sundaysOk(p))) continue;
+          if (cambiarTurno(p, day, q)) {
+            headcount[day]++;
+            headcount[j]--;
+            break;
+          }
+          [p.A[day], p.A[j]] = [p.A[j], p.A[day]]; // se deshace
+        }
+      }
+      pocos.push({ day: day + 1, pedido: q.count, quedan: cuenta(), momentoTexto: q.texto });
     });
 
   // ── Resultado y revisión ──
@@ -516,7 +669,7 @@ export function sugerirMalla(input: SugerenciaInput): SugerenciaResultado {
     .forEach((g) =>
       resumen.push({
         tipo: 'warn',
-        texto: `Día ${g.day}: quedaron ${g.quedan} personas y pediste ${g.pedido}. No hubo más gente para mover sin pasar de 6 días seguidos, quitar domingos libres o tocar libres aprobados.`,
+        texto: `Día ${g.day}${g.momentoTexto}: quedaron ${g.quedan} personas y pediste ${g.pedido}. No hubo más gente para mover sin pasar de 6 días seguidos o de sus horas, quitar domingos libres o tocar libres aprobados.`,
       })
     );
   (input.holidays ?? [])
