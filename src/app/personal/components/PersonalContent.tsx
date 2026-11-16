@@ -252,7 +252,7 @@ export default function PersonalContent() {
             <Users size={20} className="text-secondary" />
             Personal
           </h1>
-          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-3">
+          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-7">
             Administra la información de los trabajadores de la empresa.
           </p>
         </div>
@@ -265,7 +265,9 @@ export default function PersonalContent() {
             style={{ boxShadow: 'var(--shadow-sm)' }}
           >
             <KeyRound size={14} />
-            Claves<span className="hidden lg:inline">Mis turnos</span>
+            <span>
+              Claves<span className="hidden lg:inline"> Mis turnos</span>
+            </span>
           </button>
           <button
             onClick={handleExport}
@@ -297,7 +299,9 @@ export default function PersonalContent() {
             style={{ boxShadow: '0 2px 8px rgba(29,91,212,0.3)' }}
           >
             <Plus size={15} />
-            Añadir<span className="hidden lg:inline">trabajador</span>
+            <span>
+              Añadir<span className="hidden lg:inline"> trabajador</span>
+            </span>
           </button>
         </div>
       </div>

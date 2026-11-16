@@ -493,7 +493,7 @@ export default function MallaContent() {
             <CalendarDays size={20} className="text-secondary" />
             Malla de Turnos
           </h1>
-          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-3">
+          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-7">
             Asignación de turnos por colaborador/a
           </p>
         </div>

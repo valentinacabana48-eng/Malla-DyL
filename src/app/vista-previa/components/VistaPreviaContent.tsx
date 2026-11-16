@@ -23,7 +23,7 @@ import MultiSelect from '@/components/ui/MultiSelect';
 import { useAuth } from '@/context/AuthContext';
 import { useCargoOptions } from '@/hooks/useCargoOptions';
 
-const MULTI_WRAPPER = 'flex-1 min-w-[180px] max-w-[300px] order-3 lg:order-none';
+const MULTI_WRAPPER = 'flex-1 min-w-[180px] lg:max-w-[300px] order-3 lg:order-none';
 const MULTI_LABEL =
   'block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5';
 const MULTI_BUTTON =
@@ -1018,7 +1018,7 @@ export default function VistaPreviaContent() {
             <Eye size={20} className="text-secondary" />
             Vista previa
           </h1>
-          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-3">
+          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-7">
             Malla mensual individual por trabajador/a
           </p>
         </div>

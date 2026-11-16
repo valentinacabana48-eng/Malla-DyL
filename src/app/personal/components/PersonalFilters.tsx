@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
-import { MapPin, Users, Search, Briefcase, SlidersHorizontal } from 'lucide-react';
+import { MapPin, Users, Search, Briefcase, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
 
@@ -126,7 +126,7 @@ export default function PersonalFilters({
               ))}
             </select>
             <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground text-xs">
-              ▾
+              <ChevronDown size={14} />
             </div>
           </div>
         </div>

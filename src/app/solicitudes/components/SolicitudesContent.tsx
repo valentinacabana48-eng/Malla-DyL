@@ -289,7 +289,7 @@ export default function SolicitudesContent() {
           <Inbox size={20} className="text-secondary" />
           Solicitudes
         </h1>
-        <p className="text-muted-foreground text-sm mt-1 ml-3">
+        <p className="text-muted-foreground text-sm mt-1 ml-7">
           Días libres, permisos y cambios de turno pedidos desde Mis turnos
         </p>
       </div>
