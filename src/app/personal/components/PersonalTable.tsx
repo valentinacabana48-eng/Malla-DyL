@@ -188,7 +188,7 @@ export default function PersonalTable({ workers, onEdit, onDelete, onDeactivate 
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
               <span>{worker.horasContratadas}h contratadas</span>
-              {worker.rut && <span className="font-mono">{worker.rut}</span>}
+              {worker.rut && <span className="tabular-nums">{worker.rut}</span>}
               {worker.area && <span>{worker.area}</span>}
               {worker.birthday && <span>🎂 {formatBirthday(worker.birthday)}</span>}
             </div>
@@ -237,7 +237,7 @@ export default function PersonalTable({ workers, onEdit, onDelete, onDeactivate 
                   type="button"
                   onClick={() => setDeactivateConfirm(worker.id)}
                   disabled={isReadonly}
-                  className="flex items-center justify-center gap-2 min-h-[44px] rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-sm font-semibold disabled:opacity-40"
+                  className="flex items-center justify-center gap-2 min-h-[44px] rounded-xl border border-border bg-card text-muted-foreground text-sm font-semibold active:bg-muted disabled:opacity-40"
                 >
                   <UserX size={16} />
                   Dar de baja
@@ -298,7 +298,9 @@ export default function PersonalTable({ workers, onEdit, onDelete, onDeactivate 
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{worker.rut}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground tabular-nums">
+                  {worker.rut}
+                </td>
                 <td className="px-4 py-3 text-sm text-foreground">{worker.cargo}</td>
                 <td className="px-4 py-3 text-sm text-foreground">{worker.sucursal}</td>
                 <td className="px-4 py-3 text-sm text-foreground">{worker.area}</td>

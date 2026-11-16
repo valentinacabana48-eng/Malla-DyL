@@ -9,6 +9,7 @@ import {
   Package,
   Cake,
   TrendingUp,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useAppContext, monthLabelToKey } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
@@ -66,6 +67,7 @@ export default function DashboardContent() {
     workers,
     shifts,
     scheduleData,
+    specialDays,
     sucursales,
     areas,
     areasDeSucursales,
@@ -260,8 +262,13 @@ export default function DashboardContent() {
     const monthLabel = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
     const monthKey = monthLabelToKey(monthLabel);
     const monthSched = scheduleData[monthKey] || {};
-    return filteredWorkers.filter((w) => monthSched[w.id]?.[dayIndex] === 'DESC').length;
-  }, [filteredWorkers, scheduleData, dayIndex, selectedMonth, selectedYear]);
+    const monthSpecial = specialDays[monthKey] || {};
+    // El descanso se guarda como día especial (DESCANSO); 'DESC' en la malla es el formato antiguo
+    return filteredWorkers.filter(
+      (w) =>
+        monthSpecial[w.id]?.[dayIndex] === 'DESCANSO' || monthSched[w.id]?.[dayIndex] === 'DESC'
+    ).length;
+  }, [filteredWorkers, scheduleData, specialDays, dayIndex, selectedMonth, selectedYear]);
 
   const selectedDateLabel = DATES.find((d) => d.value === selectedDate)?.label || '';
   const yearOptions = [2026, 2027, 2028, 2029, 2030];
@@ -271,8 +278,11 @@ export default function DashboardContent() {
       {/* Page header */}
       <div className="flex items-center justify-between mb-7 flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-foreground section-header-line">Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1 ml-3">
+          <h1 className="text-xl font-bold text-foreground section-header-line flex items-center gap-2">
+            <LayoutDashboard size={20} className="text-secondary" />
+            Dashboard
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1 ml-7">
             Resumen operativo de turnos y personal
           </p>
         </div>
@@ -345,9 +355,9 @@ export default function DashboardContent() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-3 mb-6 lg:flex lg:flex-wrap lg:gap-4">
           {/* Year */}
-          <div className="min-w-[120px]">
+          <div className="min-w-0 lg:min-w-[120px]">
             <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
               Año
             </label>
@@ -370,7 +380,7 @@ export default function DashboardContent() {
             </div>
           </div>
           {/* Month */}
-          <div className="min-w-[160px]">
+          <div className="min-w-0 lg:min-w-[160px]">
             <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
               Mes
             </label>
@@ -393,7 +403,7 @@ export default function DashboardContent() {
             </div>
           </div>
           {/* Day */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="col-span-2 min-w-0 lg:flex-1 lg:min-w-[200px]">
             <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
               Fecha
             </label>
@@ -421,7 +431,7 @@ export default function DashboardContent() {
             selected={selectedSucursales}
             onChange={setSelectedSucursales}
             allLabel="Todas"
-            className="flex-1 min-w-[200px] max-w-[320px]"
+            className="col-span-2 min-w-0 lg:flex-1 lg:min-w-[200px] lg:max-w-[320px]"
             labelClassName={MULTI_LABEL}
             buttonClassName={MULTI_BUTTON}
           />
@@ -431,7 +441,7 @@ export default function DashboardContent() {
             selected={selectedAreas}
             onChange={setSelectedAreas}
             allLabel="Todas las áreas"
-            className="min-w-[160px] max-w-[280px]"
+            className="min-w-0 lg:min-w-[160px] lg:max-w-[280px]"
             labelClassName={MULTI_LABEL}
             buttonClassName={MULTI_BUTTON}
           />
@@ -441,7 +451,7 @@ export default function DashboardContent() {
             selected={selectedCargos}
             onChange={setSelectedCargos}
             allLabel="Todos"
-            className="min-w-[180px] max-w-[280px]"
+            className="min-w-0 lg:min-w-[180px] lg:max-w-[280px]"
             labelClassName={MULTI_LABEL}
             buttonClassName={MULTI_BUTTON}
           />
@@ -539,7 +549,7 @@ export default function DashboardContent() {
                 </div>
                 <div className="overflow-x-auto">
                   <div
-                    className="grid gap-1 min-w-[560px]"
+                    className="grid gap-0.5 lg:gap-1 lg:min-w-[560px]"
                     style={{
                       gridTemplateColumns: `repeat(${hourlySummary.length}, minmax(0, 1fr))`,
                     }}

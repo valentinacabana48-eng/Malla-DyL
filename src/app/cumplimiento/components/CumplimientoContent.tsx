@@ -286,7 +286,7 @@ export default function CumplimientoContent() {
             <ShieldCheck size={20} className="text-secondary" />
             Verificación de Cumplimiento
           </h1>
-          <p className="text-muted-foreground text-sm mt-1 ml-3">
+          <p className="text-muted-foreground text-sm mt-1 ml-7">
             Estado de cumplimiento laboral por trabajadora
           </p>
         </div>

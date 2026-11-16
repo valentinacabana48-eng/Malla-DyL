@@ -534,7 +534,7 @@ export default function ExtrasContent() {
             <HandCoins size={20} className="text-secondary" />
             Extras
           </h1>
-          <p className="text-muted-foreground text-sm mt-1 ml-3">
+          <p className="text-muted-foreground text-sm mt-1 ml-7">
             Turnos del día, extras con su horario y lo que se paga
           </p>
         </div>

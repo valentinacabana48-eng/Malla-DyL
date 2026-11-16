@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 /** Selector con casillas para elegir varias opciones; sin ninguna marcada = todas */
 export default function MultiSelect({
@@ -67,7 +68,7 @@ export default function MultiSelect({
           {buttonLabel}
         </button>
         <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-          ▾
+          <ChevronDown size={14} />
         </div>
 
         {open && (

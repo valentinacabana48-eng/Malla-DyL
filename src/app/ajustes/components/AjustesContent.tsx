@@ -2461,7 +2461,7 @@ export default function AjustesContent() {
             <Settings size={20} className="text-secondary" />
             Ajustes
           </h1>
-          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-3">
+          <p className="hidden lg:block text-muted-foreground text-sm mt-1 ml-7">
             {isGlobalAdmin
               ? 'Configura turnos, días especiales, sucursales y áreas de tu organización.'
               : 'Crea y edita los turnos de tu sucursal.'}
@@ -2478,9 +2478,9 @@ export default function AjustesContent() {
         )}
       </div>
 
-      {/* Tabs: en el celular una sola fila que se desliza con el dedo */}
+      {/* Tabs: en el celular en dos filas (todas a la vista, sin tener que deslizar) */}
       {TABS.length > 1 && (
-        <div className="flex gap-1 bg-muted/30 rounded-xl p-1 mb-6 border border-border overflow-x-auto lg:overflow-visible lg:flex-wrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="grid grid-cols-4 gap-1 bg-muted/30 rounded-xl p-1 mb-6 border border-border lg:flex lg:flex-wrap">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -2489,7 +2489,7 @@ export default function AjustesContent() {
                 setShowForm(false);
                 setEditingCode(null);
               }}
-              className={`shrink-0 lg:shrink lg:flex-1 flex items-center justify-center gap-1.5 px-3 lg:px-0 py-2.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all lg:min-w-[80px] ${
+              className={`lg:flex-1 flex flex-col lg:flex-row items-center justify-center gap-1 lg:gap-1.5 px-1 lg:px-0 py-2 lg:py-2.5 rounded-lg text-[11px] lg:text-xs leading-tight text-center font-semibold lg:whitespace-nowrap transition-all lg:min-w-[80px] ${
                 activeTab === tab.id
                   ? 'bg-card text-secondary shadow-sm border border-border'
                   : 'text-muted-foreground hover:text-foreground'

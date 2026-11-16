@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   Rows3,
   Warehouse,
+  ChevronDown,
 } from 'lucide-react';
 import { MESES, sortPasillos, useAppContext } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
@@ -81,7 +82,7 @@ function FilterSelect({
           ))}
         </select>
         <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-          ▾
+          <ChevronDown size={14} />
         </div>
       </div>
     </div>
