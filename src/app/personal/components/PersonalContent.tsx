@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Users, Download, Plus, KeyRound } from 'lucide-react';
 import { applyPrintSetup, createWorkbook, downloadWorkbook } from '@/lib/excel';
@@ -17,8 +17,19 @@ export default function PersonalContent() {
     useAppContext();
   const isReadonly = useReadonly('personal');
   // [] = todas / todos
-  const [filterSucursales, setFilterSucursales] = useState<string[]>([]);
-  const [filterAreas, setFilterAreas] = useState<string[]>([]);
+  // Parte con la sucursal y el área elegidas arriba (como Malla y Vista previa)
+  const [filterSucursales, setFilterSucursales] = useState<string[]>(
+    globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []
+  );
+  const [filterAreas, setFilterAreas] = useState<string[]>(
+    globalArea && globalArea !== 'Todas' ? [globalArea] : []
+  );
+  useEffect(() => {
+    setFilterSucursales(globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []);
+  }, [globalSucursal]);
+  useEffect(() => {
+    setFilterAreas(globalArea && globalArea !== 'Todas' ? [globalArea] : []);
+  }, [globalArea]);
   const [filterEstado, setFilterEstado] = useState('Activos');
   const [filterCargos, setFilterCargos] = useState<string[]>([]);
   const [filterHoras, setFilterHoras] = useState<number[]>([]);
