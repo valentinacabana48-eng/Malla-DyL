@@ -625,6 +625,209 @@ export function sugerirMalla(input: SugerenciaInput): SugerenciaResultado {
       pocos.push({ day: day + 1, pedido: q.count, quedan: cuenta(), momentoTexto: q.texto });
     });
 
+  // ── 5. Que ningún día ni horario quede sin la gente de costumbre ──
+  // Para cada día de la semana y cada media hora se mira cuánta gente hubo el mes anterior
+  // (lo mínimo de los días en que hubo alguien). Después se mueven libres y turnos dentro de la
+  // misma semana para no quedar bajo eso, repartir los libres y no perder lo pedido arriba.
+  const SLOTS = 48;
+  const cubre = (code: string | null, slot: number) => {
+    const t = spanDe(code, shifts);
+    if (!t) return false;
+    const m = slot * 30;
+    return (t[0] <= m && t[1] > m) || (t[0] <= m + 1440 && t[1] > m + 1440);
+  };
+  const minimo: number[][] = Array.from({ length: 7 }, () => Array(SLOTS).fill(0));
+  {
+    const porDia: number[][][] = Array.from({ length: 7 }, () => []);
+    for (let d = 1; d <= prevDays; d++) {
+      const cnt = Array(SLOTS).fill(0);
+      let alguien = false;
+      workers.forEach((w) => {
+        const code = input.prevSched[w.id]?.[d - 1] ?? null;
+        if (!isWorkedDay(code, input.prevSpecial[w.id]?.[d - 1])) return;
+        for (let k = 0; k < SLOTS; k++)
+          if (cubre(code, k)) {
+            cnt[k]++;
+            alguien = true;
+          }
+      });
+      if (alguien) porDia[(new Date(prevYear, prevMonthIdx, d).getDay() + 6) % 7].push(cnt);
+    }
+    for (let dw = 0; dw < 7; dw++) {
+      const dias = porDia[dw];
+      if (!dias.length) continue;
+      for (let k = 0; k < SLOTS; k++) {
+        const con = dias.map((c) => c[k]).filter((n) => n > 0);
+        // Solo los horarios que se cubren la mayoría de las veces
+        if (con.length * 2 >= dias.length) minimo[dw][k] = Math.min(...con);
+      }
+    }
+  }
+  // Los días que ya están armados a mano (nadie para mover) no se revisan
+  const revisable = (i: number) => plans.some((p) => p.editable[i]);
+  const pedidosDe: Pedido[][] = Array.from({ length: daysInMonth }, () => []);
+  pedidos.forEach((q) => pedidosDe[q.day].push(q));
+  // Conteos por día (se actualizan con cada cambio, para que sea rápido)
+  const cobertura = new Map<string, boolean[]>();
+  const cubreCache = (code: string) => {
+    let c = cobertura.get(code);
+    if (!c) {
+      c = Array.from({ length: SLOTS }, (_, k) => cubre(code, k));
+      cobertura.set(code, c);
+    }
+    return c;
+  };
+  const cnt: number[][] = Array.from({ length: daysInMonth }, () => Array(SLOTS).fill(0));
+  const libresDia: number[] = Array(daysInMonth).fill(0);
+  const pedidoCnt: number[][] = pedidosDe.map((l) => l.map(() => 0));
+  const sumar = (p: Plan, i: number, signo: number) => {
+    if (!worked(p, i)) {
+      libresDia[i] += signo;
+      return;
+    }
+    const code = p.A[i] as string;
+    const c = cubreCache(code);
+    for (let k = 0; k < SLOTS; k++) if (c[k]) cnt[i][k] += signo;
+    pedidosDe[i].forEach((q, r) => {
+      if (calza(code, q)) pedidoCnt[i][r] += signo;
+    });
+  };
+  plans.forEach((p) => {
+    for (let i = 0; i < daysInMonth; i++) sumar(p, i, 1);
+  });
+  const puntaje = (i: number) => {
+    const dw = dow(i + 1);
+    let falta = 0;
+    for (let k = 0; k < SLOTS; k++) {
+      const f = minimo[dw][k] - cnt[i][k];
+      if (f > 0) falta += f * (cnt[i][k] === 0 ? 10 : 1);
+    }
+    let pedidoFalta = 0;
+    pedidosDe[i].forEach((q, r) => {
+      if (pedidoCnt[i][r] < q.count) pedidoFalta += q.count - pedidoCnt[i][r];
+    });
+    return falta + pedidoFalta * 20 + libresDia[i] * libresDia[i] * 0.5;
+  };
+  const poner = (p: Plan, i: number, code: string | null) => {
+    sumar(p, i, -1);
+    p.A[i] = code;
+    sumar(p, i, 1);
+  };
+  const dentroDeHoras = (p: Plan, i: number) =>
+    Math.round(horasSemana(p, i) * 10) / 10 <= (p.worker.horasContratadas ?? 42);
+  for (let pasada = 0; pasada < 6; pasada++) {
+    let mejoro = false;
+    for (let d = 0; d < daysInMonth; d++) {
+      if (!revisable(d)) continue;
+      for (const p of plans) {
+        if (!p.editable[d]) continue;
+        // Intercambiar lo que tiene ese día con otro día de la misma semana, o con el mismo día
+        // de otra semana (así también se reparten los domingos libres)
+        const otros = sameWeek(d);
+        for (let j = d % 7; j < daysInMonth; j += 7) if (!otros.includes(j)) otros.push(j);
+        for (const j of otros) {
+          if (j === d || !p.editable[j] || p.A[d] === p.A[j]) continue;
+          const mismaSemana = sameWeek(d).includes(j);
+          // Entre semanas distintas solo se cambian turnos (no libres), para no mover horas
+          if (!mismaSemana && (!worked(p, d) || !worked(p, j))) continue;
+          const antes = puntaje(d) + puntaje(j);
+          const a = p.A[d];
+          const b = p.A[j];
+          poner(p, d, b);
+          poner(p, j, a);
+          if (
+            maxRun(p) <= MAX_CONSECUTIVE_DAYS &&
+            sundaysOk(p) &&
+            (mismaSemana || (dentroDeHoras(p, d) && dentroDeHoras(p, j))) &&
+            puntaje(d) + puntaje(j) < antes - 0.01
+          ) {
+            mejoro = true;
+            continue;
+          }
+          poner(p, d, a);
+          poner(p, j, b);
+        }
+        // Domingo libre que sobra: pasa a otro domingo donde trabajaba, y en cada semana se
+        // compensa con un día de semana (mismas horas por semana)
+        if (isSunday(d) && !worked(p, d)) {
+          let hecho = false;
+          for (let e = d % 7; e < daysInMonth && !hecho; e += 7) {
+            if (e === d || !p.editable[e] || !worked(p, e)) continue;
+            for (const x of sameWeek(d)) {
+              if (hecho) break;
+              if (x === d || !p.editable[x] || !worked(p, x)) continue;
+              for (const y of sameWeek(e)) {
+                if (y === e || !p.editable[y] || worked(p, y)) continue;
+                const dias = [d, x, e, y];
+                const antes = dias.reduce((t, i) => t + puntaje(i), 0);
+                const [vd, vx, ve, vy] = dias.map((i) => p.A[i]);
+                poner(p, d, vx);
+                poner(p, x, vd);
+                poner(p, e, vy);
+                poner(p, y, ve);
+                if (
+                  maxRun(p) <= MAX_CONSECUTIVE_DAYS &&
+                  sundaysOk(p) &&
+                  dias.reduce((t, i) => t + puntaje(i), 0) < antes - 0.01
+                ) {
+                  hecho = true;
+                  mejoro = true;
+                  break;
+                }
+                poner(p, d, vd);
+                poner(p, x, vx);
+                poner(p, e, ve);
+                poner(p, y, vy);
+              }
+            }
+          }
+        }
+        // Si trabaja ese día y falta gente a otra hora: otro turno de los que ya hace
+        if (worked(p, d)) {
+          const actual = p.A[d];
+          let mejor = actual;
+          let mejorPuntaje = puntaje(d);
+          for (const c of p.codigos) {
+            if (c === actual) continue;
+            poner(p, d, c);
+            if (dentroDeHoras(p, d)) {
+              const pt = puntaje(d);
+              if (pt < mejorPuntaje - 0.01) {
+                mejor = c;
+                mejorPuntaje = pt;
+              }
+            }
+          }
+          poner(p, d, mejor);
+          if (mejor !== actual) mejoro = true;
+        }
+      }
+    }
+    if (!mejoro) break;
+  }
+  pocos.forEach((g, k) => {
+    const q = pedidos[k];
+    g.quedan = plans.filter((p) => worked(p, q.day) && calza(p.A[q.day], q)).length;
+  });
+  // Horarios que de costumbre tienen gente y quedaron sin nadie
+  const sinNadie: string[] = [];
+  for (let i = 0; i < daysInMonth; i++) {
+    if (!revisable(i)) continue;
+    const dw = dow(i + 1);
+    const tramos: [number, number][] = [];
+    for (let k = 0; k < SLOTS; k++) {
+      if (minimo[dw][k] === 0) continue;
+      if (plans.some((p) => worked(p, i) && cubre(p.A[i], k))) continue;
+      const last = tramos[tramos.length - 1];
+      if (last && last[1] === k) last[1] = k + 1;
+      else tramos.push([k, k + 1]);
+    }
+    if (tramos.length)
+      sinNadie.push(
+        `día ${i + 1} (${tramos.map(([a, b]) => `${hhmm(a * 30)} a ${hhmm(b * 30)}`).join(', ')})`
+      );
+  }
+
   // ── Resultado y revisión ──
   let casillas = 0;
   let cumplen = 0;
@@ -663,6 +866,11 @@ export function sugerirMalla(input: SugerenciaInput): SugerenciaResultado {
     resumen.push({
       tipo: cumplen === plans.length ? 'ok' : 'info',
       texto: `${cumplen} de ${plans.length} cumplen todo: horas, días seguidos y domingos libres.`,
+    });
+  if (sinNadie.length)
+    resumen.push({
+      tipo: 'warn',
+      texto: `Quedaron horarios sin nadie, revísalos: ${sinNadie.join('; ')}.`,
     });
   pocos
     .filter((g) => g.quedan < g.pedido)
