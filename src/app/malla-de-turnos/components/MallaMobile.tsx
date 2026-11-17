@@ -18,6 +18,19 @@ import {
 import { useReadonly } from '@/hooks/useReadonly';
 import CoberturaHoras from './CoberturaHoras';
 
+/** Línea bajo el nombre: solicitud aprobada (azul) o sin responder (ámbar) */
+function MarkLine({ mark }: { mark?: RequestMark }) {
+  if (!mark) return null;
+  if (mark.pendiente)
+    return <p className="text-xs font-medium text-amber-700">? Sin responder: {mark.text}</p>;
+  return (
+    <p className="text-xs font-medium text-blue-700">
+      ⇄ {mark.text}
+      {mark.antes && ` (antes ${mark.antes})`}
+    </p>
+  );
+}
+
 // Vista de la malla para celulares: un día a la vez (agrupado por turno) o el
 // mes de una sola trabajadora. Tocar una fila abre un panel para cambiar el turno.
 
@@ -317,13 +330,7 @@ export default function MallaMobile({
                         {w.pasillo ? ` · ${pasilloLabel(w.pasillo)}` : ''}
                         {w.bodega ? ` · ${bodegaLabel(w.bodega)}` : ''}
                       </p>
-                      {requestMarks[`${w.id}-${dayIndex}`] && (
-                        <p className="text-xs font-medium text-blue-700">
-                          ⇄ {requestMarks[`${w.id}-${dayIndex}`].text}
-                          {requestMarks[`${w.id}-${dayIndex}`].antes &&
-                            ` (antes ${requestMarks[`${w.id}-${dayIndex}`].antes})`}
-                        </p>
-                      )}
+                      <MarkLine mark={requestMarks[`${w.id}-${dayIndex}`]} />
                     </div>
                     <span
                       className={`text-sm font-semibold rounded-lg px-2 py-1 ${shift?.colorClass ?? ''}`}
@@ -367,13 +374,7 @@ export default function MallaMobile({
                           {w.pasillo ? ` · ${pasilloLabel(w.pasillo)}` : ''}
                           {w.bodega ? ` · ${bodegaLabel(w.bodega)}` : ''}
                         </p>
-                        {requestMarks[`${w.id}-${dayIndex}`] && (
-                          <p className="text-xs font-medium text-blue-700">
-                            ⇄ {requestMarks[`${w.id}-${dayIndex}`].text}
-                            {requestMarks[`${w.id}-${dayIndex}`].antes &&
-                              ` (antes ${requestMarks[`${w.id}-${dayIndex}`].antes})`}
-                          </p>
-                        )}
+                        <MarkLine mark={requestMarks[`${w.id}-${dayIndex}`]} />
                       </div>
                       {cellBadge(cell)}
                     </button>
