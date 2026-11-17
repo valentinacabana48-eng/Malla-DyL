@@ -1,6 +1,7 @@
 'use client';
 import type { RequestMark } from '@/hooks/useRequestMarks';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import ReactDOM from 'react-dom';
 import { User, X, Zap, CheckSquare } from 'lucide-react';
 import {
@@ -259,18 +260,32 @@ function SpecialDayText({ code, nwt }: { code: string; nwt?: NonWorkingType }) {
   );
 }
 
-function MarkBadge() {
+function MarkBadge({ pendiente }: { pendiente?: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className="absolute top-0 right-0 w-3.5 h-3.5 rounded-full bg-blue-600 text-white text-[9px] leading-[14px] font-bold pointer-events-none"
+      className={`absolute top-0 right-0 w-3.5 h-3.5 rounded-full text-white text-[9px] leading-[14px] font-bold pointer-events-none ${pendiente ? 'bg-amber-500' : 'bg-blue-600'}`}
     >
-      ⇄
+      {pendiente ? '?' : '⇄'}
     </span>
   );
 }
 
 function MarkInfo({ mark }: { mark: RequestMark }) {
+  if (mark.pendiente)
+    return (
+      <div className="mx-2 mt-1 mb-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs max-w-[240px]">
+        <p className="font-bold text-amber-800">Solicitud sin responder</p>
+        <p className="text-foreground mt-0.5">{mark.text}</p>
+        {mark.motivo && <p className="text-muted-foreground">Motivo: {mark.motivo}</p>}
+        <Link
+          href="/solicitudes"
+          className="mt-2 flex items-center justify-center px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+        >
+          Responder en Solicitudes
+        </Link>
+      </div>
+    );
   return (
     <div className="mx-2 mt-1 mb-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs max-w-[240px]">
       <p className="font-bold text-amber-800">⚠ Viene de una solicitud aprobada</p>
@@ -322,7 +337,7 @@ function ShiftCell({
   if (specialDay) {
     const nwt = nonWorkingTypes.find((t) => t.code === specialDay);
     // Día libre o permiso aprobado: se ve igual que un descanso, con borde morado y "PEDIDO"
-    const pedido = !!mark && specialDay === 'DESCANSO';
+    const pedido = !!mark && !mark.pendiente && specialDay === 'DESCANSO';
     return (
       <td
         className={`border-r border-border/50 px-0.5 py-0.5 min-w-[44px] text-center relative ${warnClass}`}
@@ -331,10 +346,10 @@ function ShiftCell({
         <button
           ref={btnRef}
           onClick={() => !isReadonly && setOpen(!open)}
-          className={`inline-flex flex-col items-center px-0.5 py-0.5 rounded text-[10px] font-bold leading-tight w-full transition-opacity ${isReadonly ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${nwt?.colorClass || 'bg-slate-100 text-slate-700 border border-slate-300'} ${pedido ? 'ring-2 ring-violet-400 ring-inset' : ''}`}
+          className={`inline-flex flex-col items-center px-0.5 py-0.5 rounded text-[10px] font-bold leading-tight w-full transition-opacity ${isReadonly ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${nwt?.colorClass || 'bg-slate-100 text-slate-700 border border-slate-300'} ${pedido ? 'ring-2 ring-violet-400 ring-inset' : ''} ${mark?.pendiente ? 'outline-dashed outline-2 outline-amber-500 -outline-offset-2' : ''}`}
           title={
             mark
-              ? `${mark.text}${mark.aprobado ? ` · aprobado por ${mark.aprobado}` : ''}`
+              ? `${mark.pendiente ? 'Sin responder: ' : ''}${mark.text}${mark.aprobado ? ` · aprobado por ${mark.aprobado}` : ''}`
               : licenciaTurno
                 ? `${nwt?.label || specialDay} · tenía ${licenciaTurno}${
                     shifts[licenciaTurno]?.start
@@ -358,7 +373,7 @@ function ShiftCell({
             </span>
           )}
         </button>
-        {mark && <MarkBadge />}
+        {mark && <MarkBadge pendiente={mark.pendiente} />}
         {!isReadonly && (
           <SmartDropdown anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
             {mark && <MarkInfo mark={mark} />}
@@ -481,10 +496,10 @@ function ShiftCell({
       <button
         ref={btnRef}
         onClick={() => !isReadonly && setOpen(!open)}
-        className={`inline-flex flex-col items-center px-0.5 py-0.5 rounded text-[10px] font-bold leading-tight w-full transition-opacity ${isReadonly ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${shiftInfo.colorClass}`}
+        className={`inline-flex flex-col items-center px-0.5 py-0.5 rounded text-[10px] font-bold leading-tight w-full transition-opacity ${isReadonly ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${shiftInfo.colorClass} ${mark?.pendiente ? 'outline-dashed outline-2 outline-amber-500 -outline-offset-2' : ''}`}
         title={
           mark
-            ? `${mark.text}${mark.antes ? ` · antes ${mark.antes}` : ''}${mark.aprobado ? ` · aprobado por ${mark.aprobado}` : ''}`
+            ? `${mark.pendiente ? 'Sin responder: ' : ''}${mark.text}${mark.antes ? ` · antes ${mark.antes}` : ''}${mark.aprobado ? ` · aprobado por ${mark.aprobado}` : ''}`
             : `${shiftInfo.start}–${shiftInfo.end}`
         }
       >
@@ -495,7 +510,7 @@ function ShiftCell({
           colacion={shiftInfo.colacion}
         />
       </button>
-      {mark && <MarkBadge />}
+      {mark && <MarkBadge pendiente={mark.pendiente} />}
       {!isReadonly && (
         <SmartDropdown anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
           {mark && <MarkInfo mark={mark} />}

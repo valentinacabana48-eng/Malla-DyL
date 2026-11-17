@@ -11,12 +11,17 @@ export interface RequestMark {
   antes: string;
   /** Quién aprobó y cuándo: "talca@… · 20 oct" */
   aprobado: string;
+  /** Solicitud que todavía no se responde: se marca distinto y lleva a Solicitudes */
+  pendiente?: boolean;
+  motivo?: string;
 }
 
 interface Row {
   worker_id: string;
   companera_id: string | null;
   tipo: 'libre' | 'permiso' | 'cambio' | 'intercambio';
+  status: 'aprobada' | 'pendiente';
+  motivo?: string;
   fecha: string;
   turno_actual: string;
   turno_pedido: string;
@@ -55,9 +60,9 @@ export function useRequestMarks(
       const { data, error } = await getSupabase()
         .from('shift_requests')
         .select(
-          'worker_id, companera_id, tipo, fecha, turno_actual, turno_pedido, turno_companera, turno_companera_antes, resolved_by_email, resolved_at'
+          'worker_id, companera_id, tipo, status, motivo, fecha, turno_actual, turno_pedido, turno_companera, turno_companera_antes, resolved_by_email, resolved_at'
         )
-        .eq('status', 'aprobada')
+        .in('status', ['aprobada', 'pendiente'])
         .gte('fecha', `${monthKey}-01`)
         .lte('fecha', `${monthKey}-${String(last).padStart(2, '0')}`)
         .order('resolved_at');
@@ -91,39 +96,69 @@ export function useRequestMarks(
       if ((now || 'DESC') !== (final || 'DESC')) return;
       out[`${wid}-${day}`] = mark;
     };
-    rows.forEach((r) => {
-      const day = Number(r.fecha.slice(8, 10)) - 1;
-      const at = r.resolved_at ? new Date(r.resolved_at) : null;
-      const aprobado = [r.resolved_by_email, at ? `${at.getDate()} ${MESES[at.getMonth()]}` : '']
-        .filter(Boolean)
-        .join(' · ');
-      if (r.tipo === 'intercambio') {
-        // turno_pedido es lo que quedó para quien pidió; turno_actual era su turno de antes
-        const compFinal = r.turno_companera || r.turno_actual;
-        put(r.worker_id, day, r.turno_pedido, {
-          text: `Cambió con ${nameOf(r.companera_id)}`,
-          antes: shiftText(r.turno_actual, shifts),
-          aprobado,
-        });
-        if (r.companera_id)
-          put(r.companera_id, day, compFinal, {
-            text: `Cambió con ${nameOf(r.worker_id)}`,
-            antes: shiftText(r.turno_companera_antes ?? '', shifts),
+    rows
+      .filter((r) => r.status !== 'pendiente')
+      .forEach((r) => {
+        const day = Number(r.fecha.slice(8, 10)) - 1;
+        const at = r.resolved_at ? new Date(r.resolved_at) : null;
+        const aprobado = [r.resolved_by_email, at ? `${at.getDate()} ${MESES[at.getMonth()]}` : '']
+          .filter(Boolean)
+          .join(' · ');
+        if (r.tipo === 'intercambio') {
+          // turno_pedido es lo que quedó para quien pidió; turno_actual era su turno de antes
+          const compFinal = r.turno_companera || r.turno_actual;
+          put(r.worker_id, day, r.turno_pedido, {
+            text: `Cambió con ${nameOf(r.companera_id)}`,
+            antes: shiftText(r.turno_actual, shifts),
             aprobado,
           });
-      } else {
-        put(r.worker_id, day, r.turno_pedido, {
-          text:
+          if (r.companera_id)
+            put(r.companera_id, day, compFinal, {
+              text: `Cambió con ${nameOf(r.worker_id)}`,
+              antes: shiftText(r.turno_companera_antes ?? '', shifts),
+              aprobado,
+            });
+        } else {
+          put(r.worker_id, day, r.turno_pedido, {
+            text:
+              r.tipo === 'libre'
+                ? 'Día libre pedido'
+                : r.tipo === 'permiso'
+                  ? 'Permiso pedido'
+                  : 'Turno pedido',
+            antes: shiftText(r.turno_actual, shifts),
+            aprobado,
+          });
+        }
+      });
+    // Pendientes: solo donde no hay una aprobada vigente
+    rows
+      .filter((r) => r.status === 'pendiente')
+      .forEach((r) => {
+        const day = Number(r.fecha.slice(8, 10)) - 1;
+        const pend = (wid: string, text: string) => {
+          if (!out[`${wid}-${day}`])
+            out[`${wid}-${day}`] = {
+              text,
+              antes: '',
+              aprobado: '',
+              pendiente: true,
+              motivo: r.motivo,
+            };
+        };
+        if (r.tipo === 'intercambio') {
+          pend(r.worker_id, `Pidió cambiar con ${nameOf(r.companera_id)}`);
+          if (r.companera_id) pend(r.companera_id, `${nameOf(r.worker_id)} pidió cambiar con ella`);
+        } else
+          pend(
+            r.worker_id,
             r.tipo === 'libre'
-              ? 'Día libre pedido'
+              ? 'Pidió día libre'
               : r.tipo === 'permiso'
-                ? 'Permiso pedido'
-                : 'Turno pedido',
-          antes: shiftText(r.turno_actual, shifts),
-          aprobado,
-        });
-      }
-    });
+                ? 'Pidió permiso'
+                : `Pidió cambiar a ${shiftText(r.turno_pedido, shifts)}`
+          );
+      });
     return out;
   }, [rows, workers, shifts, scheduleData, specialDaysData]);
 }
