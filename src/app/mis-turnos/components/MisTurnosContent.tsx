@@ -679,7 +679,7 @@ function MonthScreen({
           <div className="grid grid-cols-3 gap-2.5">
             {(
               [
-                [Clock, 'text-blue-600', `${fmtHoras(horasMes)} h`, `Trabajadas en ${mesLargo}`],
+                [Clock, 'text-blue-600', `${fmtHoras(horasMes)} h`, `Horas en ${mesLargo}`],
                 [CalendarDays, 'text-blue-600', String(diasTrabajo), 'Días con turno'],
                 [Star, 'text-amber-400 fill-amber-400', String(diasLibres), 'Días libres'],
               ] as const
@@ -772,8 +772,8 @@ function MonthScreen({
                   {d}
                 </span>
               ))}
-              <span className="text-center text-[10px] lg:text-[12px] font-extrabold text-slate-300 py-1.5">
-                h
+              <span className="text-center text-[10px] lg:text-[12px] font-extrabold tracking-wider text-slate-400 py-1.5">
+                HRS
               </span>
             </div>
             {weeks.map((week, w) => {
@@ -879,7 +879,7 @@ function MonthScreen({
               ))}
             </div>
             <p className="text-center text-[11px] text-slate-400 pb-1">
-              Columna h: horas de la semana · Toca un día para ver la colación
+              HRS: horas de la semana · Toca un día para ver la colación
             </p>
           </div>
         </div>
@@ -964,6 +964,8 @@ function Shell({
 }) {
   const adminSession = useHasAdminSession();
   const primerNombre = data.name.split(' ')[0];
+  // Salir pide confirmar: un toque sin querer la obligaba a entrar de nuevo y apagaba los avisos
+  const [askSalir, setAskSalir] = useState(false);
   return (
     <div className="min-h-[var(--app-height,100dvh)] bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-100 text-slate-900">
       <div className="max-w-md lg:max-w-6xl mx-auto pb-24 lg:pb-6">
@@ -1014,7 +1016,7 @@ function Shell({
             )}
             <button
               type="button"
-              onClick={onLogout}
+              onClick={() => setAskSalir(true)}
               className="hidden lg:flex h-9 px-3 rounded-xl bg-white/10 border border-white/20 text-[13px] font-semibold items-center gap-1.5"
             >
               <LogOut size={15} />
@@ -1063,7 +1065,7 @@ function Shell({
           ))}
           <button
             type="button"
-            onClick={onLogout}
+            onClick={() => setAskSalir(true)}
             className="h-16 flex flex-col items-center justify-center gap-0.5 text-[12px] font-semibold text-slate-600"
           >
             <LogOut size={22} aria-hidden="true" />
@@ -1071,6 +1073,48 @@ function Shell({
           </button>
         </div>
       </nav>
+
+      {askSalir && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-end lg:items-center justify-center p-3"
+          onClick={() => setAskSalir(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="salir-titulo"
+            className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl mb-[env(safe-area-inset-bottom)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p id="salir-titulo" className="text-[17px] font-bold text-slate-900">
+              ¿Quieres salir?
+            </p>
+            <p className="mt-1 text-[14px] text-slate-600">
+              Para volver a ver tus turnos tendrás que entrar de nuevo con tu RUT y clave, y dejarás
+              de recibir avisos en este celular.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setAskSalir(false)}
+                className="h-12 rounded-xl border border-slate-300 text-[15px] font-semibold text-slate-700"
+              >
+                Quedarme
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAskSalir(false);
+                  onLogout();
+                }}
+                className="h-12 rounded-xl bg-red-600 text-white text-[15px] font-semibold"
+              >
+                Salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

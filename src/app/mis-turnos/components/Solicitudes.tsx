@@ -393,7 +393,7 @@ export default function Solicitudes({
             ? 'Permiso con goce'
             : 'Permiso'
         : r.tipo === 'cambio'
-          ? `Turno ${shiftText(r.turno_pedido)}`
+          ? 'Cambio de turno'
           : r.mia
             ? r.otra
               ? `Cambio con ${r.otra}`
@@ -683,7 +683,9 @@ export default function Solicitudes({
                 r.tipo === 'libre' || r.tipo === 'permiso'
                   ? ''
                   : r.tipo === 'cambio'
-                    ? shiftText(r.turno_pedido)
+                    ? r.turno_actual
+                      ? `${shiftText(r.turno_actual)} → ${shiftText(r.turno_pedido)}`
+                      : shiftText(r.turno_pedido)
                     : r.mia &&
                         r.status === 'pendiente' &&
                         (r.companera_status === 'por_preaprobar' || r.companera_status === 'elegir')
@@ -709,7 +711,7 @@ export default function Solicitudes({
                     {r.status === 'pendiente' && (
                       <p className="flex items-center gap-1.5 text-[13px] text-gray-500">
                         <Clock size={14} className="shrink-0" aria-hidden="true" />
-                        {st.label}
+                        {st.label === 'Pendiente' ? 'Esperando respuesta de la jefatura' : st.label}
                       </p>
                     )}
                     {/* Pasos del cambio con compañera */}
