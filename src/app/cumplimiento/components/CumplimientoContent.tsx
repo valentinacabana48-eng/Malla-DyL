@@ -475,13 +475,11 @@ export default function CumplimientoContent() {
       </div>
 
       {/* Rules legend */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 mb-4">
         {RULES.map((r) => (
-          <div key={r.id} className="flex items-center gap-1.5 bg-muted/40 rounded-lg px-2.5 py-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-              {r.label}
-            </span>
-            <span className="text-[10px] text-muted-foreground">— {r.description}</span>
+          <div key={r.id} className="bg-card border border-border rounded-xl px-3.5 py-2.5">
+            <p className="text-xs font-bold text-foreground uppercase tracking-wide">{r.label}</p>
+            <p className="text-sm text-muted-foreground leading-snug mt-0.5">{r.description}</p>
           </div>
         ))}
       </div>

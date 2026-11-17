@@ -2654,7 +2654,8 @@ function DayView({
                     </span>
                   )}
                 </div>
-                {/* Celular: botones grandes para los dos estados más usados */}
+                {/* Celular: botones grandes para los dos estados más usados y «Otro» para el resto
+                    (licencia, permiso, descanso…), sin repetir el estado en una lista aparte */}
                 {editable && !isNT && !savingCells.has(`${w.id}_${date}`) && (
                   <div className="lg:hidden w-full grid grid-cols-2 gap-2">
                     {(['PRESENTE', 'AUSENTE'] as const).map((code) => {
@@ -2677,11 +2678,53 @@ function DayView({
                         </button>
                       );
                     })}
+                    {(() => {
+                      const otro = status !== 'PRESENTE' && status !== 'AUSENTE';
+                      return (
+                        <div className="relative col-span-2">
+                          <select
+                            value={otro ? status : ''}
+                            onChange={(e) => {
+                              if (e.target.value) onChangeStatus(w.id, date, e.target.value);
+                            }}
+                            aria-label={`Otro estado para ${w.name}`}
+                            className={`w-full min-h-[44px] appearance-none rounded-xl border text-sm font-semibold pl-2 pr-6 text-center truncate ${
+                              otro
+                                ? getStatusStyle(status)
+                                : 'bg-white border-gray-300 text-gray-700'
+                            }`}
+                          >
+                            <option value="" disabled>
+                              Otro: licencia, permiso, descanso…
+                            </option>
+                            {SELECTABLE_STATUSES.filter(
+                              (s) => s.code !== 'PRESENTE' && s.code !== 'AUSENTE'
+                            ).map((s) => (
+                              <option key={s.code} value={s.code}>
+                                {s.label}
+                              </option>
+                            ))}
+                            {otro && !SELECTABLE_STATUSES.some((s) => s.code === status) && (
+                              <option value={status}>{getStatusLabel(status)}</option>
+                            )}
+                          </select>
+                          <ChevronDown
+                            size={14}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60"
+                          />
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
-                {/* Status selector — disabled when locked or NT from Malla */}
+                {/* Status selector — disabled when locked or NT from Malla. En el celular, cuando
+                    están los botones de arriba, no se muestra (sería repetir lo mismo) */}
                 <div
-                  className="relative w-full lg:w-auto lg:shrink-0"
+                  className={`relative w-full lg:w-auto lg:shrink-0 ${
+                    editable && !isNT && !savingCells.has(`${w.id}_${date}`)
+                      ? 'hidden lg:block'
+                      : ''
+                  }`}
                   title={isNT ? 'No trabajaba según la Malla' : undefined}
                 >
                   {savingCells.has(`${w.id}_${date}`) ? (
