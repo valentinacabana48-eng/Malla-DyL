@@ -272,10 +272,12 @@ function MarkBadge() {
 
 function MarkInfo({ mark }: { mark: RequestMark }) {
   return (
-    <div className="px-3 py-2 mb-1 border-b border-border/50 text-xs">
-      <p className="font-bold text-blue-700">⇄ {mark.text}</p>
+    <div className="mx-2 mt-1 mb-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs max-w-[240px]">
+      <p className="font-bold text-amber-800">⚠ Viene de una solicitud aprobada</p>
+      <p className="text-foreground mt-0.5">⇄ {mark.text}</p>
       {mark.antes && <p className="text-muted-foreground">Antes: {mark.antes}</p>}
       {mark.aprobado && <p className="text-muted-foreground">Aprobado por {mark.aprobado}</p>}
+      <p className="text-amber-800 mt-1">Si lo cambias, deja de valer lo que se aprobó.</p>
     </div>
   );
 }
@@ -319,6 +321,8 @@ function ShiftCell({
 
   if (specialDay) {
     const nwt = nonWorkingTypes.find((t) => t.code === specialDay);
+    // Día libre o permiso aprobado: se ve igual que un descanso, con borde morado y "PEDIDO"
+    const pedido = !!mark && specialDay === 'DESCANSO';
     return (
       <td
         className={`border-r border-border/50 px-0.5 py-0.5 min-w-[44px] text-center relative ${warnClass}`}
@@ -327,26 +331,37 @@ function ShiftCell({
         <button
           ref={btnRef}
           onClick={() => !isReadonly && setOpen(!open)}
-          className={`inline-flex flex-col items-center px-0.5 py-0.5 rounded text-[10px] font-bold leading-tight w-full transition-opacity ${isReadonly ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${nwt?.colorClass || 'bg-slate-100 text-slate-700 border border-slate-300'}`}
+          className={`inline-flex flex-col items-center px-0.5 py-0.5 rounded text-[10px] font-bold leading-tight w-full transition-opacity ${isReadonly ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${nwt?.colorClass || 'bg-slate-100 text-slate-700 border border-slate-300'} ${pedido ? 'ring-2 ring-violet-400 ring-inset' : ''}`}
           title={
-            licenciaTurno
-              ? `${nwt?.label || specialDay} · tenía ${licenciaTurno}${
-                  shifts[licenciaTurno]?.start
-                    ? ` (${shifts[licenciaTurno].start}–${shifts[licenciaTurno].end})`
-                    : ''
-                }`
-              : nwt?.label || specialDay
+            mark
+              ? `${mark.text}${mark.aprobado ? ` · aprobado por ${mark.aprobado}` : ''}`
+              : licenciaTurno
+                ? `${nwt?.label || specialDay} · tenía ${licenciaTurno}${
+                    shifts[licenciaTurno]?.start
+                      ? ` (${shifts[licenciaTurno].start}–${shifts[licenciaTurno].end})`
+                      : ''
+                  }`
+                : nwt?.label || specialDay
           }
         >
-          <SpecialDayText code={specialDay} nwt={nwt} />
+          {pedido ? (
+            <>
+              <span className="pt-[2px] text-[10px] tracking-wide">DESC</span>
+              <span className="pb-[1px] text-[8px] font-bold text-violet-700">PEDIDO</span>
+            </>
+          ) : (
+            <SpecialDayText code={specialDay} nwt={nwt} />
+          )}
           {licenciaTurno && (
             <span className="font-normal opacity-70 text-[8px] line-through">
               {shifts[licenciaTurno]?.start || licenciaTurno}
             </span>
           )}
         </button>
+        {mark && <MarkBadge />}
         {!isReadonly && (
           <SmartDropdown anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
+            {mark && <MarkInfo mark={mark} />}
             <button
               onClick={() => {
                 onSpecialDayChange(workerId, dayIndex, null);
