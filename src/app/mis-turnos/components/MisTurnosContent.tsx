@@ -705,7 +705,7 @@ function MonthScreen({
                 </p>
                 <p className="text-sm text-amber-900">
                   {changed.size === 1 ? 'Cambió 1 día' : `Cambiaron ${changed.size} días`}, marcados
-                  con un punto naranjo. Toca un día para ver cómo estaba antes.
+                  con un punto rojo. Toca un día para ver cómo estaba antes.
                 </p>
                 <button
                   type="button"
@@ -797,16 +797,13 @@ function MonthScreen({
                         ? 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-md shadow-blue-700/30'
                         : k === 'libre'
                           ? 'bg-slate-100 text-slate-500'
-                          : 'bg-white text-slate-700 border border-slate-100 shadow-[0_2px_6px_-2px_rgba(15,23,42,0.12)]';
-                      // Rayita de color: mañana celeste, tarde ámbar, vacaciones/permiso morado
-                      const raya =
-                        k === 'manana'
-                          ? 'bg-sky-400'
-                          : k === 'tarde'
-                            ? 'bg-amber-400'
-                            : k === 'especial'
-                              ? 'bg-violet-400'
-                              : '';
+                          : k === 'manana'
+                            ? 'bg-sky-100 text-sky-900 border border-sky-300'
+                            : k === 'tarde'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                              : k === 'especial'
+                                ? 'bg-violet-100 text-violet-900 border border-violet-300'
+                                : 'bg-white text-slate-700 border border-slate-100';
                       return (
                         <button
                           key={i}
@@ -823,12 +820,6 @@ function MonthScreen({
                           >
                             {i + 1}
                           </span>
-                          {raya && !isToday && (
-                            <span
-                              className={`absolute top-0 left-2 right-2 h-[3px] rounded-b-full ${raya}`}
-                              aria-hidden="true"
-                            />
-                          )}
                           {k === 'especial' ? (
                             <span className="text-[15px] leading-none mt-0.5">
                               {specialIcon(d)}
@@ -845,7 +836,7 @@ function MonthScreen({
 
                           {wasChanged && (
                             <span
-                              className="absolute top-1 right-1 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white"
+                              className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white"
                               aria-hidden="true"
                             />
                           )}
@@ -866,14 +857,14 @@ function MonthScreen({
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 px-2 pt-2 pb-1 text-[12px] text-slate-600">
               {(
                 [
-                  ['bg-sky-400', 'Mañana'],
-                  ['bg-amber-400', 'Tarde'],
-                  ['bg-violet-400', 'Permisos'],
-                  ['bg-slate-300', 'Libre'],
+                  ['bg-sky-200 border border-sky-400', 'Mañana'],
+                  ['bg-amber-200 border border-amber-400', 'Tarde'],
+                  ['bg-violet-200 border border-violet-400', 'Permisos'],
+                  ['bg-slate-100 border border-slate-300', 'Libre'],
                 ] as const
               ).map(([c, t]) => (
                 <span key={t} className="flex items-center gap-1.5">
-                  <span className={`w-2.5 h-2.5 rounded-full ${c}`} aria-hidden="true" />
+                  <span className={`w-3 h-3 rounded ${c}`} aria-hidden="true" />
                   {t}
                 </span>
               ))}
