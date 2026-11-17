@@ -9,22 +9,10 @@ interface Summary {
   cargoBreakdown: Record<string, number>;
 }
 
-const HORAS_COLORS: Record<number, { bg: string; text: string; border: string }> = {
-  42: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-  30: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-  20: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200' },
-};
+const HORAS_COLORS: Record<number, { bg: string; text: string; border: string }> = {};
 
-const CARGO_COLORS = [
-  { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
-  { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200' },
-  { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
-  { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-  { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
-  { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
-  { bg: 'bg-lime-50', text: 'text-lime-700', border: 'border-lime-200' },
-  { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200' },
-];
+// Todos los cargos con el mismo color (antes cada uno tenía uno distinto y se veía recargado)
+const CARGO_COLORS = [{ bg: 'bg-card', text: 'text-blue-700', border: 'border-border' }];
 
 export default function PersonalSummary({
   summary,
@@ -153,7 +141,7 @@ export default function PersonalSummary({
                     className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all ${colors.bg} ${colors.border} ${isSelected ? 'ring-2 ring-secondary' : ''} ${isDimmed ? 'opacity-50 hover:opacity-80' : 'hover:shadow-sm'}`}
                   >
                     <div className={`text-2xl font-extrabold ${colors.text}`}>{count}</div>
-                    <p className={`text-sm font-semibold ${colors.text}`}>{cargo}</p>
+                    <p className="text-sm font-semibold text-foreground">{cargo}</p>
                   </button>
                 );
               })}
@@ -174,9 +162,9 @@ export default function PersonalSummary({
               {horasEntries.map(([horas, count]) => {
                 const h = Number(horas);
                 const colors = HORAS_COLORS[h] || {
-                  bg: 'bg-slate-50',
-                  text: 'text-slate-700',
-                  border: 'border-slate-200',
+                  bg: 'bg-card',
+                  text: 'text-blue-700',
+                  border: 'border-border',
                 };
                 const isSelected = selectedHoras.includes(h);
                 const isDimmed = selectedHoras.length > 0 && !isSelected;
@@ -192,7 +180,7 @@ export default function PersonalSummary({
                   >
                     <div className={`text-3xl font-extrabold ${colors.text}`}>{count}</div>
                     <div>
-                      <p className={`text-sm font-bold ${colors.text}`}>{horas}h</p>
+                      <p className="text-sm font-bold text-foreground">{horas}h</p>
                       <p className="text-xs text-muted-foreground">contratadas</p>
                     </div>
                   </button>

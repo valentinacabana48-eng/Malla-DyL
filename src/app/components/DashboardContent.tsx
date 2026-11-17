@@ -457,70 +457,32 @@ export default function DashboardContent() {
           />
         </div>
 
-        {/* KPI cards */}
+        {/* KPI cards: tarjetas blancas, el color solo en el ícono */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          <div
-            className="kpi-card rounded-2xl p-4 flex items-center gap-3 border"
-            style={{
-              background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-              borderColor: '#bfdbfe',
-            }}
-          >
-            <div className="hidden lg:flex w-11 h-11 rounded-xl bg-blue-100 items-center justify-center shrink-0">
-              <Users size={18} className="text-blue-600" />
+          {(
+            [
+              [totalWorkers, 'Trabajando hoy', Users, 'bg-blue-50 text-blue-600'],
+              [totalResting, 'Descansando', UserCheck, 'bg-green-50 text-green-600'],
+              [cajasCount, 'Cajas disponibles', Package, 'bg-orange-50 text-orange-500'],
+              [hourlySummary.length, 'Franjas horarias', Clock, 'bg-violet-50 text-violet-600'],
+            ] as const
+          ).map(([value, label, Icon, iconClass]) => (
+            <div
+              key={label}
+              className="kpi-card rounded-2xl p-3.5 lg:p-4 flex items-center gap-3 bg-card border border-border"
+              style={{ boxShadow: 'var(--shadow-sm)' }}
+            >
+              <div
+                className={`hidden lg:flex w-11 h-11 rounded-xl items-center justify-center shrink-0 ${iconClass}`}
+              >
+                <Icon size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-2xl font-extrabold text-foreground leading-none">{value}</p>
+                <p className="text-xs text-muted-foreground font-semibold mt-1 truncate">{label}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-extrabold text-blue-700 leading-none">{totalWorkers}</p>
-              <p className="text-xs text-blue-500 font-semibold mt-1">Trabajando hoy</p>
-            </div>
-          </div>
-          <div
-            className="kpi-card rounded-2xl p-4 flex items-center gap-3 border"
-            style={{
-              background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-              borderColor: '#bbf7d0',
-            }}
-          >
-            <div className="hidden lg:flex w-11 h-11 rounded-xl bg-green-100 items-center justify-center shrink-0">
-              <UserCheck size={18} className="text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-extrabold text-green-700 leading-none">{totalResting}</p>
-              <p className="text-xs text-green-500 font-semibold mt-1">Descansando</p>
-            </div>
-          </div>
-          <div
-            className="kpi-card rounded-2xl p-4 flex items-center gap-3 border"
-            style={{
-              background: 'linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%)',
-              borderColor: '#fdba74',
-            }}
-          >
-            <div className="hidden lg:flex w-11 h-11 rounded-xl bg-orange-100 items-center justify-center shrink-0">
-              <Package size={18} className="text-orange-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-extrabold text-orange-600 leading-none">{cajasCount}</p>
-              <p className="text-xs text-orange-400 font-semibold mt-1">Cajas disponibles</p>
-            </div>
-          </div>
-          <div
-            className="kpi-card rounded-2xl p-4 flex items-center gap-3 border"
-            style={{
-              background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
-              borderColor: '#ddd6fe',
-            }}
-          >
-            <div className="hidden lg:flex w-11 h-11 rounded-xl bg-purple-100 items-center justify-center shrink-0">
-              <Clock size={18} className="text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-extrabold text-purple-700 leading-none">
-                {hourlySummary.length}
-              </p>
-              <p className="text-xs text-purple-400 font-semibold mt-1">Franjas horarias</p>
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* Personas por hora: gráfico de barras compacto */}
