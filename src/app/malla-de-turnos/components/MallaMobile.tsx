@@ -31,7 +31,7 @@ function MarkLine({ mark }: { mark?: RequestMark }) {
   );
 }
 
-// Vista de la malla para celulares: un día a la vez (lista por hora de entrada) o el
+// Vista de la malla para celulares: un día a la vez (agrupado por turno) o el
 // mes de una sola trabajadora. Tocar una fila abre un panel para cambiar el turno.
 
 const SHOW_OFF_KEY = 'malla-libres-abierto';
@@ -152,26 +152,22 @@ export default function MallaMobile({
     return `${DOW_NAMES[d.getDay()]} ${di + 1} de ${MONTH_NAMES[month - 1]}`;
   };
 
-  // Día: una sola lista de las que trabajan (por hora de entrada) y al final
-  // las que no trabajan (libres / permisos / sin turno)
+  // Día: grupos por turno (ordenados por hora) y al final libres / permisos / sin turno
   const dayGroups = useMemo(() => {
-    const working: { worker: Worker; shift: Shift | undefined }[] = [];
+    const byShift = new Map<string, Worker[]>();
     const off: { worker: Worker; cell: Cell }[] = [];
     workers.forEach((w) => {
       const cell = getCell(w.id, dayIndex);
       if (cell.kind === 'shift' && cell.shift?.start) {
-        working.push({ worker: w, shift: cell.shift });
+        byShift.set(cell.code, [...(byShift.get(cell.code) ?? []), w]);
       } else {
         off.push({ worker: w, cell });
       }
     });
-    working.sort(
-      (a, b) =>
-        timeToMinutes(a.shift?.start) - timeToMinutes(b.shift?.start) ||
-        timeToMinutes(a.shift?.end) - timeToMinutes(b.shift?.end) ||
-        a.worker.name.localeCompare(b.worker.name, 'es')
-    );
-    return { working, off };
+    const shiftGroups = [...byShift.entries()]
+      .map(([code, list]) => ({ code, shift: shifts[code], list }))
+      .sort((a, b) => timeToMinutes(a.shift?.start) - timeToMinutes(b.shift?.start));
+    return { shiftGroups, off };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workers, dayIndex, scheduleData, specialDaysData, shifts]);
 
@@ -300,48 +296,52 @@ export default function MallaMobile({
             />
           )}
 
-          {dayGroups.working.length > 0 && (
-            <section className="space-y-2">
-              <h2 className="text-sm font-bold text-foreground px-0.5">
-                Trabajan ({dayGroups.working.length})
-              </h2>
+          {dayGroups.shiftGroups.map(({ code, shift, list }) => (
+            <section key={code} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${shift?.legendColor || 'bg-slate-400'}`}
+                  />
+                  Turno {shiftTime(shift) || shift?.label || code}
+                  {shift && shiftKind(shift.start, shift.end) && (
+                    <span className="font-medium text-muted-foreground">
+                      · {SHIFT_KIND_COLORS[shiftKind(shift.start, shift.end)!].label}
+                    </span>
+                  )}
+                </h2>
+                <span className="text-xs text-muted-foreground">
+                  {list.length} persona{list.length !== 1 ? 's' : ''}
+                </span>
+              </div>
               <div className="bg-card rounded-2xl border border-border overflow-hidden">
-                {dayGroups.working.map(({ worker: w, shift }) => {
-                  const kind = shift ? shiftKind(shift.start, shift.end) : null;
-                  return (
-                    <button
-                      key={w.id}
-                      type="button"
-                      disabled={!canEdit}
-                      onClick={() => setEditing({ workerId: w.id, dayIndex })}
-                      className={rowClass}
+                {list.map((w) => (
+                  <button
+                    key={w.id}
+                    type="button"
+                    disabled={!canEdit}
+                    onClick={() => setEditing({ workerId: w.id, dayIndex })}
+                    className={rowClass}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-semibold text-foreground truncate">{w.name}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {w.cargo || w.role}
+                        {w.pasillo ? ` · ${pasilloLabel(w.pasillo)}` : ''}
+                        {w.bodega ? ` · ${bodegaLabel(w.bodega)}` : ''}
+                      </p>
+                      <MarkLine mark={requestMarks[`${w.id}-${dayIndex}`]} />
+                    </div>
+                    <span
+                      className={`text-sm font-semibold rounded-lg px-2 py-1 ${shift?.colorClass ?? ''}`}
                     >
-                      <span
-                        aria-hidden
-                        className={`w-1.5 self-stretch rounded-full shrink-0 ${shift?.legendColor || 'bg-slate-400'}`}
-                      />
-                      <div className="w-14 shrink-0">
-                        <p className="text-lg font-extrabold text-foreground leading-tight tabular-nums">
-                          {shift?.start}
-                        </p>
-                        <p className="text-xs text-muted-foreground tabular-nums">a {shift?.end}</p>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-base font-semibold text-foreground truncate">{w.name}</p>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {w.cargo || w.role}
-                          {kind ? ` · ${SHIFT_KIND_COLORS[kind].label}` : ''}
-                          {w.pasillo ? ` · ${pasilloLabel(w.pasillo)}` : ''}
-                          {w.bodega ? ` · ${bodegaLabel(w.bodega)}` : ''}
-                        </p>
-                        <MarkLine mark={requestMarks[`${w.id}-${dayIndex}`]} />
-                      </div>
-                    </button>
-                  );
-                })}
+                      {shiftTime(shift)}
+                    </span>
+                  </button>
+                ))}
               </div>
             </section>
-          )}
+          ))}
 
           {dayGroups.off.length > 0 && (
             <section className="space-y-2">
@@ -349,13 +349,11 @@ export default function MallaMobile({
                 type="button"
                 onClick={toggleOff}
                 aria-expanded={showOff}
-                className="w-full flex items-center justify-between gap-2 py-1 px-0.5 text-left"
+                className="w-full flex items-center justify-between gap-2 py-1 text-left"
               >
-                <h2 className="text-sm font-bold text-foreground">
-                  No trabajan ({dayGroups.off.length})
-                </h2>
+                <h2 className="text-sm font-bold text-foreground">Libres, permisos y sin turno</h2>
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  {showOff ? 'Ocultar' : 'Ver'}
+                  {dayGroups.off.length} persona{dayGroups.off.length !== 1 ? 's' : ''}
                   {showOff ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </span>
               </button>
