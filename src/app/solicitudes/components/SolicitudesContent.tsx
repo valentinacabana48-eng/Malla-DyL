@@ -25,6 +25,8 @@ interface Request {
   /** Cambio con compañera: por_preaprobar → elegir → pendiente (responde ella) → aceptada */
   companera_status: '' | 'por_preaprobar' | 'elegir' | 'pendiente' | 'aceptada' | 'rechazada';
   fecha: string;
+  /** Vacaciones de varios días: último día */
+  hasta?: string | null;
   turno_actual: string;
   turno_companera?: string;
   turno_pedido: string;
@@ -56,6 +58,23 @@ const ESPECIAL = ['CUMPLEANOS', 'VACACIONES'];
 const diaLabel = (d: Dia) => (d === 'CUMPLEANOS' ? 'Cumpleaños' : tipoLabel(d as TipoAusencia));
 
 const fmtHoras = (h: number) => (Math.round(h * 10) / 10).toString().replace('.', ',');
+
+// Vacaciones de varios días
+const esRango = (r: { fecha: string; hasta?: string | null }) => !!r.hasta && r.hasta > r.fecha;
+
+function diasDe(desde: string, hasta: string) {
+  const out: string[] = [];
+  const [y, m, d] = desde.split('-').map(Number);
+  for (let i = 0; ; i++) {
+    const x = new Date(y, m - 1, d + i);
+    const iso = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(
+      x.getDate()
+    ).padStart(2, '0')}`;
+    if (iso > hasta || i > 60) break;
+    out.push(iso);
+  }
+  return out;
+}
 
 function fechaText(iso: string) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -243,10 +262,19 @@ export default function SolicitudesContent() {
     const actual = turnoHoy(r);
     const diaLibre =
       aprobar && (r.tipo === 'libre' || r.tipo === 'permiso') && pick.turno === 'DESC';
-    // Vacaciones con turno: igual que un permiso (se puede imprimir la hoja)
-    const comoPermiso = diaLibre && pick.dia !== 'DESC' && pick.dia !== 'CUMPLEANOS' && !!actual;
-    // Cumpleaños (o vacaciones en un día sin turno): queda marcado así en la malla
-    const comoEspecial = diaLibre && !comoPermiso && ESPECIAL.includes(pick.dia);
+    const comoPermiso =
+      diaLibre && (pick.dia === 'PERMISO_CG' || pick.dia === 'PERMISO_SG') && !!actual;
+    // Cumpleaños o vacaciones: la base marca los días que aún no tienen nada en la malla
+    const comoEspecial = diaLibre && ESPECIAL.includes(pick.dia);
+    // Vacaciones: los días con turno quedan como vacaciones guardando el turno (hoja para firmar)
+    const dias = diasDe(r.fecha, esRango(r) ? r.hasta! : r.fecha);
+    const conTurno =
+      comoEspecial &&
+      pick.dia === 'VACACIONES' &&
+      dias.some((d) => {
+        const [y, m, dd] = d.split('-').map(Number);
+        return !!shifts[codeOn(r.worker_id, new Date(y, m - 1, dd))]?.start;
+      });
     const nota = (notes[r.id] ?? '').trim();
     const { error } = await supabase.rpc('resolve_shift_request', {
       p_id: r.id,
@@ -261,8 +289,14 @@ export default function SolicitudesContent() {
       toast.error(error.message || 'No se pudo responder la solicitud.');
       return;
     }
-    if (comoPermiso) {
-      await registrarLicencia(r.worker_id, r.fecha, 1, pick.dia as TipoAusencia, r.motivo);
+    if (comoPermiso || conTurno) {
+      await registrarLicencia(
+        r.worker_id,
+        r.fecha,
+        comoPermiso ? 1 : dias.length,
+        pick.dia as TipoAusencia,
+        r.motivo
+      );
       // El permiso se marca después de aprobar: se publica ese día de nuevo
       const { error: pubError } = await supabase.rpc('publicar_dia_solicitud', { p_id: r.id });
       if (pubError) console.error('Publicar día:', pubError);
@@ -425,7 +459,12 @@ export default function SolicitudesContent() {
                             : comp
                               ? `Cambio con ${comp.name}`
                               : 'Cambio con compañera'}{' '}
-                    · {fechaText(r.fecha)}
+                    ·{' '}
+                    {esRango(r)
+                      ? `${fechaText(r.fecha)} al ${fechaText(r.hasta!)} (${
+                          diasDe(r.fecha, r.hasta!).length
+                        } días)`
+                      : fechaText(r.fecha)}
                   </span>
                   <p className="text-muted-foreground">
                     Tenía: {shiftText(r.turno_actual)}
@@ -488,7 +527,15 @@ export default function SolicitudesContent() {
                   </p>
                 )}
 
-                {r.status === 'pendiente' && !pre && (
+                {r.status === 'pendiente' && esRango(r) && (
+                  <p className="text-xs text-muted-foreground border-t border-border pt-2">
+                    Al aprobar, los días con turno quedan como vacaciones (se guarda el turno y
+                    puedes imprimir la hoja para firmar). Los días libres siguen libres y los días
+                    sin malla armada quedan marcados como vacaciones.
+                  </p>
+                )}
+
+                {r.status === 'pendiente' && !pre && !esRango(r) && (
                   <div className="flex flex-col gap-2 border-t border-border pt-2">
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                       Al aprobar queda

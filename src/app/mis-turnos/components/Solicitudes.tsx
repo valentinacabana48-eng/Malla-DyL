@@ -44,6 +44,8 @@ interface Request {
   id: string;
   tipo: Tipo;
   fecha: string;
+  /** Vacaciones de varios días: último día */
+  hasta?: string | null;
   turno_actual: string;
   turno_pedido: string;
   /** Cambio con compañera: los turnos que le sirven (puede marcar varios) */
@@ -119,6 +121,27 @@ const isoOf = (d: Date) =>
     '0'
   )}`;
 
+// Días entre dos fechas, contando las dos
+function diasEntre(a: string, b: string) {
+  const [y1, m1, d1] = a.split('-').map(Number);
+  const [y2, m2, d2] = b.split('-').map(Number);
+  return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000) + 1;
+}
+
+function addDays(iso: string, n: number) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return isoOf(new Date(y, m - 1, d + n));
+}
+
+// «lunes 7 al viernes 18 de diciembre» o «lunes 28 de diciembre al viernes 8 de enero»
+function rangoText(a: string, b: string) {
+  const fa = fechaText(a);
+  const fb = fechaText(b);
+  return a.slice(0, 7) === b.slice(0, 7)
+    ? `${fa.replace(/ de \S+$/, '')} al ${fb}`
+    : `${fa} al ${fb}`;
+}
+
 function todayIso() {
   return isoOf(new Date());
 }
@@ -164,12 +187,15 @@ export default function Solicitudes({
   const [companera, setCompanera] = useState('');
   const [pickError, setPickError] = useState('');
   const [day, setDay] = useState('');
+  // Vacaciones: hasta qué día (vacío = un solo día)
+  const [hasta, setHasta] = useState('');
   const [turno, setTurno] = useState('');
   // Con compañera: puede marcar varios turnos que le sirven
   const [turnos, setTurnos] = useState<string[]>([]);
   const [motivo, setMotivo] = useState('');
   // Día libre o permiso: el motivo (con o sin goce, cumpleaños, vacaciones)
   const [goce, setGoce] = useState<Motivo>('PERMISO_CG');
+  const vacaciones = (tipo === 'libre' || tipo === 'permiso') && goce === 'VACACIONES';
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState('');
@@ -298,6 +324,7 @@ export default function Solicitudes({
     const min = todayIso();
     const dia = fecha && fecha >= min ? fecha : '';
     setDay(dia);
+    setHasta('');
     // Si tocó un día de este mes, parte como permiso; si no, día libre del mes siguiente
     const t: Tipo = dia && dia <= mesActual.max ? 'permiso' : 'libre';
     setTipo(t);
@@ -313,7 +340,11 @@ export default function Solicitudes({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!day) return setError('Elige el día.');
+    if (!day) return setError(vacaciones ? 'Elige desde qué día.' : 'Elige el día.');
+    if (vacaciones && hasta && hasta < day)
+      return setError('El último día tiene que ser después del primero.');
+    if (vacaciones && hasta && diasEntre(day, hasta) > 30)
+      return setError('Las vacaciones se piden de hasta 30 días seguidos.');
     if (tipo === 'cambio' && fueraDeRango(tipo, day))
       return setError(`Un turno en especial se pide solo para días de ${mes.name}.`);
     if (tipo === 'libre' && fueraDeRango(tipo, day))
@@ -343,6 +374,7 @@ export default function Solicitudes({
                 ? turnos[0]
                 : turno,
         p_motivo: motivo,
+        ...(vacaciones && hasta && hasta > day ? { p_hasta: hasta } : {}),
         ...(tipo === 'intercambio' ? { p_turnos: turnos } : {}),
       });
       if (rpcError) throw rpcError;
@@ -534,45 +566,6 @@ export default function Solicitudes({
               </div>
             )}
 
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-semibold text-gray-700">Día</span>
-              <input
-                type="date"
-                value={day}
-                min={rango.min}
-                max={rango.max}
-                onChange={(e) => setDay(e.target.value)}
-                className="h-12 px-3 rounded-xl border border-gray-300 bg-gray-50 text-base"
-              />
-              {tipo === 'cambio' && (
-                <span className="text-[13px] text-gray-500">
-                  Pide el horario que necesitas un día de {mes.name}. El mes en curso ya está
-                  armado.
-                </span>
-              )}
-              {tipo === 'libre' && (
-                <span className="text-[13px] text-gray-500">
-                  Elige un día de {mes.name}. Si lo aprueban, queda{' '}
-                  {goce === 'CUMPLEANOS'
-                    ? 'como cumpleaños'
-                    : goce === 'VACACIONES'
-                      ? 'como vacaciones'
-                      : 'libre'}{' '}
-                  en la malla de {mes.name}.
-                </span>
-              )}
-              {tipo === 'permiso' && (
-                <span className="text-[13px] text-gray-500">
-                  Elige un día de {mesActual.name}. Si lo aprueban,{' '}
-                  {goce === 'CUMPLEANOS'
-                    ? 'queda como cumpleaños.'
-                    : goce === 'VACACIONES'
-                      ? 'queda como vacaciones y se firma la hoja.'
-                      : 'queda como permiso y se firma la hoja de permiso.'}
-                </span>
-              )}
-            </label>
-
             {(tipo === 'libre' || tipo === 'permiso') && (
               <div className="flex flex-col gap-1.5">
                 <span className="text-sm font-semibold text-gray-700">
@@ -598,6 +591,68 @@ export default function Solicitudes({
                   ))}
                 </div>
               </div>
+            )}
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-semibold text-gray-700">
+                {vacaciones ? 'Desde' : 'Día'}
+              </span>
+              <input
+                type="date"
+                value={day}
+                min={rango.min}
+                max={rango.max}
+                onChange={(e) => setDay(e.target.value)}
+                className="h-12 px-3 rounded-xl border border-gray-300 bg-gray-50 text-base"
+              />
+              {tipo === 'cambio' && (
+                <span className="text-[13px] text-gray-500">
+                  Pide el horario que necesitas un día de {mes.name}. El mes en curso ya está
+                  armado.
+                </span>
+              )}
+              {tipo === 'libre' && (
+                <span className="text-[13px] text-gray-500">
+                  {vacaciones ? 'El primer día es' : 'Elige un día'} de {mes.name}. Si lo aprueban,
+                  queda{' '}
+                  {goce === 'CUMPLEANOS'
+                    ? 'como cumpleaños'
+                    : goce === 'VACACIONES'
+                      ? 'como vacaciones'
+                      : 'libre'}{' '}
+                  en la malla de {mes.name}.
+                </span>
+              )}
+              {tipo === 'permiso' && (
+                <span className="text-[13px] text-gray-500">
+                  {vacaciones ? 'El primer día es' : 'Elige un día'} de {mesActual.name}. Si lo
+                  aprueban,{' '}
+                  {goce === 'CUMPLEANOS'
+                    ? 'queda como cumpleaños.'
+                    : goce === 'VACACIONES'
+                      ? 'queda como vacaciones y se firma la hoja.'
+                      : 'queda como permiso y se firma la hoja de permiso.'}
+                </span>
+              )}
+            </label>
+
+            {vacaciones && (
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-semibold text-gray-700">Hasta</span>
+                <input
+                  type="date"
+                  value={hasta}
+                  min={day || rango.min}
+                  max={day ? addDays(day, 29) : undefined}
+                  onChange={(e) => setHasta(e.target.value)}
+                  className="h-12 px-3 rounded-xl border border-gray-300 bg-gray-50 text-base"
+                />
+                <span className="text-[13px] text-gray-500">
+                  {day && hasta && hasta > day
+                    ? `${diasEntre(day, hasta)} días. Los días que ya tienes libres siguen libres.`
+                    : 'Último día de vacaciones. Si es un solo día, déjalo vacío.'}
+                </span>
+              </label>
             )}
 
             {tipo === 'cambio' && (
@@ -729,7 +784,10 @@ export default function Solicitudes({
                         (r.companera_status === 'por_preaprobar' || r.companera_status === 'elegir')
                       ? opcionesText(r)
                       : shiftText(r.mia ? r.turno_pedido : r.turno_companera || r.turno_actual);
-              const fecha = fechaText(r.fecha);
+              const fecha =
+                r.hasta && r.hasta > r.fecha
+                  ? `${rangoText(r.fecha, r.hasta)} (${diasEntre(r.fecha, r.hasta)} días)`
+                  : fechaText(r.fecha);
               return (
                 <li key={r.id} className="py-3 first:pt-0 last:pb-0 flex gap-3">
                   <div className="flex-1 min-w-0 flex flex-col gap-1.5">

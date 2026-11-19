@@ -23,6 +23,8 @@ interface Row {
   status: 'aprobada' | 'pendiente';
   motivo?: string;
   fecha: string;
+  /** Vacaciones de varios días: último día */
+  hasta?: string | null;
   turno_actual: string;
   turno_pedido: string;
   turno_companera?: string;
@@ -60,10 +62,10 @@ export function useRequestMarks(
       const { data, error } = await getSupabase()
         .from('shift_requests')
         .select(
-          'worker_id, companera_id, tipo, status, motivo, fecha, turno_actual, turno_pedido, turno_companera, turno_companera_antes, resolved_by_email, resolved_at'
+          'worker_id, companera_id, tipo, status, motivo, fecha, hasta, turno_actual, turno_pedido, turno_companera, turno_companera_antes, resolved_by_email, resolved_at'
         )
         .in('status', ['aprobada', 'pendiente'])
-        .gte('fecha', `${monthKey}-01`)
+        .or(`fecha.gte.${monthKey}-01,hasta.gte.${monthKey}-01`)
         .lte('fecha', `${monthKey}-${String(last).padStart(2, '0')}`)
         .order('resolved_at');
       // Sin la tabla (falta el SQL) no se marca nada
@@ -85,6 +87,21 @@ export function useRequestMarks(
         .slice(0, 2)
         .join(' ') ?? 'una compañera';
     const out: Record<string, RequestMark> = {};
+    // Vacaciones de varios días: una marca por cada día de este mes
+    const all = rows.flatMap((r) => {
+      if (!r.hasta || r.hasta <= r.fecha) return r.fecha.startsWith(monthKey) ? [r] : [];
+      const [y, m, d] = r.fecha.split('-').map(Number);
+      const days: Row[] = [];
+      for (let i = 0; i <= 60; i++) {
+        const x = new Date(y, m - 1, d + i);
+        const iso = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(
+          x.getDate()
+        ).padStart(2, '0')}`;
+        if (iso > r.hasta) break;
+        if (iso.startsWith(monthKey)) days.push({ ...r, fecha: iso });
+      }
+      return days;
+    });
     const put = (wid: string, day: number, final: string, mark: RequestMark) => {
       const special = specialDaysData[wid]?.[day];
       // Un día libre o permiso aprobado queda como Descanso (día especial): ese sí se marca
@@ -97,7 +114,7 @@ export function useRequestMarks(
       if ((now || 'DESC') !== (final || 'DESC')) return;
       out[`${wid}-${day}`] = mark;
     };
-    rows
+    all
       .filter((r) => r.status !== 'pendiente')
       .forEach((r) => {
         const day = Number(r.fecha.slice(8, 10)) - 1;
@@ -137,7 +154,7 @@ export function useRequestMarks(
         }
       });
     // Pendientes: solo donde no hay una aprobada vigente
-    rows
+    all
       .filter((r) => r.status === 'pendiente')
       .forEach((r) => {
         const day = Number(r.fecha.slice(8, 10)) - 1;
@@ -169,5 +186,5 @@ export function useRequestMarks(
           );
       });
     return out;
-  }, [rows, workers, shifts, scheduleData, specialDaysData]);
+  }, [rows, monthKey, workers, shifts, scheduleData, specialDaysData]);
 }
