@@ -89,7 +89,8 @@ export function useRequestMarks(
       const special = specialDaysData[wid]?.[day];
       // Un día libre o permiso aprobado queda como Descanso (día especial): ese sí se marca
       if (special) {
-        if (special === 'DESCANSO' && (final || 'DESC') === 'DESC') out[`${wid}-${day}`] = mark;
+        if ((special === 'DESCANSO' && (final || 'DESC') === 'DESC') || special === final)
+          out[`${wid}-${day}`] = mark;
         return;
       }
       const now = scheduleData[wid]?.[day] ?? '';
@@ -121,11 +122,15 @@ export function useRequestMarks(
         } else {
           put(r.worker_id, day, r.turno_pedido, {
             text:
-              r.tipo === 'libre'
-                ? 'Día libre pedido'
-                : r.tipo === 'permiso'
-                  ? 'Permiso pedido'
-                  : 'Turno pedido',
+              r.turno_pedido === 'CUMPLEANOS'
+                ? 'Cumpleaños pedido'
+                : r.turno_pedido === 'VACACIONES'
+                  ? 'Vacaciones pedidas'
+                  : r.tipo === 'libre'
+                    ? 'Día libre pedido'
+                    : r.tipo === 'permiso'
+                      ? 'Permiso pedido'
+                      : 'Turno pedido',
             antes: shiftText(r.turno_actual, shifts),
             aprobado,
           });
@@ -152,11 +157,15 @@ export function useRequestMarks(
         } else
           pend(
             r.worker_id,
-            r.tipo === 'libre'
-              ? 'Pidió día libre'
-              : r.tipo === 'permiso'
-                ? 'Pidió permiso'
-                : `Pidió cambiar a ${shiftText(r.turno_pedido, shifts)}`
+            r.tipo !== 'cambio' && r.turno_pedido === 'CUMPLEANOS'
+              ? 'Pidió su día de cumpleaños'
+              : r.tipo !== 'cambio' && r.turno_pedido === 'VACACIONES'
+                ? 'Pidió vacaciones'
+                : r.tipo === 'libre'
+                  ? 'Pidió día libre'
+                  : r.tipo === 'permiso'
+                    ? 'Pidió permiso'
+                    : `Pidió cambiar a ${shiftText(r.turno_pedido, shifts)}`
           );
       });
     return out;

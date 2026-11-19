@@ -50,6 +50,11 @@ const STATUS: Record<Request['status'], { label: string; cls: string }> = {
 const DOW = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
+// Cómo queda un día libre o permiso al aprobar
+type Dia = 'DESC' | 'CUMPLEANOS' | TipoAusencia;
+const ESPECIAL = ['CUMPLEANOS', 'VACACIONES'];
+const diaLabel = (d: Dia) => (d === 'CUMPLEANOS' ? 'Cumpleaños' : tipoLabel(d as TipoAusencia));
+
 const fmtHoras = (h: number) => (Math.round(h * 10) / 10).toString().replace('.', ',');
 
 function fechaText(iso: string) {
@@ -79,7 +84,7 @@ export default function SolicitudesContent() {
   // Turno que queda a cada una al aprobar (se puede ajustar antes de aprobar)
   // En un día libre con turno: cómo queda (descanso o permiso con/sin goce)
   const [chosen, setChosen] = useState<
-    Record<string, { turno?: string; comp?: string; dia?: 'DESC' | TipoAusencia }>
+    Record<string, { turno?: string; comp?: string; dia?: Dia }>
   >({});
 
   const load = useCallback(async () => {
@@ -150,14 +155,14 @@ export default function SolicitudesContent() {
     turno:
       chosen[r.id]?.turno ?? (r.tipo === 'libre' || r.tipo === 'permiso' ? 'DESC' : r.turno_pedido),
     comp: chosen[r.id]?.comp ?? (r.turno_actual || 'DESC'),
-    // Permiso: parte con lo que pidió ella (con o sin goce)
+    // Parte con lo que pidió ella (con o sin goce, cumpleaños, vacaciones)
     dia:
       chosen[r.id]?.dia ??
-      (r.tipo === 'permiso'
-        ? r.turno_pedido === 'PERMISO_SG'
-          ? 'PERMISO_SG'
-          : 'PERMISO_CG'
-        : 'DESC'),
+      (ESPECIAL.includes(r.turno_pedido) || r.turno_pedido === 'PERMISO_SG'
+        ? (r.turno_pedido as Dia)
+        : r.tipo === 'permiso'
+          ? 'PERMISO_CG'
+          : 'DESC'),
   });
 
   // Turno que tiene en la malla el día de la solicitud (si tiene uno de verdad)
@@ -236,16 +241,19 @@ export default function SolicitudesContent() {
     // Permiso: la malla mantiene el turno y después se marca el permiso,
     // que guarda el turno que tenía (igual que una licencia)
     const actual = turnoHoy(r);
-    const comoPermiso =
-      aprobar && r.tipo === 'permiso' && pick.turno === 'DESC' && pick.dia !== 'DESC' && !!actual;
+    const diaLibre =
+      aprobar && (r.tipo === 'libre' || r.tipo === 'permiso') && pick.turno === 'DESC';
+    // Vacaciones con turno: igual que un permiso (se puede imprimir la hoja)
+    const comoPermiso = diaLibre && pick.dia !== 'DESC' && pick.dia !== 'CUMPLEANOS' && !!actual;
+    // Cumpleaños (o vacaciones en un día sin turno): queda marcado así en la malla
+    const comoEspecial = diaLibre && !comoPermiso && ESPECIAL.includes(pick.dia);
     const nota = (notes[r.id] ?? '').trim();
     const { error } = await supabase.rpc('resolve_shift_request', {
       p_id: r.id,
       p_aprobar: aprobar,
-      p_respuesta: comoPermiso
-        ? `${tipoLabel(pick.dia as TipoAusencia)}.${nota ? ` ${nota}` : ''}`
-        : nota,
-      p_turno: aprobar ? (comoPermiso ? actual : pick.turno) : null,
+      p_respuesta:
+        comoPermiso || comoEspecial ? `${diaLabel(pick.dia)}.${nota ? ` ${nota}` : ''}` : nota,
+      p_turno: aprobar ? (comoPermiso ? actual : comoEspecial ? pick.dia : pick.turno) : null,
       p_turno_companera: aprobar && r.tipo === 'intercambio' ? pick.comp : null,
     });
     if (error) {
@@ -399,19 +407,24 @@ export default function SolicitudesContent() {
 
                 <div className="text-sm">
                   <span className="font-bold text-foreground">
-                    {r.tipo === 'libre'
-                      ? 'Día libre (próxima malla)'
-                      : r.tipo === 'permiso'
-                        ? r.status === 'pendiente'
-                          ? r.turno_pedido === 'PERMISO_SG'
-                            ? 'Permiso sin goce'
-                            : 'Permiso con goce'
-                          : 'Permiso'
-                        : r.tipo === 'cambio'
-                          ? 'Turno pedido'
-                          : comp
-                            ? `Cambio con ${comp.name}`
-                            : 'Cambio con compañera'}{' '}
+                    {ESPECIAL.includes(r.turno_pedido) &&
+                    (r.tipo === 'libre' || r.tipo === 'permiso')
+                      ? `${r.turno_pedido === 'CUMPLEANOS' ? 'Cumpleaños' : 'Vacaciones'}${
+                          r.tipo === 'libre' ? ' (próxima malla)' : ''
+                        }`
+                      : r.tipo === 'libre'
+                        ? 'Día libre (próxima malla)'
+                        : r.tipo === 'permiso'
+                          ? r.status === 'pendiente'
+                            ? r.turno_pedido === 'PERMISO_SG'
+                              ? 'Permiso sin goce'
+                              : 'Permiso con goce'
+                            : 'Permiso'
+                          : r.tipo === 'cambio'
+                            ? 'Turno pedido'
+                            : comp
+                              ? `Cambio con ${comp.name}`
+                              : 'Cambio con compañera'}{' '}
                     · {fechaText(r.fecha)}
                   </span>
                   <p className="text-muted-foreground">
@@ -483,44 +496,53 @@ export default function SolicitudesContent() {
                     {pickRow(w, r.worker_id, pick.turno, r.turno_actual, (v) =>
                       setChosen((c) => ({ ...c, [r.id]: { ...c[r.id], turno: v } }))
                     )}
-                    {r.tipo === 'permiso' && pick.turno === 'DESC' && turnoHoy(r) && (
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-xs text-muted-foreground">
-                          Ese día tiene turno. ¿Cómo queda?
-                        </span>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {(
-                            [
-                              ['PERMISO_CG', 'Permiso con goce'],
-                              ['PERMISO_SG', 'Permiso sin goce'],
-                              ['DESC', 'Descanso'],
-                            ] as const
-                          ).map(([code, label]) => (
-                            <button
-                              key={code}
-                              type="button"
-                              onClick={() =>
-                                setChosen((c) => ({ ...c, [r.id]: { ...c[r.id], dia: code } }))
-                              }
-                              aria-pressed={pick.dia === code}
-                              className={`px-2 py-2 rounded-xl border text-xs font-semibold ${
-                                pick.dia === code
-                                  ? 'border-secondary bg-secondary text-white'
-                                  : 'border-border text-muted-foreground hover:bg-muted/50'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                        {pick.dia !== 'DESC' && (
+                    {pick.turno === 'DESC' &&
+                      ((r.tipo === 'permiso' && turnoHoy(r)) ||
+                        ((r.tipo === 'libre' || r.tipo === 'permiso') &&
+                          ESPECIAL.includes(r.turno_pedido))) && (
+                        <div className="flex flex-col gap-1.5">
                           <span className="text-xs text-muted-foreground">
-                            Se guarda el turno que tenía y después puedes imprimir la hoja para
-                            firmar.
+                            {turnoHoy(r) ? 'Ese día tiene turno. ¿Cómo queda?' : '¿Cómo queda?'}
                           </span>
-                        )}
-                      </div>
-                    )}
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {(
+                              [
+                                ...(r.tipo === 'permiso' && turnoHoy(r)
+                                  ? ([
+                                      ['PERMISO_CG', 'Permiso con goce'],
+                                      ['PERMISO_SG', 'Permiso sin goce'],
+                                    ] as const)
+                                  : []),
+                                ['CUMPLEANOS', 'Cumpleaños'],
+                                ['VACACIONES', 'Vacaciones'],
+                                ['DESC', 'Descanso'],
+                              ] as const
+                            ).map(([code, label]) => (
+                              <button
+                                key={code}
+                                type="button"
+                                onClick={() =>
+                                  setChosen((c) => ({ ...c, [r.id]: { ...c[r.id], dia: code } }))
+                                }
+                                aria-pressed={pick.dia === code}
+                                className={`px-2 py-2 rounded-xl border text-xs font-semibold ${
+                                  pick.dia === code
+                                    ? 'border-secondary bg-secondary text-white'
+                                    : 'border-border text-muted-foreground hover:bg-muted/50'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                          {pick.dia !== 'DESC' && pick.dia !== 'CUMPLEANOS' && turnoHoy(r) && (
+                            <span className="text-xs text-muted-foreground">
+                              Se guarda el turno que tenía y después puedes imprimir la hoja para
+                              firmar.
+                            </span>
+                          )}
+                        </div>
+                      )}
                     {r.tipo === 'intercambio' &&
                       r.companera_id &&
                       pickRow(comp, r.companera_id, pick.comp, r.turno_pedido, (v) =>

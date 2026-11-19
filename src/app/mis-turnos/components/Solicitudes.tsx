@@ -15,10 +15,30 @@ import { EVENTO_CAMBIO } from '@/lib/misTurnosVivo';
 
 // Solicitudes de la trabajadora: pedir un día libre o un cambio de turno, y ver cómo van.
 // El día libre es de dos tipos: «libre» (para la malla del mes siguiente) o «permiso»
-// (un día del mes en curso, con o sin goce).
+// (un día del mes en curso, con o sin goce). En los dos puede marcar cumpleaños o vacaciones.
 
 type Tipo = 'libre' | 'permiso' | 'cambio' | 'intercambio';
-type Goce = 'PERMISO_CG' | 'PERMISO_SG';
+/** Motivo del día: '' = descanso (solo día libre) */
+type Motivo = '' | 'PERMISO_CG' | 'PERMISO_SG' | 'CUMPLEANOS' | 'VACACIONES';
+
+// Motivos que se pueden marcar en cada tipo
+const MOTIVOS: Record<'libre' | 'permiso', readonly (readonly [Motivo, string])[]> = {
+  libre: [
+    ['', 'Descanso'],
+    ['CUMPLEANOS', 'Cumpleaños'],
+    ['VACACIONES', 'Vacaciones'],
+  ],
+  permiso: [
+    ['PERMISO_CG', 'Con goce de sueldo'],
+    ['PERMISO_SG', 'Sin goce de sueldo'],
+    ['CUMPLEANOS', 'Cumpleaños'],
+    ['VACACIONES', 'Vacaciones'],
+  ],
+};
+
+// Al pasar de día libre a permiso (o al revés) se mantiene el motivo si existe en los dos
+const motivoPara = (t: Tipo, m: Motivo): Motivo =>
+  m === 'CUMPLEANOS' || m === 'VACACIONES' ? m : t === 'permiso' ? 'PERMISO_CG' : '';
 
 interface Request {
   id: string;
@@ -148,8 +168,8 @@ export default function Solicitudes({
   // Con compañera: puede marcar varios turnos que le sirven
   const [turnos, setTurnos] = useState<string[]>([]);
   const [motivo, setMotivo] = useState('');
-  // Permiso: lo pide con goce o sin goce
-  const [goce, setGoce] = useState<Goce>('PERMISO_CG');
+  // Día libre o permiso: el motivo (con o sin goce, cumpleaños, vacaciones)
+  const [goce, setGoce] = useState<Motivo>('PERMISO_CG');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState('');
@@ -279,8 +299,9 @@ export default function Solicitudes({
     const dia = fecha && fecha >= min ? fecha : '';
     setDay(dia);
     // Si tocó un día de este mes, parte como permiso; si no, día libre del mes siguiente
-    setTipo(dia && dia <= mesActual.max ? 'permiso' : 'libre');
-    setGoce('PERMISO_CG');
+    const t: Tipo = dia && dia <= mesActual.max ? 'permiso' : 'libre';
+    setTipo(t);
+    setGoce(t === 'permiso' ? 'PERMISO_CG' : '');
     setTurno('');
     setTurnos([]);
     setMotivo('');
@@ -315,7 +336,7 @@ export default function Solicitudes({
         p_fecha: day,
         p_turno:
           tipo === 'libre'
-            ? null
+            ? goce || null
             : tipo === 'permiso'
               ? goce
               : tipo === 'intercambio'
@@ -384,21 +405,25 @@ export default function Solicitudes({
   };
 
   const title = (r: Request) =>
-    r.tipo === 'libre'
+    r.tipo === 'libre' && !['CUMPLEANOS', 'VACACIONES'].includes(r.turno_pedido)
       ? 'Día libre'
-      : r.tipo === 'permiso'
-        ? r.status === 'pendiente' && r.turno_pedido === 'PERMISO_SG'
-          ? 'Permiso sin goce'
-          : r.status === 'pendiente' && r.turno_pedido === 'PERMISO_CG'
-            ? 'Permiso con goce'
-            : 'Permiso'
-        : r.tipo === 'cambio'
-          ? 'Cambio de turno'
-          : r.mia
-            ? r.otra
-              ? `Cambio con ${r.otra}`
-              : 'Cambio con compañera'
-            : `${r.otra ?? 'Una compañera'} te pide cambiar`;
+      : r.turno_pedido === 'CUMPLEANOS'
+        ? 'Cumpleaños'
+        : r.turno_pedido === 'VACACIONES'
+          ? 'Vacaciones'
+          : r.tipo === 'permiso'
+            ? r.status === 'pendiente' && r.turno_pedido === 'PERMISO_SG'
+              ? 'Permiso sin goce'
+              : r.status === 'pendiente' && r.turno_pedido === 'PERMISO_CG'
+                ? 'Permiso con goce'
+                : 'Permiso'
+            : r.tipo === 'cambio'
+              ? 'Cambio de turno'
+              : r.mia
+                ? r.otra
+                  ? `Cambio con ${r.otra}`
+                  : 'Cambio con compañera'
+                : `${r.otra ?? 'Una compañera'} te pide cambiar`;
 
   // Estado que ve ella en un cambio con compañera: pre aprobación, elegir, que acepte la compañera
   const statusOf = (r: Request) => {
@@ -459,6 +484,7 @@ export default function Solicitudes({
                     const t: Tipo =
                       key === 'libre' && day && !fueraDeRango('permiso', day) ? 'permiso' : key;
                     setTipo(t);
+                    setGoce((g) => motivoPara(t, g));
                     if (day && fueraDeRango(t, day)) setDay('');
                   }}
                   aria-pressed={
@@ -490,6 +516,7 @@ export default function Solicitudes({
                       type="button"
                       onClick={() => {
                         setTipo(key);
+                        setGoce((g) => motivoPara(key, g));
                         if (day && fueraDeRango(key, day)) setDay('');
                       }}
                       aria-pressed={tipo === key}
@@ -525,37 +552,48 @@ export default function Solicitudes({
               )}
               {tipo === 'libre' && (
                 <span className="text-[13px] text-gray-500">
-                  Elige un día de {mes.name}. Si lo aprueban, queda libre en la malla de {mes.name}.
+                  Elige un día de {mes.name}. Si lo aprueban, queda{' '}
+                  {goce === 'CUMPLEANOS'
+                    ? 'como cumpleaños'
+                    : goce === 'VACACIONES'
+                      ? 'como vacaciones'
+                      : 'libre'}{' '}
+                  en la malla de {mes.name}.
                 </span>
               )}
               {tipo === 'permiso' && (
                 <span className="text-[13px] text-gray-500">
-                  Elige un día de {mesActual.name}. Si lo aprueban, queda como permiso y se firma la
-                  hoja de permiso.
+                  Elige un día de {mesActual.name}. Si lo aprueban,{' '}
+                  {goce === 'CUMPLEANOS'
+                    ? 'queda como cumpleaños.'
+                    : goce === 'VACACIONES'
+                      ? 'queda como vacaciones y se firma la hoja.'
+                      : 'queda como permiso y se firma la hoja de permiso.'}
                 </span>
               )}
             </label>
 
-            {tipo === 'permiso' && (
+            {(tipo === 'libre' || tipo === 'permiso') && (
               <div className="flex flex-col gap-1.5">
-                <span className="text-sm font-semibold text-gray-700">Permiso</span>
-                <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl">
-                  {(
-                    [
-                      ['PERMISO_CG', 'Con goce'],
-                      ['PERMISO_SG', 'Sin goce'],
-                    ] as const
-                  ).map(([key, label]) => (
+                <span className="text-sm font-semibold text-gray-700">
+                  {tipo === 'libre' ? 'Tipo de día libre' : 'Tipo de permiso'}
+                </span>
+                <div
+                  className={`grid ${
+                    tipo === 'libre' ? 'grid-cols-3' : 'grid-cols-2'
+                  } gap-1 bg-gray-100 p-1 rounded-xl`}
+                >
+                  {MOTIVOS[tipo].map(([key, label]) => (
                     <button
-                      key={key}
+                      key={key || 'DESC'}
                       type="button"
                       onClick={() => setGoce(key)}
                       aria-pressed={goce === key}
-                      className={`py-2.5 rounded-lg text-[13px] font-bold ${
+                      className={`py-2.5 px-1 rounded-lg text-[13px] leading-tight font-bold ${
                         goce === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                       }`}
                     >
-                      {label} de sueldo
+                      {label}
                     </button>
                   ))}
                 </div>
