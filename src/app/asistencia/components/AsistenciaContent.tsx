@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getSupabase } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/supabase/fetchAll';
-import { useAppContext } from '@/context/AppContext';
+import { useAppContext, getChileanHolidays } from '@/context/AppContext';
 import {
   getDatesInRange,
   getTodayStr,
@@ -1295,48 +1295,10 @@ export default function AsistenciaContent() {
     setTimeout(() => setSaveNotice(null), 4000);
   }
 
-  // Chilean public holidays (fixed + moveable approximations)
+  // Feriados de Chile: misma regla que la malla (feriados que se corren, Pueblos Indígenas, etc.)
   function isChileanHoliday(dateStr: string): boolean {
     const [year, month, day] = dateStr.split('-').map(Number);
-    const fixed: [number, number][] = [
-      [1, 1],
-      [5, 1],
-      [5, 21],
-      [6, 29],
-      [7, 16],
-      [8, 15],
-      [9, 18],
-      [9, 19],
-      [10, 12],
-      [10, 31],
-      [11, 1],
-      [11, 2],
-      [12, 8],
-      [12, 25],
-    ];
-    if (fixed.some(([m, d]) => m === month && d === day)) return true;
-    const a = year % 19;
-    const b = Math.floor(year / 100);
-    const c = year % 100;
-    const d2 = Math.floor(b / 4);
-    const e = b % 4;
-    const f = Math.floor((b + 8) / 25);
-    const g = Math.floor((b - f + 1) / 3);
-    const h = (19 * a + b - d2 - g + 15) % 30;
-    const i = Math.floor(c / 4);
-    const k = c % 4;
-    const l = (32 + 2 * e + 2 * i - h - k) % 7;
-    const m2 = Math.floor((a + 11 * h + 22 * l) / 451);
-    const easterMonth = Math.floor((h + l - 7 * m2 + 114) / 31);
-    const easterDay = ((h + l - 7 * m2 + 114) % 31) + 1;
-    const easter = new Date(year, easterMonth - 1, easterDay);
-    const goodFriday = new Date(easter);
-    goodFriday.setDate(easter.getDate() - 2);
-    const holySaturday = new Date(easter);
-    holySaturday.setDate(easter.getDate() - 1);
-    if (goodFriday.getMonth() + 1 === month && goodFriday.getDate() === day) return true;
-    if (holySaturday.getMonth() + 1 === month && holySaturday.getDate() === day) return true;
-    return false;
+    return getChileanHolidays(month - 1, year).includes(day - 1);
   }
 
   // Export to Excel — polished professional layout using ExcelJS
