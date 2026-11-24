@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapPin, Layers, ChevronDown, ArrowRight } from 'lucide-react';
+import { MapPin, Layers, ChevronDown, ArrowRight, Briefcase } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import AppImage from '@/components/ui/AppImage';
 
@@ -25,13 +25,15 @@ const BRANCH_LOGOS = [
 const AREA_POR_DEFECTO = 'Cajas';
 
 interface BranchSelectorModalProps {
-  onConfirm: (sucursal: string, area: string) => void;
+  onConfirm: (sucursal: string, area: string, cargo: string) => void;
 }
 
 export default function BranchSelectorModal({ onConfirm }: BranchSelectorModalProps) {
-  const { sucursales, areasDeSucursales, globalSucursal, globalArea } = useAppContext();
+  const { sucursales, areasDeSucursales, cargosDeArea, globalSucursal, globalArea, globalCargo } =
+    useAppContext();
   const [selectedSucursal, setSelectedSucursal] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
+  const [selectedCargo, setSelectedCargo] = useState('Todos');
   const [mounted, setMounted] = useState(false);
 
   // Solo las áreas que hay en la sucursal elegida
@@ -61,10 +63,25 @@ export default function BranchSelectorModal({ onConfirm }: BranchSelectorModalPr
     });
   }, [areas, globalArea]);
 
+  // Solo los cargos del área elegida
+  const cargos = useMemo(
+    () => (selectedArea ? cargosDeArea(selectedArea) : []),
+    [cargosDeArea, selectedArea]
+  );
+
+  // Parte en el cargo que ya estaba elegido; si no es del área, en «Todos»
+  useEffect(() => {
+    setSelectedCargo((prev) => {
+      if (cargos.includes(prev)) return prev;
+      if (cargos.includes(globalCargo)) return globalCargo;
+      return 'Todos';
+    });
+  }, [cargos, globalCargo]);
+
   const canConfirm = selectedSucursal !== '' && selectedArea !== '';
 
   const handleConfirm = () => {
-    if (canConfirm) onConfirm(selectedSucursal, selectedArea);
+    if (canConfirm) onConfirm(selectedSucursal, selectedArea, selectedCargo);
   };
 
   if (!mounted) return null;
@@ -98,7 +115,9 @@ export default function BranchSelectorModal({ onConfirm }: BranchSelectorModalPr
             ))}
           </div>
           <h2 className="text-xl font-bold text-white mb-1">Selecciona tu sucursal</h2>
-          <p className="text-sm text-white/50">Elige la sucursal y área para continuar</p>
+          <p className="text-sm text-white/50">
+            Elige la sucursal, el área y el cargo para continuar
+          </p>
         </div>
 
         {/* Body */}
@@ -134,24 +153,65 @@ export default function BranchSelectorModal({ onConfirm }: BranchSelectorModalPr
               <Layers size={12} />
               Área
             </label>
-            <div className="relative">
-              <select
-                value={selectedArea}
-                onChange={(e) => setSelectedArea(e.target.value)}
-                className="w-full pl-4 pr-10 py-3 bg-muted/60 border border-border rounded-xl text-sm font-semibold text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer transition-colors hover:bg-muted"
-              >
-                {areas.map((a) => (
-                  <option key={a} value={a}>
+            {/* Las áreas van como botones a la vista: se elige con un toque, sin abrir una lista */}
+            <div role="radiogroup" aria-label="Área" className="grid grid-cols-2 gap-2">
+              {areas.map((a) => {
+                const activa = a === selectedArea;
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    role="radio"
+                    aria-checked={activa}
+                    onClick={() => setSelectedArea(a)}
+                    className={`px-3 py-3 rounded-xl border text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+                      activa
+                        ? 'bg-secondary text-white border-secondary'
+                        : 'bg-muted/60 text-foreground border-border hover:bg-muted'
+                    }`}
+                  >
                     {a}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={14}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-              />
+                  </button>
+                );
+              })}
             </div>
+            {areas.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No tienes áreas disponibles en esta sucursal.
+              </p>
+            )}
           </div>
+
+          {/* Cargo */}
+          {cargos.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-semibold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
+                <Briefcase size={12} />
+                Cargo
+              </label>
+              <div role="radiogroup" aria-label="Cargo" className="grid grid-cols-2 gap-2">
+                {['Todos', ...cargos].map((c) => {
+                  const activo = c === selectedCargo;
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      role="radio"
+                      aria-checked={activo}
+                      onClick={() => setSelectedCargo(c)}
+                      className={`px-3 py-3 rounded-xl border text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+                        activo
+                          ? 'bg-secondary text-white border-secondary'
+                          : 'bg-muted/60 text-foreground border-border hover:bg-muted'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Confirm button */}
           <button

@@ -891,6 +891,7 @@ export default function VistaPreviaContent() {
     getAllNonWorkingTypes,
     globalSucursal,
     globalArea,
+    globalCargo,
     ensureMonths,
   } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
@@ -901,7 +902,13 @@ export default function VistaPreviaContent() {
   const [selectedAreas, setSelectedAreas] = useState<string[]>(
     globalArea && globalArea !== 'Todas' ? [globalArea] : []
   );
-  const [selectedCargos, setSelectedCargos] = useState<string[]>([]);
+  // Parte en el cargo elegido al ingresar ([] = todos)
+  const [selectedCargos, setSelectedCargos] = useState<string[]>(
+    globalCargo && globalCargo !== 'Todos' ? [globalCargo] : []
+  );
+  React.useEffect(() => {
+    setSelectedCargos(globalCargo && globalCargo !== 'Todos' ? [globalCargo] : []);
+  }, [globalCargo]);
   const [selectedSucursales, setSelectedSucursales] = useState<string[]>(
     globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []
   );

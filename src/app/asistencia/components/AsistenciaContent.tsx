@@ -275,6 +275,7 @@ export default function AsistenciaContent() {
     specialDays,
     globalSucursal,
     globalArea,
+    globalCargo,
     getLicenciaTurno,
     isMonthLoaded,
   } = useAppContext();
@@ -286,7 +287,13 @@ export default function AsistenciaContent() {
   const [endDate, setEndDate] = useState<string>(defaultEnd);
   const [filterSucursal, setFilterSucursal] = useState<string[]>([]);
   const [filterArea, setFilterArea] = useState('Todas');
-  const [filterCargo, setFilterCargo] = useState<string[]>([]);
+  // Parte en el cargo elegido al ingresar ([] = todos)
+  const [filterCargo, setFilterCargo] = useState<string[]>(
+    globalCargo && globalCargo !== 'Todos' ? [globalCargo] : []
+  );
+  React.useEffect(() => {
+    setFilterCargo(globalCargo && globalCargo !== 'Todos' ? [globalCargo] : []);
+  }, [globalCargo]);
   const [filterTurno, setFilterTurno] = useState<'Todos' | 'AM' | 'Tarde'>('Todos');
   const [filterTurnoEspecifico, setFilterTurnoEspecifico] = useState<string>('Todos');
   const [selectedDate, setSelectedDate] = useState<string>('');

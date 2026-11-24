@@ -83,6 +83,7 @@ export default function MallaContent() {
     getSucursalCajas,
     globalSucursal,
     globalArea,
+    globalCargo,
     isMonthLoaded,
   } = useAppContext();
   // Mientras llega la malla de un mes no se muestra (para no editar sobre algo vacío)
@@ -98,7 +99,13 @@ export default function MallaContent() {
     globalSucursal && globalSucursal !== 'Todas' ? [globalSucursal] : []
   );
   const [selectedTurno, setSelectedTurno] = useState('Todos');
-  const [selectedCargos, setSelectedCargos] = useState<string[]>([]);
+  // Parte en el cargo elegido al ingresar ([] = todos)
+  const [selectedCargos, setSelectedCargos] = useState<string[]>(
+    globalCargo && globalCargo !== 'Todos' ? [globalCargo] : []
+  );
+  React.useEffect(() => {
+    setSelectedCargos(globalCargo && globalCargo !== 'Todos' ? [globalCargo] : []);
+  }, [globalCargo]);
   const [selectedPasillos, setSelectedPasillos] = useState<string[]>([]);
   const [selectedBodegas, setSelectedBodegas] = useState<string[]>([]);
   const [selectedHoras, setSelectedHoras] = useState<string[]>([]);
