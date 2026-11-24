@@ -134,23 +134,33 @@ export default function BranchSelectorModal({ onConfirm }: BranchSelectorModalPr
               <Layers size={12} />
               Área
             </label>
-            <div className="relative">
-              <select
-                value={selectedArea}
-                onChange={(e) => setSelectedArea(e.target.value)}
-                className="w-full pl-4 pr-10 py-3 bg-muted/60 border border-border rounded-xl text-sm font-semibold text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer transition-colors hover:bg-muted"
-              >
-                {areas.map((a) => (
-                  <option key={a} value={a}>
+            {/* Las áreas van como botones a la vista: se elige con un toque, sin abrir una lista */}
+            <div role="radiogroup" aria-label="Área" className="grid grid-cols-2 gap-2">
+              {areas.map((a) => {
+                const activa = a === selectedArea;
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    role="radio"
+                    aria-checked={activa}
+                    onClick={() => setSelectedArea(a)}
+                    className={`px-3 py-3 rounded-xl border text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+                      activa
+                        ? 'bg-secondary text-white border-secondary'
+                        : 'bg-muted/60 text-foreground border-border hover:bg-muted'
+                    }`}
+                  >
                     {a}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={14}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-              />
+                  </button>
+                );
+              })}
             </div>
+            {areas.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No tienes áreas disponibles en esta sucursal.
+              </p>
+            )}
           </div>
 
           {/* Confirm button */}
