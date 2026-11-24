@@ -592,6 +592,11 @@ interface AppContextValue {
   setGlobalSucursal: (s: string) => void;
   globalArea: string;
   setGlobalArea: (a: string) => void;
+  /** Cargo elegido al ingresar ('Todos' = todos los cargos del área) */
+  globalCargo: string;
+  setGlobalCargo: (c: string) => void;
+  /** Cargos que esta persona puede ver en un área */
+  cargosDeArea: (area: string) => string[];
   customNonWorkingTypes: NonWorkingType[];
   loading: boolean;
   setSelectedMes: (mes: string) => void;
@@ -928,6 +933,7 @@ function loadSelectedMes(): string {
 // cada vez que se abre la app.
 const SUCURSAL_KEY = 'dyl_sucursal';
 const AREA_KEY = 'dyl_area';
+const CARGO_KEY = 'dyl_cargo';
 
 function loadSaved(key: string): string {
   if (typeof window === 'undefined') return 'Todas';
@@ -979,6 +985,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setGlobalArea = useCallback((a: string) => {
     setGlobalAreaState(a);
     saveChoice(AREA_KEY, a);
+  }, []);
+  const [globalCargo, setGlobalCargoState] = useState<string>(() => {
+    const c = loadSaved(CARGO_KEY);
+    return c === 'Todas' ? 'Todos' : c;
+  });
+  const setGlobalCargo = useCallback((c: string) => {
+    setGlobalCargoState(c);
+    saveChoice(CARGO_KEY, c === 'Todos' ? 'Todas' : c);
   }, []);
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [specialDays, setSpecialDaysState] = useState<SpecialDaysData>({});
@@ -1063,6 +1077,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }),
     [visibleAreas, areaSucursales]
   );
+
+  // Cargos del área (los configurados y los que tiene el personal), solo los que esta persona ve
+  const cargosDeArea = useCallback(
+    (area: string) => {
+      const set = new Set<string>(areaCargos[area] || []);
+      workers.forEach((w) => {
+        if (w.area === area && w.cargo) set.add(w.cargo);
+      });
+      return [...set]
+        .filter((c) => !allowedCargos || allowedCargos.includes(c))
+        .sort((a, b) => a.localeCompare(b, 'es'));
+    },
+    [areaCargos, workers, allowedCargos]
+  );
+
+  // El cargo guardado se usa solo si sigue existiendo en el área elegida
+  useEffect(() => {
+    if (loading || globalCargo === 'Todos') return;
+    if (globalArea === 'Todas' || !cargosDeArea(globalArea).includes(globalCargo))
+      setGlobalCargo('Todos');
+  }, [loading, globalArea, globalCargo, cargosDeArea, setGlobalCargo]);
 
   // La sucursal y el área guardadas en el dispositivo se usan solo si esta persona todavía
   // puede verlas (pudieron borrarse o cambiarle los permisos); si no, se vuelven a pedir.
@@ -2451,6 +2486,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setGlobalSucursal,
         globalArea,
         setGlobalArea,
+        globalCargo,
+        setGlobalCargo,
+        cargosDeArea,
         customNonWorkingTypes,
         loading,
         addWorker,

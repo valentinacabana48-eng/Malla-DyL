@@ -13,8 +13,16 @@ import AddWorkerPanel from './AddWorkerPanel';
 import BulkPinPanel from './BulkPinPanel';
 
 export default function PersonalContent() {
-  const { workers, addWorker, updateWorker, deleteWorker, sucursales, globalSucursal, globalArea } =
-    useAppContext();
+  const {
+    workers,
+    addWorker,
+    updateWorker,
+    deleteWorker,
+    sucursales,
+    globalSucursal,
+    globalArea,
+    globalCargo,
+  } = useAppContext();
   const isReadonly = useReadonly('personal');
   // [] = todas / todos
   // Parte con la sucursal y el área elegidas arriba (como Malla y Vista previa)
@@ -31,7 +39,13 @@ export default function PersonalContent() {
     setFilterAreas(globalArea && globalArea !== 'Todas' ? [globalArea] : []);
   }, [globalArea]);
   const [filterEstado, setFilterEstado] = useState('Activos');
-  const [filterCargos, setFilterCargos] = useState<string[]>([]);
+  // Parte en el cargo elegido al ingresar ([] = todos)
+  const [filterCargos, setFilterCargos] = useState<string[]>(
+    globalCargo && globalCargo !== 'Todos' ? [globalCargo] : []
+  );
+  React.useEffect(() => {
+    setFilterCargos(globalCargo && globalCargo !== 'Todos' ? [globalCargo] : []);
+  }, [globalCargo]);
   const [filterHoras, setFilterHoras] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
