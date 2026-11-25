@@ -18,6 +18,8 @@ import {
   calcNetHours,
   MESES,
   monthLabelToKey,
+  fechaDeDia,
+  horaFijaColacion,
 } from '@/context/AppContext';
 import MultiSelect from '@/components/ui/MultiSelect';
 import { useAuth } from '@/context/AuthContext';
@@ -203,6 +205,8 @@ interface WorkerShiftRow {
   start: string;
   end: string;
   colacion: number;
+  /** Hora fija de colación del área para su turno principal */
+  colacionHora?: string;
 }
 
 interface GroupedListPrintProps {
@@ -225,6 +229,7 @@ function GroupedListPrint({
   areas,
   cargos,
 }: GroupedListPrintProps) {
+  const { areaColacionHoras } = useAppContext();
   const monthKey = monthLabelToKey(monthLabel);
   const monthParts = monthLabel.split(' ');
   const monthName = monthParts[0] || '';
@@ -271,6 +276,9 @@ function GroupedListPrint({
       start: primary.shift?.start || '—',
       end: primary.shift?.end || '—',
       colacion: primary.shift?.colacion || 0,
+      colacionHora: primary.shift
+        ? horaFijaColacion(areaColacionHoras, w.area, w.sucursal, primary.shift.code)
+        : undefined,
     };
   });
 
@@ -373,7 +381,9 @@ function GroupedListPrint({
                 {row.end !== '—' ? row.end : ''}
               </td>
               <td className="border border-gray-300 px-2 py-1 text-center text-gray-700">
-                {row.colacion > 0 ? `${row.colacion} min` : '0'}
+                {row.colacion > 0
+                  ? `${row.colacionHora ? `${row.colacionHora} · ` : ''}${row.colacion} min`
+                  : '0'}
               </td>
             </tr>
           ))}
@@ -415,6 +425,11 @@ function MallaDocument({
     () => computeSummary(monthLabel, schedule, specialDaysMap, shifts),
     [monthLabel, schedule, specialDaysMap, shifts]
   );
+  const { getColacionHora } = useAppContext();
+  const docMonthKey = monthLabelToKey(monthLabel);
+  /** Hora de colación de ese día ("13:00") o null */
+  const colacionDe = (idx: number, code: string | null) =>
+    getColacionHora(worker, fechaDeDia(docMonthKey, idx), code ?? undefined)?.hora ?? null;
   const monthParts = monthLabel.split(' ');
   const monthName = monthParts[0] || 'Julio';
   const monthYear = monthParts[1] || '2026';
@@ -521,6 +536,7 @@ function MallaDocument({
                   const specialDayCode = specialDaysMap[idx];
                   const shiftInfo =
                     code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
+                  const colHora = shiftInfo ? colacionDe(idx, code) : null;
                   const isSunday = ci === 6;
 
                   let cellLabel: string | null = null;
@@ -555,7 +571,9 @@ function MallaDocument({
                           {shiftInfo.colacion > 0 && (
                             <span className="text-[8px] font-semibold text-amber-700 text-center leading-tight flex items-center gap-0.5 mt-0.5">
                               <Coffee size={7} className="text-amber-700 flex-shrink-0" />
-                              {shiftInfo.colacion}m
+                              {colHora
+                                ? `${colHora} · ${shiftInfo.colacion}m`
+                                : `${shiftInfo.colacion}m`}
                             </span>
                           )}
                         </>
@@ -721,6 +739,7 @@ function MallaDocument({
                 const code = schedule[idx] ?? null;
                 const specialDayCode = specialDaysMap[idx];
                 const shiftInfo = code && code !== 'DESC' && !specialDayCode ? shifts[code] : null;
+                const colHora = shiftInfo ? colacionDe(idx, code) : null;
                 const isSunday = ci === 6;
 
                 let cellLabel: string | null = null;
@@ -755,7 +774,9 @@ function MallaDocument({
                         {shiftInfo.colacion > 0 && (
                           <span className="text-[8px] font-semibold text-amber-700 text-center leading-tight flex items-center gap-0.5 mt-0.5">
                             <Coffee size={7} className="text-amber-700 flex-shrink-0" />
-                            {shiftInfo.colacion}m
+                            {colHora
+                              ? `${colHora} · ${shiftInfo.colacion}m`
+                              : `${shiftInfo.colacion}m`}
                           </span>
                         )}
                       </>

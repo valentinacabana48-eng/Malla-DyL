@@ -14,9 +14,11 @@ import {
   timeToMinutes,
   shiftKind,
   SHIFT_KIND_COLORS,
+  fechaDeDia,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
 import CoberturaHoras from './CoberturaHoras';
+import ColacionHoraPicker from '@/components/ColacionHoraPicker';
 
 /** Línea bajo el nombre: solicitud aprobada (azul) o sin responder (ámbar) */
 function MarkLine({ mark }: { mark?: RequestMark }) {
@@ -89,12 +91,17 @@ export default function MallaMobile({
   onSpecialDayChange,
   requestMarks = {},
 }: MallaMobileProps) {
-  const { getAllNonWorkingTypes } = useAppContext();
+  const { getAllNonWorkingTypes, getColacionHora } = useAppContext();
   const nonWorkingTypes = getAllNonWorkingTypes();
   const isReadonly = useReadonly();
   const canEdit = !isLocked && !isReadonly;
 
-  const [year, month] = monthLabelToKey(monthLabel).split('-').map(Number);
+  const monthKey = monthLabelToKey(monthLabel);
+  const [year, month] = monthKey.split('-').map(Number);
+  /** Hora de colación de esa persona ese día ("13:00") o null */
+  const colHora = (w: Worker, di: number) =>
+    getColacionHora(w, fechaDeDia(monthKey, di), scheduleData[w.id]?.[di] ?? undefined)?.hora ??
+    null;
 
   const [view, setView] = useState<'dia' | 'persona'>('dia');
   const [dayIndex, setDayIndex] = useState(0);
@@ -203,7 +210,7 @@ export default function MallaMobile({
   const rowClass =
     'w-full flex items-center gap-3 px-4 py-3 min-h-[56px] text-left border-b border-border/60 last:border-b-0';
 
-  const cellBadge = (cell: Cell) => {
+  const cellBadge = (cell: Cell, hora?: string | null) => {
     if (cell.kind === 'special')
       return (
         <span className={`text-sm font-semibold rounded-lg px-2 py-1 ${cell.colorClass}`}>
@@ -216,6 +223,7 @@ export default function MallaMobile({
           className={`text-sm font-semibold rounded-lg px-2 py-1 ${cell.shift?.colorClass ?? ''}`}
         >
           {cell.shift?.start ? shiftTime(cell.shift) : cell.shift?.label || cell.code}
+          {hora && <span className="block text-xs font-medium opacity-80">Colación {hora}</span>}
         </span>
       );
     return <span className="text-sm text-muted-foreground">Sin turno</span>;
@@ -308,6 +316,7 @@ export default function MallaMobile({
               <div className="bg-card rounded-2xl border border-border overflow-hidden">
                 {dayGroups.working.map(({ worker: w, shift }) => {
                   const kind = shift ? shiftKind(shift.start, shift.end) : null;
+                  const hora = colHora(w, dayIndex);
                   return (
                     <button
                       key={w.id}
@@ -334,6 +343,9 @@ export default function MallaMobile({
                           {w.pasillo ? ` · ${pasilloLabel(w.pasillo)}` : ''}
                           {w.bodega ? ` · ${bodegaLabel(w.bodega)}` : ''}
                         </p>
+                        {hora && (
+                          <p className="text-sm font-semibold text-amber-700">☕ Colación {hora}</p>
+                        )}
                         <MarkLine mark={requestMarks[`${w.id}-${dayIndex}`]} />
                       </div>
                     </button>
@@ -426,7 +438,13 @@ export default function MallaMobile({
                         <p className="text-xs font-semibold text-red-600">Feriado</p>
                       )}
                     </div>
-                    {cellBadge(getCell(workerId, di))}
+                    {cellBadge(
+                      getCell(workerId, di),
+                      (() => {
+                        const w = workers.find((x) => x.id === workerId);
+                        return w ? colHora(w, di) : null;
+                      })()
+                    )}
                   </button>
                 );
               })}
@@ -454,6 +472,22 @@ export default function MallaMobile({
                 <X size={20} />
               </button>
             </div>
+
+            {editingCell?.kind === 'shift' && (editingCell.shift?.colacion ?? 0) > 0 && (
+              <div className="mt-3 p-3 rounded-2xl bg-amber-50/60 border border-amber-200">
+                <ColacionHoraPicker
+                  worker={editingWorker}
+                  monthKey={monthKey}
+                  dayIndex={editing.dayIndex}
+                  turno={editingCell.code}
+                  diasMismoTurno={(scheduleData[editingWorker.id] || []).flatMap((c, i) =>
+                    c === editingCell.code ? [i] : []
+                  )}
+                  size="lg"
+                  onDone={() => setEditing(null)}
+                />
+              </div>
+            )}
 
             <p className="mt-4 mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Turnos
