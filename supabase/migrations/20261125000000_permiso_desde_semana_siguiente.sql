@@ -1,4 +1,4 @@
--- ─── Permiso: no se puede pedir para el mismo día ───────────────────────────
+-- ─── Día libre y permiso: desde la semana siguiente ──────────────────────────
 -- Cómo usarlo:
 --   1. Entra a supabase.com y abre el proyecto «Dyl Mallas».
 --   2. Toca «SQL Editor» y luego «New query».
@@ -6,8 +6,8 @@
 --   4. Debe decir «Success. No rows returned».
 --
 -- Qué hace:
---   El día libre y el permiso se piden con al menos un día de anticipación: para hoy ya no
---   se pueden pedir (desde mañana sí). El cambio de turno y el cambio con compañera siguen igual.
+--   El día libre y el permiso se piden desde el lunes de la semana siguiente: para esta
+--   semana ya no se pueden pedir. El cambio de turno y el cambio con compañera siguen igual.
 -- No cambia ninguna solicitud que ya exista. Se puede volver a ejecutar sin error.
 
 DROP FUNCTION IF EXISTS public.mis_turnos_request_create(TEXT, TEXT, DATE, TEXT, TEXT, TEXT, TEXT[]);
@@ -37,10 +37,12 @@ BEGIN
   IF p_fecha IS NULL OR p_fecha < v_hoy OR p_fecha > v_hoy + 120 THEN
     RETURN jsonb_build_object('ok', false, 'error', 'Elige un día desde hoy y hasta 4 meses más.');
   END IF;
-  -- Día libre o permiso: con al menos un día de anticipación (para hoy no)
-  IF p_tipo IN ('libre', 'permiso') AND p_fecha <= v_hoy THEN
+  -- Día libre o permiso: desde el lunes de la semana siguiente
+  IF p_tipo IN ('libre', 'permiso')
+     AND p_fecha < v_hoy + (8 - extract(isodow FROM v_hoy)::INT) THEN
     RETURN jsonb_build_object('ok', false, 'error',
-      'El permiso no se puede pedir para el mismo día. Pídelo desde mañana.');
+      'El permiso se pide desde la semana siguiente: desde el lunes '
+      || extract(day FROM v_hoy + (8 - extract(isodow FROM v_hoy)::INT))::INT || '.');
   END IF;
   -- Otro turno: solo días del mes siguiente (el mes en curso ya está armado)
   IF p_tipo = 'cambio'

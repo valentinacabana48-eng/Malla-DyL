@@ -154,11 +154,17 @@ function nextMonth() {
   return { min: isoOf(first), max: isoOf(last), name: MONTHS[first.getMonth()] };
 }
 
-// Permiso: desde mañana hasta fin del mes en curso (para el mismo día no se puede pedir)
+// Día libre y permiso: desde el lunes de la semana siguiente (la jefatura programa por semana)
+function lunesSiguiente() {
+  const now = new Date();
+  return addDays(isoOf(now), (8 - now.getDay()) % 7 || 7);
+}
+
+// Permiso: desde el lunes de la semana siguiente hasta fin del mes en curso
 function thisMonth() {
   const now = new Date();
   const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { min: addDays(isoOf(now), 1), max: isoOf(last), name: MONTHS[now.getMonth()] };
+  return { min: lunesSiguiente(), max: isoOf(last), name: MONTHS[now.getMonth()] };
 }
 
 export default function Solicitudes({
@@ -203,19 +209,25 @@ export default function Solicitudes({
   const [verTodas, setVerTodas] = useState(false);
   const mes = nextMonth();
   const mesActual = thisMonth();
+  // Día libre del mes siguiente: tampoco antes del lunes de la semana siguiente
+  const mesLibre = { ...mes, min: mes.min > mesActual.min ? mes.min : mesActual.min };
   // Días que se pueden elegir según lo que pide
   const rango =
-    tipo === 'libre' || tipo === 'cambio'
-      ? mes
-      : tipo === 'permiso'
-        ? mesActual
-        : { min: todayIso(), max: undefined as string | undefined };
+    tipo === 'libre'
+      ? mesLibre
+      : tipo === 'cambio'
+        ? mes
+        : tipo === 'permiso'
+          ? mesActual
+          : { min: todayIso(), max: undefined as string | undefined };
   const fueraDeRango = (t: Tipo, d: string) =>
-    t === 'libre' || t === 'cambio'
-      ? d < mes.min || d > mes.max
-      : t === 'permiso'
-        ? d < mesActual.min || d > mesActual.max
-        : false;
+    t === 'libre'
+      ? d < mesLibre.min || d > mesLibre.max
+      : t === 'cambio'
+        ? d < mes.min || d > mes.max
+        : t === 'permiso'
+          ? d < mesActual.min || d > mesActual.max
+          : false;
 
   const loadRequests = useCallback(async () => {
     const { data } = await getPublicSupabase().rpc('mis_turnos_requests', { p_token: token });
@@ -321,7 +333,7 @@ export default function Solicitudes({
   };
 
   const openForm = async () => {
-    // Parte como día libre o permiso: desde mañana (hoy no se puede pedir)
+    // Parte como día libre o permiso: desde el lunes de la semana siguiente
     const min = mesActual.min;
     const dia = fecha && fecha >= min ? fecha : '';
     setDay(dia);
@@ -346,8 +358,10 @@ export default function Solicitudes({
       return setError('El último día tiene que ser después del primero.');
     if (vacaciones && hasta && diasEntre(day, hasta) > 30)
       return setError('Las vacaciones se piden de hasta 30 días seguidos.');
-    if ((tipo === 'libre' || tipo === 'permiso') && day <= todayIso())
-      return setError('El permiso no se puede pedir para el mismo día. Pídelo desde mañana.');
+    if ((tipo === 'libre' || tipo === 'permiso') && day < mesActual.min)
+      return setError(
+        `El permiso se pide desde la semana siguiente: desde el ${fechaText(mesActual.min)}.`
+      );
     if (tipo === 'cambio' && fueraDeRango(tipo, day))
       return setError(`Un turno en especial se pide solo para días de ${mes.name}.`);
     if (tipo === 'libre' && fueraDeRango(tipo, day))
@@ -543,7 +557,7 @@ export default function Solicitudes({
                   {(
                     [
                       ['libre', `Libre en ${mes.name}`, 'Para la próxima malla'],
-                      ['permiso', `Permiso en ${mesActual.name}`, 'Desde mañana'],
+                      ['permiso', `Permiso en ${mesActual.name}`, 'Desde la semana siguiente'],
                     ] as const
                   )
                     // El último día del mes ya no quedan días para pedir permiso
@@ -619,8 +633,11 @@ export default function Solicitudes({
               )}
               {tipo === 'libre' && (
                 <span className="text-[13px] text-gray-500">
-                  {vacaciones ? 'El primer día es' : 'Elige un día'} de {mes.name}. Si lo aprueban,
-                  queda{' '}
+                  {vacaciones ? 'El primer día es' : 'Elige un día'}{' '}
+                  {mesLibre.min > mes.min
+                    ? `desde el ${fechaText(mesLibre.min)}`
+                    : `de ${mes.name}`}
+                  . Si lo aprueban, queda{' '}
                   {goce === 'CUMPLEANOS'
                     ? 'como cumpleaños'
                     : goce === 'VACACIONES'
@@ -631,8 +648,8 @@ export default function Solicitudes({
               )}
               {tipo === 'permiso' && (
                 <span className="text-[13px] text-gray-500">
-                  {vacaciones ? 'El primer día es' : 'Elige un día'} de {mesActual.name}, desde
-                  mañana: para hoy no se puede pedir. Si lo aprueban,{' '}
+                  {vacaciones ? 'El primer día es' : 'Elige un día'} desde el{' '}
+                  {fechaText(mesActual.min)}: se pide desde la semana siguiente. Si lo aprueban,{' '}
                   {goce === 'CUMPLEANOS'
                     ? 'queda como cumpleaños.'
                     : goce === 'VACACIONES'
