@@ -154,11 +154,11 @@ function nextMonth() {
   return { min: isoOf(first), max: isoOf(last), name: MONTHS[first.getMonth()] };
 }
 
-// Permiso: desde hoy hasta fin del mes en curso
+// Permiso: desde mañana hasta fin del mes en curso (para el mismo día no se puede pedir)
 function thisMonth() {
   const now = new Date();
   const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { min: isoOf(now), max: isoOf(last), name: MONTHS[now.getMonth()] };
+  return { min: addDays(isoOf(now), 1), max: isoOf(last), name: MONTHS[now.getMonth()] };
 }
 
 export default function Solicitudes({
@@ -321,7 +321,8 @@ export default function Solicitudes({
   };
 
   const openForm = async () => {
-    const min = todayIso();
+    // Parte como día libre o permiso: desde mañana (hoy no se puede pedir)
+    const min = mesActual.min;
     const dia = fecha && fecha >= min ? fecha : '';
     setDay(dia);
     setHasta('');
@@ -345,6 +346,8 @@ export default function Solicitudes({
       return setError('El último día tiene que ser después del primero.');
     if (vacaciones && hasta && diasEntre(day, hasta) > 30)
       return setError('Las vacaciones se piden de hasta 30 días seguidos.');
+    if ((tipo === 'libre' || tipo === 'permiso') && day <= todayIso())
+      return setError('El permiso no se puede pedir para el mismo día. Pídelo desde mañana.');
     if (tipo === 'cambio' && fueraDeRango(tipo, day))
       return setError(`Un turno en especial se pide solo para días de ${mes.name}.`);
     if (tipo === 'libre' && fueraDeRango(tipo, day))
@@ -540,28 +543,31 @@ export default function Solicitudes({
                   {(
                     [
                       ['libre', `Libre en ${mes.name}`, 'Para la próxima malla'],
-                      ['permiso', `Permiso en ${mesActual.name}`, 'Un día de este mes'],
+                      ['permiso', `Permiso en ${mesActual.name}`, 'Desde mañana'],
                     ] as const
-                  ).map(([key, label, sub]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => {
-                        setTipo(key);
-                        setGoce((g) => motivoPara(key, g));
-                        if (day && fueraDeRango(key, day)) setDay('');
-                      }}
-                      aria-pressed={tipo === key}
-                      className={`text-left px-3 py-2.5 rounded-xl border-2 ${
-                        tipo === key ? 'border-blue-700 bg-blue-50' : 'border-gray-200 bg-white'
-                      }`}
-                    >
-                      <span className="block text-[14px] font-bold text-gray-900">{label}</span>
-                      <span className="block text-[12px] text-gray-500 leading-tight mt-0.5">
-                        {sub}
-                      </span>
-                    </button>
-                  ))}
+                  )
+                    // El último día del mes ya no quedan días para pedir permiso
+                    .filter(([key]) => key === 'libre' || mesActual.min <= mesActual.max)
+                    .map(([key, label, sub]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          setTipo(key);
+                          setGoce((g) => motivoPara(key, g));
+                          if (day && fueraDeRango(key, day)) setDay('');
+                        }}
+                        aria-pressed={tipo === key}
+                        className={`text-left px-3 py-2.5 rounded-xl border-2 ${
+                          tipo === key ? 'border-blue-700 bg-blue-50' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <span className="block text-[14px] font-bold text-gray-900">{label}</span>
+                        <span className="block text-[12px] text-gray-500 leading-tight mt-0.5">
+                          {sub}
+                        </span>
+                      </button>
+                    ))}
                 </div>
               </div>
             )}
@@ -625,8 +631,8 @@ export default function Solicitudes({
               )}
               {tipo === 'permiso' && (
                 <span className="text-[13px] text-gray-500">
-                  {vacaciones ? 'El primer día es' : 'Elige un día'} de {mesActual.name}. Si lo
-                  aprueban,{' '}
+                  {vacaciones ? 'El primer día es' : 'Elige un día'} de {mesActual.name}, desde
+                  mañana: para hoy no se puede pedir. Si lo aprueban,{' '}
                   {goce === 'CUMPLEANOS'
                     ? 'queda como cumpleaños.'
                     : goce === 'VACACIONES'
