@@ -210,6 +210,50 @@ export interface Worker {
   misTurnosExcepcion?: boolean;
 }
 
+/** Hora de colación elegida en la malla para un día (vale solo mientras tenga ese turno) */
+export interface ColacionDia {
+  turno: string;
+  /** "HH:MM" */
+  hora: string;
+}
+
+/** De dónde sale la hora de colación de un día */
+export interface ColacionHora {
+  hora: string;
+  /** 'dia' = elegida en la malla para ese día · 'area' = la fija del área para ese turno */
+  origen: 'dia' | 'area';
+}
+
+/** Hora "HH:MM" válida */
+export function esHoraColacion(h: string | null | undefined): h is string {
+  return !!h && /^([01]\d|2[0-3]):[0-5]\d$/.test(h);
+}
+
+/**
+ * Horas de colación fijas de un área: por sucursal y turno.
+ * La clave "*" vale para todas las sucursales: { "*": { M1: "13:00" }, "Casa Matriz": { M1: "13:30" } }
+ */
+export type ColacionHorasArea = Record<string, Record<string, string>>;
+export const TODAS_SUCURSALES = '*';
+
+/** Hora fija para ese turno en el área y sucursal (la de la sucursal gana sobre «Todas») */
+export function horaFijaColacion(
+  porArea: Record<string, ColacionHorasArea>,
+  area: string,
+  sucursal: string,
+  turno: string
+): string | undefined {
+  const a = porArea[area];
+  if (!a) return undefined;
+  const h = a[sucursal]?.[turno] ?? a[TODAS_SUCURSALES]?.[turno];
+  return esHoraColacion(h) ? h : undefined;
+}
+
+/** "2026-11" + índice de día (0 = día 1) → "2026-11-01" */
+export function fechaDeDia(monthKey: string, dayIndex: number): string {
+  return `${monthKey}-${String(dayIndex + 1).padStart(2, '0')}`;
+}
+
 export type MonthSchedule = Record<string, ShiftCode[]>;
 export type ScheduleData = Record<string, MonthSchedule>;
 export type AreaCargos = Record<string, string[]>;
@@ -585,6 +629,23 @@ interface AppContextValue {
   areasDeSucursales: (sucursales: string[]) => string[];
   /** Con acceso a Mis turnos, solo en estas sucursales / para estos cargos (si no está, todas / todos) */
   misTurnosLimites: Record<string, MisTurnosLimites>;
+  /** Hora de colación fija de cada área, por sucursal y turno: { Cajas: { "*": { M1: "13:00" } } } */
+  areaColacionHoras: Record<string, ColacionHorasArea>;
+  /** Guarda las horas fijas de un área en una sucursal ("*" = todas; {} = ninguna) */
+  setAreaColacionHoras: (area: string, sucursal: string, horas: Record<string, string>) => void;
+  /**
+   * Hora de colación de una persona un día con ese turno: la elegida en la malla para ese día
+   * o, si no hay, la fija de su área. null si no tiene hora (o el turno no tiene colación).
+   */
+  getColacionHora: (
+    worker: Pick<Worker, 'id' | 'area' | 'sucursal'>,
+    fecha: string,
+    turno: ShiftCode | undefined
+  ) => ColacionHora | null;
+  /** Elige la hora de colación de esos días (hora null = vuelve a la del área) */
+  setColacionDias: (
+    items: { workerId: string; fecha: string; turno: string; hora: string | null }[]
+  ) => Promise<boolean>;
   /** Por qué la trabajadora no entra a Mis turnos según su área (null = sí entra), sin contar la excepción */
   motivoSinMisTurnos: (w: Pick<Worker, 'area' | 'sucursal' | 'cargo'>) => string | null;
   selectedMes: string;
@@ -973,6 +1034,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [misTurnosLimites, setMisTurnosLimitesState] = useState<Record<string, MisTurnosLimites>>(
     {}
   );
+  const [areaColacionHoras, setAreaColacionHorasState] = useState<
+    Record<string, ColacionHorasArea>
+  >({});
+  // Horas de colación elegidas en la malla: "workerId|YYYY-MM-DD" → { turno, hora }
+  const [colacionDias, setColacionDiasState] = useState<Record<string, ColacionDia>>({});
   const [selectedMes, setSelectedMesState] = useState<string>(() =>
     typeof window === 'undefined' ? currentMonthLabel() : loadSelectedMes()
   );
@@ -1011,6 +1077,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
     if (missing.length === 0) return;
     missing.forEach((mk) => requestedMonthsRef.current.add(mk));
+    // Horas de colación de esos meses (aparte: si la tabla aún no existe, la malla carga igual)
+    fetchAll((from, to) =>
+      getSupabase()
+        .from('colacion_dia')
+        .select('worker_id, fecha, turno, hora')
+        .in('month_key', missing)
+        .order('worker_id')
+        .order('fecha')
+        .range(from, to)
+    )
+      .then((rows) => {
+        if (rows.length === 0) return;
+        setColacionDiasState((prev) => {
+          const next: Record<string, ColacionDia> = {};
+          rows.forEach((r) => {
+            next[`${r.worker_id}|${r.fecha}`] = {
+              turno: r.turno as string,
+              hora: (r.hora as string).slice(0, 5),
+            };
+          });
+          // Lo guardado mientras tanto es más nuevo
+          return { ...next, ...prev };
+        });
+      })
+      .catch((err) => console.warn('Horas de colación no disponibles:', err?.message ?? err));
     try {
       const { sd, spd } = await fetchMonths(missing);
       // Lo que llegó mientras tanto (cambios en vivo o recién guardados) es más nuevo.
@@ -1193,6 +1284,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (l.sucursales || l.cargos) limites[r.name as string] = l;
           });
           setMisTurnosLimitesState(limites);
+          const colHoras: Record<string, ColacionHorasArea> = {};
+          const soloHoras = (v: unknown): Record<string, string> =>
+            v && typeof v === 'object' && !Array.isArray(v)
+              ? Object.fromEntries(
+                  Object.entries(v as Record<string, unknown>).filter(
+                    (e): e is [string, string] => typeof e[1] === 'string' && esHoraColacion(e[1])
+                  )
+                )
+              : {};
+          areasData.forEach((r) => {
+            const h = r.colacion_horas;
+            if (!h || typeof h !== 'object' || Array.isArray(h)) return;
+            const porSuc: ColacionHorasArea = {};
+            Object.entries(h as Record<string, unknown>).forEach(([suc, v]) => {
+              const horas = soloHoras(v);
+              if (Object.keys(horas).length > 0) porSuc[suc] = horas;
+            });
+            if (Object.keys(porSuc).length > 0) colHoras[r.name as string] = porSuc;
+          });
+          setAreaColacionHorasState(colHoras);
         }
         if (areaCargosData) {
           const ac: AreaCargos = {};
@@ -2008,6 +2119,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         delete next[oldName];
         return next;
       });
+      setAreaColacionHorasState((prev) => {
+        if (!prev[oldName]) return prev;
+        const next = { ...prev, [newName]: prev[oldName] };
+        delete next[oldName];
+        return next;
+      });
       setWorkers((prev) => prev.map((w) => (w.area === oldName ? { ...w, area: newName } : w)));
       setAreaCargosState((prev) => {
         const next = { ...prev };
@@ -2033,6 +2150,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                       mis_turnos_sucursales: misTurnosLimites[oldName].sucursales,
                       mis_turnos_cargos: misTurnosLimites[oldName].cargos,
                     }
+                  : {}),
+                // Y sus horas de colación fijas
+                ...(areaColacionHoras[oldName]
+                  ? { colacion_horas: areaColacionHoras[oldName] }
                   : {}),
               },
               { onConflict: 'name' }
@@ -2074,7 +2195,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           toast.error('El cambio de nombre quedó incompleto. Recarga la página y revisa el área.');
       }
     },
-    [supabase, areasSinMisTurnos, areaSucursales, misTurnosLimites]
+    [supabase, areasSinMisTurnos, areaSucursales, misTurnosLimites, areaColacionHoras]
   );
 
   const deleteArea = useCallback(
@@ -2091,6 +2212,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         delete next[name];
         return next;
       });
+      setAreaColacionHorasState((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
       setAreaCargosState((prev) => {
         const next = { ...prev };
         delete next[name];
@@ -2103,6 +2229,93 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await dbWrite(supabase.from('areas').delete().eq('name', name), 'la eliminación del área');
     },
     [supabase]
+  );
+
+  // ── Hora de colación ──
+  const setAreaColacionHoras = useCallback(
+    async (area: string, sucursal: string, horas: Record<string, string>) => {
+      const limpio = Object.fromEntries(Object.entries(horas).filter(([, h]) => esHoraColacion(h)));
+      const nextArea: ColacionHorasArea = { ...(areaColacionHoras[area] ?? {}) };
+      if (Object.keys(limpio).length > 0) nextArea[sucursal] = limpio;
+      else delete nextArea[sucursal];
+      setAreaColacionHorasState((prev) => {
+        const next = { ...prev };
+        if (Object.keys(nextArea).length > 0) next[area] = nextArea;
+        else delete next[area];
+        return next;
+      });
+      await dbWrite(
+        supabase
+          .from('areas')
+          .upsert({ name: area, colacion_horas: nextArea }, { onConflict: 'name' }),
+        'la hora de colación del área'
+      );
+    },
+    [supabase, areaColacionHoras]
+  );
+
+  const getColacionHora = useCallback(
+    (
+      worker: Pick<Worker, 'id' | 'area' | 'sucursal'>,
+      fecha: string,
+      turno: ShiftCode | undefined
+    ) => {
+      if (!turno || !(shifts[turno]?.colacion > 0)) return null;
+      const dia = colacionDias[`${worker.id}|${fecha}`];
+      if (dia && dia.turno === turno && esHoraColacion(dia.hora))
+        return { hora: dia.hora, origen: 'dia' as const };
+      const fija = horaFijaColacion(areaColacionHoras, worker.area, worker.sucursal, turno);
+      return fija ? { hora: fija, origen: 'area' as const } : null;
+    },
+    [shifts, colacionDias, areaColacionHoras]
+  );
+
+  const setColacionDias = useCallback(
+    async (items: { workerId: string; fecha: string; turno: string; hora: string | null }[]) => {
+      if (items.length === 0) return true;
+      const antes = colacionDias;
+      setColacionDiasState((prev) => {
+        const next = { ...prev };
+        items.forEach((it) => {
+          const key = `${it.workerId}|${it.fecha}`;
+          if (it.hora && esHoraColacion(it.hora)) next[key] = { turno: it.turno, hora: it.hora };
+          else delete next[key];
+        });
+        return next;
+      });
+      const guardar = items.filter((it) => it.hora && esHoraColacion(it.hora));
+      const quitar = items.filter((it) => !it.hora);
+      let ok = true;
+      if (guardar.length > 0)
+        ok = await dbWrite(
+          supabase.from('colacion_dia').upsert(
+            guardar.map((it) => ({
+              worker_id: it.workerId,
+              fecha: it.fecha,
+              month_key: it.fecha.slice(0, 7),
+              turno: it.turno,
+              hora: it.hora,
+              updated_at: new Date().toISOString(),
+            })),
+            { onConflict: 'worker_id,fecha' }
+          ),
+          'la hora de colación'
+        );
+      const quitarPorPersona = new Map<string, string[]>();
+      quitar.forEach((it) =>
+        quitarPorPersona.set(it.workerId, [...(quitarPorPersona.get(it.workerId) ?? []), it.fecha])
+      );
+      for (const [workerId, fechas] of quitarPorPersona) {
+        if (!ok) break;
+        ok = await dbWrite(
+          supabase.from('colacion_dia').delete().eq('worker_id', workerId).in('fecha', fechas),
+          'la hora de colación'
+        );
+      }
+      if (!ok) setColacionDiasState(antes);
+      return ok;
+    },
+    [supabase, colacionDias]
   );
 
   // ── Acceso a Mis turnos ──
@@ -2479,6 +2692,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         areaSucursales,
         areasDeSucursales,
         misTurnosLimites,
+        areaColacionHoras,
+        setAreaColacionHoras,
+        getColacionHora,
+        setColacionDias,
         motivoSinMisTurnos,
         selectedMes,
         setSelectedMes,

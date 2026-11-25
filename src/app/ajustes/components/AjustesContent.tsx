@@ -34,6 +34,10 @@ import {
   type MisTurnosLimites,
   sortPasillos,
   timeToMinutes,
+  shiftsForSucursales,
+  esHoraColacion,
+  TODAS_SUCURSALES,
+  type ColacionHorasArea,
 } from '@/context/AppContext';
 import { useAuth, type UserRole } from '@/context/AuthContext';
 import { ALL_PERMS, PERM_GROUPS, permsFor, type Perm } from '@/lib/permisos';
@@ -960,6 +964,146 @@ interface AreaManagerProps {
   onSetAreaSucursales: (area: string, sucursales: string[] | null) => void;
   misTurnosLimites: Record<string, MisTurnosLimites>;
   onSetMisTurnosLimites: (area: string, limites: MisTurnosLimites) => void;
+  shifts: Record<string, Shift>;
+  areaColacionHoras: Record<string, ColacionHorasArea>;
+  onSetColacionHoras: (area: string, sucursal: string, horas: Record<string, string>) => void;
+}
+
+/** Hora de colación fija de cada turno del área */
+function ColacionAreaPanel({
+  area,
+  sucursales,
+  turnosDe,
+  horasArea,
+  onSave,
+}: {
+  area: string;
+  /** Sucursales donde está el área */
+  sucursales: string[];
+  /** Turnos con colación de esa sucursal ("*" = todas) */
+  turnosDe: (sucursal: string) => Shift[];
+  horasArea: ColacionHorasArea;
+  onSave: (sucursal: string, horas: Record<string, string>) => void;
+}) {
+  const [suc, setSuc] = useState<string>(TODAS_SUCURSALES);
+  const horas = useMemo(() => horasArea[suc] ?? {}, [horasArea, suc]);
+  const todas = horasArea[TODAS_SUCURSALES] ?? {};
+  const turnos = turnosDe(suc);
+  const [draft, setDraft] = useState<Record<string, string>>(horas);
+  useEffect(() => setDraft(horas), [horas]);
+  const limpio = (h: Record<string, string>) =>
+    JSON.stringify(
+      Object.entries(h)
+        .filter(([, v]) => esHoraColacion(v))
+        .sort(([a], [b]) => a.localeCompare(b))
+    );
+  const cambio = limpio(draft) !== limpio(horas);
+
+  return (
+    <div className="border-t border-border bg-muted/20 px-4 py-3 space-y-3">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        Hora de colación fija en &quot;{area}&quot;
+      </p>
+      <div className="space-y-1.5">
+        <p className="text-xs text-muted-foreground">Sucursal</p>
+        <div className="flex flex-wrap gap-2">
+          {[TODAS_SUCURSALES, ...sucursales].map((s) => {
+            const n = Object.keys(horasArea[s] ?? {}).length;
+            return (
+              <Chip key={`col-suc-${area}-${s}`} active={suc === s} onClick={() => setSuc(s)}>
+                {s === TODAS_SUCURSALES ? 'Todas' : s}
+                {n > 0 ? ` (${n})` : ''}
+              </Chip>
+            );
+          })}
+        </div>
+      </div>
+      {turnos.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">
+          No hay turnos con colación para esta área. Agrega los minutos de colación en «Turnos».
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {turnos.map((t) => (
+            <div
+              key={`col-${area}-${t.code}`}
+              className="flex flex-wrap items-center gap-2 bg-card border border-border rounded-lg px-3 py-2"
+            >
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${t.legendColor}`} aria-hidden />
+              <div className="flex-1 min-w-[140px]">
+                <p className="text-sm font-semibold text-foreground tabular-nums">
+                  {t.start}–{t.end}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t.label} · {t.colacion} min de colación
+                  {suc !== TODAS_SUCURSALES && !draft[t.code] && todas[t.code]
+                    ? ` · usa la de todas: ${todas[t.code]}`
+                    : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Sale a las</span>
+                <input
+                  type="time"
+                  step={900}
+                  value={draft[t.code] ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, [t.code]: e.target.value }))}
+                  placeholder={suc !== TODAS_SUCURSALES ? todas[t.code] : undefined}
+                  aria-label={`Hora de colación del turno ${t.start}–${t.end}`}
+                  className="px-2 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground tabular-nums focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                {draft[t.code] && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft((d) => {
+                        const next = { ...d };
+                        delete next[t.code];
+                        return next;
+                      })
+                    }
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                    title="Sin hora fija"
+                  >
+                    <XCircle size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {cambio && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              onSave(
+                suc,
+                Object.fromEntries(Object.entries(draft).filter(([, v]) => esHoraColacion(v)))
+              )
+            }
+            className="flex items-center gap-1.5 bg-secondary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all"
+          >
+            <CheckCircle size={14} />
+            Guardar
+          </button>
+          <button
+            type="button"
+            onClick={() => setDraft(horas)}
+            className="px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">
+        «Todas» vale para todas las sucursales; si eliges una sucursal, su hora gana sobre la de
+        «Todas». Deja vacío el turno que no quieres con hora fija. La hora sale en la malla y en la
+        hoja impresa. En la malla se puede cambiar para una persona un día tocando su casilla.
+      </p>
+    </div>
+  );
 }
 
 function Chip({
@@ -1008,6 +1152,9 @@ function AreaManager({
   onSetAreaSucursales,
   misTurnosLimites,
   onSetMisTurnosLimites,
+  shifts,
+  areaColacionHoras,
+  onSetColacionHoras,
 }: AreaManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState('');
@@ -1017,6 +1164,7 @@ function AreaManager({
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
   const [sucursalesArea, setSucursalesArea] = useState<string | null>(null);
   const [misTurnosArea, setMisTurnosArea] = useState<string | null>(null);
+  const [colacionArea, setColacionArea] = useState<string | null>(null);
   const [newCargo, setNewCargo] = useState('');
   const [error, setError] = useState('');
 
@@ -1143,6 +1291,8 @@ function AreaManager({
           clave. En Personal se le puede dar acceso a una trabajadora puntual.
           <br />
           «Sucursales» = en qué sucursales existe el área. Si es para todas, déjala en «Todas».
+          <br />
+          «Colación» = a qué hora salen a colación en el área, según el turno.
         </p>
       )}
 
@@ -1161,6 +1311,24 @@ function AreaManager({
             const limites = misTurnosLimites[area];
             const limitado = misTurnos && !!(limites?.sucursales || limites?.cargos);
             const showMisTurnos = misTurnosArea === area;
+            const showColacion = colacionArea === area;
+            const colHorasArea = areaColacionHoras[area] ?? {};
+            const colFijas = Object.values(colHorasArea).reduce(
+              (n, h) => n + Object.keys(h).length,
+              0
+            );
+            const sucsDelArea = propias ?? sucursales;
+            // Turnos con colación de esa sucursal (en «Todas», los de todas sus sucursales)
+            const turnosColacion = (suc: string) =>
+              Object.values(
+                shiftsForSucursales(shifts, suc === TODAS_SUCURSALES ? sucsDelArea : [suc])
+              )
+                .filter((t) => t.colacion > 0 || colHorasArea[suc]?.[t.code])
+                .sort(
+                  (a, b) =>
+                    timeToMinutes(a.start) - timeToMinutes(b.start) ||
+                    timeToMinutes(a.end) - timeToMinutes(b.end)
+                );
             // Cargos para elegir: los del área y los que ya estaban marcados
             const cargosMisTurnos = [
               ...cargos,
@@ -1255,6 +1423,19 @@ function AreaManager({
                               : 'Mis turnos: no'}
                         </button>
                         <button
+                          onClick={() => setColacionArea(showColacion ? null : area)}
+                          className={`flex items-center gap-1 px-2 py-1 rounded-lg whitespace-nowrap text-xs font-semibold transition-colors ${
+                            colFijas > 0
+                              ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                              : 'text-muted-foreground hover:text-secondary hover:bg-secondary/10'
+                          }`}
+                          title="Elegir a qué hora salen a colación en esta área"
+                          aria-expanded={showColacion}
+                        >
+                          <Coffee size={13} />
+                          {colFijas > 0 ? 'Colación: hora fija' : 'Colación'}
+                        </button>
+                        <button
                           onClick={() => setSucursalesArea(showSucursales ? null : area)}
                           className="flex items-center gap-1 p-1.5 rounded-lg text-xs text-muted-foreground hover:text-secondary hover:bg-secondary/10 transition-colors"
                           title="Elegir en qué sucursales existe el área"
@@ -1291,6 +1472,17 @@ function AreaManager({
                         </button>
                       </div>
                     </div>
+
+                    {/* Hora de colación fija */}
+                    {showColacion && (
+                      <ColacionAreaPanel
+                        area={area}
+                        sucursales={sucsDelArea}
+                        turnosDe={turnosColacion}
+                        horasArea={colHorasArea}
+                        onSave={(suc, h) => onSetColacionHoras(area, suc, h)}
+                      />
+                    )}
 
                     {/* Sucursales del área */}
                     {showSucursales && (
@@ -2352,6 +2544,8 @@ export default function AjustesContent() {
     setAreaSucursales,
     misTurnosLimites,
     setAreaMisTurnosLimites,
+    areaColacionHoras,
+    setAreaColacionHoras,
   } = useAppContext();
 
   const { isGlobalAdmin, allowedSucursales } = useAuth();
@@ -2587,6 +2781,9 @@ export default function AjustesContent() {
             onSetAreaSucursales={setAreaSucursales}
             misTurnosLimites={misTurnosLimites}
             onSetMisTurnosLimites={setAreaMisTurnosLimites}
+            shifts={shifts}
+            areaColacionHoras={areaColacionHoras}
+            onSetColacionHoras={setAreaColacionHoras}
           />
         </div>
       )}

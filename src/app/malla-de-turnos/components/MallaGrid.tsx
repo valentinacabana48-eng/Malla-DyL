@@ -14,8 +14,11 @@ import {
   shiftsForSucursales,
   pasilloLabel,
   bodegaLabel,
+  type ColacionHora,
+  fechaDeDia,
 } from '@/context/AppContext';
 import { useReadonly } from '@/hooks/useReadonly';
+import ColacionHoraPicker from '@/components/ColacionHoraPicker';
 import type { MonthCompliance } from '@/lib/compliance';
 
 interface Props {
@@ -229,19 +232,28 @@ function ShiftCellText({
   start,
   end,
   colacion,
+  colacionHora,
 }: {
   code?: string;
   start?: string;
   end?: string;
   colacion?: number;
+  /** Hora a la que sale a colación ese día (fija del área o elegida en la malla) */
+  colacionHora?: ColacionHora | null;
 }) {
   if (!start) return <span>{code?.toUpperCase()}</span>;
   return (
     <>
       <span>{start}</span>
       {end && <span>{end}</span>}
-      <span className="hidden lg:inline font-semibold text-[9px] opacity-85">
-        {colacion && colacion > 0 ? `col ${colacion}'` : 'sin col'}
+      <span
+        className={`hidden lg:inline font-semibold text-[9px] ${colacionHora ? 'opacity-100' : 'opacity-85'}`}
+      >
+        {colacionHora
+          ? `col ${colacionHora.hora}${colacionHora.origen === 'dia' ? '*' : ''}`
+          : colacion && colacion > 0
+            ? `col ${colacion}'`
+            : 'sin col'}
       </span>
     </>
   );
@@ -310,11 +322,20 @@ function ShiftCell({
   workerSucursal,
   mark,
   licenciaTurno,
+  workerArea,
+  monthKey,
+  workerSchedule,
 }: {
   workerId: string;
   dayIndex: number;
   shift: ShiftCode;
   specialDay: string | undefined;
+  /** Área de la trabajadora (para su hora de colación fija) */
+  workerArea: string;
+  /** Mes de la casilla, "YYYY-MM" */
+  monthKey: string;
+  /** Turnos de la trabajadora ese mes (para guardar la colación en todos sus días con el turno) */
+  workerSchedule: ShiftCode[];
   /** Turno que tenía programado si está con licencia */
   licenciaTurno?: string;
   shifts: Record<string, Shift>;
@@ -329,6 +350,7 @@ function ShiftCell({
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const isReadonly = useReadonly();
+  const { getColacionHora } = useAppContext();
   const warnClass = isUnderHoursWeek ? 'bg-amber-50/70' : '';
   const warnStyle = isUnderHoursWeek
     ? { boxShadow: 'inset 0 0 0 1px rgba(245,158,11,0.25)' }
@@ -487,6 +509,11 @@ function ShiftCell({
   // DESC (descanso) is not stored in the Supabase shifts table — provide a fallback so it always renders
   const shiftInfo = shifts[shift as string] ?? undefined;
   if (!shiftInfo) return <td className="border-r border-border/50 px-0.5 py-0.5 min-w-[44px]" />;
+  const colacionHora = getColacionHora(
+    { id: workerId, area: workerArea, sucursal: workerSucursal ?? '' },
+    fechaDeDia(monthKey, dayIndex),
+    shift
+  );
 
   return (
     <td
@@ -500,7 +527,11 @@ function ShiftCell({
         title={
           mark
             ? `${mark.pendiente ? 'Sin responder: ' : ''}${mark.text}${mark.antes ? ` · antes ${mark.antes}` : ''}${mark.aprobado ? ` · aprobado por ${mark.aprobado}` : ''}`
-            : `${shiftInfo.start}–${shiftInfo.end}`
+            : `${shiftInfo.start}–${shiftInfo.end}${
+                colacionHora
+                  ? ` · colación ${colacionHora.hora}${colacionHora.origen === 'dia' ? ' (elegida para este día)' : ' (fija del área)'}`
+                  : ''
+              }`
         }
       >
         <ShiftCellText
@@ -508,12 +539,26 @@ function ShiftCell({
           start={shiftInfo.start}
           end={shiftInfo.end}
           colacion={shiftInfo.colacion}
+          colacionHora={colacionHora}
         />
       </button>
       {mark && <MarkBadge pendiente={mark.pendiente} />}
       {!isReadonly && (
         <SmartDropdown anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
           {mark && <MarkInfo mark={mark} />}
+          {shiftInfo.colacion > 0 && (
+            <>
+              <ColacionHoraPicker
+                worker={{ id: workerId, area: workerArea, sucursal: workerSucursal ?? '' }}
+                monthKey={monthKey}
+                dayIndex={dayIndex}
+                turno={shift as string}
+                diasMismoTurno={workerSchedule.flatMap((c, i) => (c === shift ? [i] : []))}
+                onDone={() => setOpen(false)}
+              />
+              <div className="border-t border-border/50 my-1" />
+            </>
+          )}
           <button
             onClick={() => {
               onCellChange(workerId, dayIndex, null);
@@ -1675,6 +1720,9 @@ export default function MallaGrid({
                         specialDay={prevSpecial[ld.dayIndex]}
                         shifts={shifts}
                         nonWorkingTypes={nonWorkingTypes}
+                        workerArea={worker.area}
+                        monthKey={prevMonthKey}
+                        workerSchedule={prevSched}
                         onCellChange={(wid, di, s) => ctxSetCellShift(wid, di, s, prevMonthKey)}
                         onSpecialDayChange={(wid, di, tc) =>
                           ctxSetSpecialDay(wid, di, tc, prevMonthKey)
@@ -1723,6 +1771,9 @@ export default function MallaGrid({
                           specialDay={workerSpecialDays[i]}
                           shifts={shifts}
                           nonWorkingTypes={nonWorkingTypes}
+                          workerArea={worker.area}
+                          monthKey={`${year}-${String(monthIdx + 1).padStart(2, '0')}`}
+                          workerSchedule={sched}
                           onCellChange={onCellChange}
                           onSpecialDayChange={onSpecialDayChange}
                           isUnderHoursWeek={isUnderHoursWeek}
@@ -1771,6 +1822,9 @@ export default function MallaGrid({
                         specialDay={nextSpecial[trd.dayIndex]}
                         shifts={shifts}
                         nonWorkingTypes={nonWorkingTypes}
+                        workerArea={worker.area}
+                        monthKey={nextMonthKey}
+                        workerSchedule={nextSched}
                         onCellChange={(wid, di, s) => ctxSetCellShift(wid, di, s, nextMonthKey)}
                         onSpecialDayChange={(wid, di, tc) =>
                           ctxSetSpecialDay(wid, di, tc, nextMonthKey)
