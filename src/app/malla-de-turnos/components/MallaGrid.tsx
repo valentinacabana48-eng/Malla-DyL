@@ -215,7 +215,7 @@ function SmartDropdown({
     <div
       ref={dropRef}
       style={style}
-      className="bg-card border border-border rounded-lg shadow-xl py-1 min-w-[160px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-y-auto animate-fade-in"
+      className="bg-card border border-border rounded-lg shadow-xl py-1 w-64 max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-y-auto animate-fade-in"
     >
       {children}
     </div>,
