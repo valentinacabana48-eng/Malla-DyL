@@ -58,7 +58,7 @@ export default function ColacionHoraPicker({
     : 'w-full px-2 py-1.5 rounded-md text-xs font-semibold';
 
   return (
-    <div className={lg ? 'space-y-2' : 'px-3 py-2 space-y-1.5 min-w-[220px]'}>
+    <div className={lg ? 'space-y-2' : 'px-3 py-2 space-y-1.5'}>
       <p
         className={`flex items-center gap-1.5 font-bold uppercase tracking-wider text-muted-foreground ${lg ? 'text-xs' : 'text-[10px]'}`}
       >
