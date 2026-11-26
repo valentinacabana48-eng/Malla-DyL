@@ -147,50 +147,50 @@ function SmartDropdown({
   children: React.ReactNode;
 }) {
   const dropRef = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+  // Fijo desde el principio: así se mide con su ancho real y no con el de toda la página
+  const [style, setStyle] = useState<React.CSSProperties>({
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    zIndex: 9999,
+    visibility: 'hidden',
+  });
 
-  useEffect(() => {
-    if (!open || !anchorRef.current) return;
-
+  // A la derecha de la casilla; si no cabe (casillas del final de la malla), a la izquierda.
+  // Siempre dentro de la pantalla, para que se vean todos los turnos.
+  const place = useCallback(() => {
+    if (!anchorRef.current) return;
     const anchor = anchorRef.current.getBoundingClientRect();
     const dropH = dropRef.current?.offsetHeight || 320;
     const dropW = dropRef.current?.offsetWidth || 180;
     const vp = { w: window.innerWidth, h: window.innerHeight };
 
-    // Always open to the right of the cell
     let left = anchor.right + 2;
+    if (left + dropW > vp.w - 8) left = anchor.left - dropW - 2;
+    if (left < 8) left = Math.max(8, vp.w - dropW - 8);
 
     let top = anchor.top;
     if (top + dropH > vp.h - 8) top = vp.h - dropH - 8;
     if (top < 8) top = 8;
 
-    // If dropdown overflows right edge, clamp it (but never go left of anchor)
-    if (left + dropW > vp.w - 8) left = vp.w - dropW - 8;
-    if (left < anchor.right + 2) left = anchor.right + 2;
-
     setStyle({ position: 'fixed', top, left, zIndex: 9999, visibility: 'visible' });
-  }, [open, anchorRef]);
+  }, [anchorRef]);
 
-  // Recalculate when content changes (e.g. after first render gives real height)
   useEffect(() => {
-    if (!open || !anchorRef.current || !dropRef.current) return;
-    const anchor = anchorRef.current.getBoundingClientRect();
-    const dropH = dropRef.current.offsetHeight;
-    const dropW = dropRef.current.offsetWidth;
-    const vp = { w: window.innerWidth, h: window.innerHeight };
-
-    // Always open to the right of the cell
-    let left = anchor.right + 2;
-
-    let top = anchor.top;
-    if (top + dropH > vp.h - 8) top = vp.h - dropH - 8;
-    if (top < 8) top = 8;
-    if (left + dropW > vp.w - 8) left = vp.w - dropW - 8;
-    if (left < anchor.right + 2) left = anchor.right + 2;
-
-    setStyle({ position: 'fixed', top, left, zIndex: 9999, visibility: 'visible' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    if (!open) return;
+    place();
+    // Con la altura real, una vez dibujado
+    const raf = requestAnimationFrame(place);
+    window.addEventListener('resize', place);
+    // Al abrir un grupo de horas el menú crece: se vuelve a acomodar para que no quede cortado
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(place) : null;
+    if (ro && dropRef.current) ro.observe(dropRef.current);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', place);
+      ro?.disconnect();
+    };
+  }, [open, place]);
 
   // Close on outside click
   useEffect(() => {
@@ -215,7 +215,7 @@ function SmartDropdown({
     <div
       ref={dropRef}
       style={style}
-      className="bg-card border border-border rounded-lg shadow-xl py-1 min-w-[160px] max-h-[70vh] overflow-y-auto animate-fade-in"
+      className="bg-card border border-border rounded-lg shadow-xl py-1 min-w-[160px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-y-auto animate-fade-in"
     >
       {children}
     </div>,
@@ -807,7 +807,7 @@ function FloatingShiftPanel({
     >
       <div
         className={`bg-card border-2 shadow-2xl rounded-2xl flex flex-col ${dragging ? 'cursor-grabbing border-emerald-400' : 'border-border'}`}
-        style={{ minWidth: 320, maxWidth: 520, maxHeight: 'calc(100vh - 24px)' }}
+        style={{ minWidth: 320, maxWidth: 520, maxHeight: `calc(100vh - ${pos.y + 12}px)` }}
       >
         {/* ── Header ── */}
         <div className="border-b border-border/60 bg-muted/30">
