@@ -943,9 +943,10 @@ function FloatingShiftPanel({
             const hourNum = hourLabel === '—' ? '—' : hourLabel.replace(':00', '');
 
             return (
+              // shrink-0: con muchos turnos los grupos no se aplastan (antes escondían turnos)
               <div
                 key={`fp-grp-${hourLabel}`}
-                className="rounded-xl border border-border/50 overflow-hidden"
+                className="shrink-0 rounded-xl border border-border/50 overflow-hidden"
               >
                 {/* Hour header button */}
                 <button
