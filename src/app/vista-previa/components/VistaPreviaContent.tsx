@@ -466,7 +466,8 @@ function MallaDocument({
           className={`pdf-page bg-white p-3 lg:p-8 print:p-8 rounded-xl border border-border shadow-sm ${breakBefore ? 'pdf-page-break mt-8' : ''}`}
         >
           {/* Copy label */}
-          <div className="text-right mb-2">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-[10px] text-gray-400">Entregada el {fechaEntrega}</span>
             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
               Copia trabajador/a
             </span>
@@ -668,11 +669,6 @@ function MallaDocument({
               })()}
             </div>
           </div>
-
-          {/* Fecha de entrega */}
-          <p className="pdf-entrega mt-4 text-right text-sm font-bold text-gray-700">
-            Fecha de entrega: <span className="font-black text-gray-900">{fechaEntrega}</span>
-          </p>
         </div>
       )}
 
@@ -681,7 +677,8 @@ function MallaDocument({
         className={`pdf-page bg-white p-3 lg:p-8 print:p-8 rounded-xl border border-border shadow-sm ${printVersion === 'trabajador' || breakBefore ? 'pdf-page-break mt-8' : ''}`}
       >
         {/* Copy label */}
-        <div className="text-right mb-2">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className="text-[10px] text-gray-400">Entregada el {fechaEntrega}</span>
           <span className="text-xs font-bold text-gray-400 uppercase tracking-widest border border-gray-300 rounded px-2 py-0.5">
             Copia empresa — para firmar
           </span>
@@ -877,14 +874,6 @@ function MallaDocument({
             Declaro haber recibido conforme la presente malla de turnos
           </p>
           <div className="flex gap-10 justify-around">
-            <div className="flex-1 text-center">
-              <div className="pdf-firma-linea border-b-2 border-gray-700 mb-2 h-16 flex items-end justify-center pb-1">
-                <span className="text-sm font-bold text-gray-900">{fechaEntrega}</span>
-              </div>
-              <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
-                Fecha de entrega
-              </p>
-            </div>
             <div className="flex-1 text-center">
               <div className="pdf-firma-linea border-b-2 border-gray-700 mb-2 h-16" />
               <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
@@ -1394,7 +1383,6 @@ export default function VistaPreviaContent() {
           .pdf-page .gap-8 { gap: 8px !important; }
           .pdf-page .h-12 { height: 24px !important; }
           .pdf-page .mb-2 { margin-bottom: 2px !important; }
-          .pdf-page .pdf-entrega { margin-top: 8px !important; font-size: 11px !important; }
           .pdf-page .pdf-firma { margin-top: 20mm !important; padding: 10px 12px !important; }
           .pdf-page .pdf-firma-titulo { margin-bottom: 4mm !important; }
           .pdf-page .pdf-firma-linea { height: 14mm !important; }
