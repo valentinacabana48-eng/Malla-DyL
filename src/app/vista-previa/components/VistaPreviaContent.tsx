@@ -25,6 +25,29 @@ import MultiSelect from '@/components/ui/MultiSelect';
 import { useAuth } from '@/context/AuthContext';
 import { useCargoOptions } from '@/hooks/useCargoOptions';
 
+const MESES_MINUSCULA = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+/** Fecha de entrega de la malla: el 25 del mes anterior ("Diciembre 2026" → "25 de noviembre de 2026") */
+function fechaEntregaMalla(monthLabel: string): string {
+  const [y, m] = monthLabelToKey(monthLabel).split('-').map(Number);
+  const prevMonth = m === 1 ? 12 : m - 1;
+  const prevYear = m === 1 ? y - 1 : y;
+  return `25 de ${MESES_MINUSCULA[prevMonth - 1]} de ${prevYear}`;
+}
+
 const MULTI_WRAPPER = 'flex-1 min-w-[180px] lg:max-w-[300px] order-3 lg:order-none';
 const MULTI_LABEL =
   'block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5';
@@ -433,6 +456,7 @@ function MallaDocument({
   const monthParts = monthLabel.split(' ');
   const monthName = monthParts[0] || 'Julio';
   const monthYear = monthParts[1] || '2026';
+  const fechaEntrega = fechaEntregaMalla(monthLabel);
 
   return (
     <>
@@ -644,6 +668,11 @@ function MallaDocument({
               })()}
             </div>
           </div>
+
+          {/* Fecha de entrega */}
+          <p className="pdf-entrega mt-4 text-right text-sm font-bold text-gray-700">
+            Fecha de entrega: <span className="font-black text-gray-900">{fechaEntrega}</span>
+          </p>
         </div>
       )}
 
@@ -843,13 +872,21 @@ function MallaDocument({
         </div>
 
         {/* Signature section */}
-        <div className="border-2 border-gray-400 rounded p-6">
-          <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-6 text-center">
+        <div className="pdf-firma mt-12 border-2 border-gray-400 rounded p-6">
+          <p className="pdf-firma-titulo text-xs font-bold text-gray-600 uppercase tracking-wider mb-6 text-center">
             Declaro haber recibido conforme la presente malla de turnos
           </p>
           <div className="flex gap-10 justify-around">
             <div className="flex-1 text-center">
-              <div className="border-b-2 border-gray-700 mb-2 h-12" />
+              <div className="pdf-firma-linea border-b-2 border-gray-700 mb-2 h-16 flex items-end justify-center pb-1">
+                <span className="text-sm font-bold text-gray-900">{fechaEntrega}</span>
+              </div>
+              <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                Fecha de entrega
+              </p>
+            </div>
+            <div className="flex-1 text-center">
+              <div className="pdf-firma-linea border-b-2 border-gray-700 mb-2 h-16" />
               <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
                 Firma trabajador/a
               </p>
@@ -1357,6 +1394,10 @@ export default function VistaPreviaContent() {
           .pdf-page .gap-8 { gap: 8px !important; }
           .pdf-page .h-12 { height: 24px !important; }
           .pdf-page .mb-2 { margin-bottom: 2px !important; }
+          .pdf-page .pdf-entrega { margin-top: 8px !important; font-size: 11px !important; }
+          .pdf-page .pdf-firma { margin-top: 20mm !important; padding: 10px 12px !important; }
+          .pdf-page .pdf-firma-titulo { margin-bottom: 4mm !important; }
+          .pdf-page .pdf-firma-linea { height: 14mm !important; }
         }
       `}</style>
     </div>
