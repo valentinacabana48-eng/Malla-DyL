@@ -63,7 +63,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pendingRequests = usePendingRequests();
   const visibleItems = navItems.filter(
     (item) =>
-      (!item.adminOnly || (isAdmin && canManageSucursal)) &&
+      (!item.adminOnly ||
+        (isAdmin && canManageSucursal) ||
+        // Con el permiso de turnos entra a Ajustes, solo a crear los turnos de su sucursal
+        (item.href === '/ajustes' && can('turnos_sucursal'))) &&
       (!item.globalAdminOnly || isGlobalAdmin) &&
       (() => {
         const perm = routePerm(item.href);
