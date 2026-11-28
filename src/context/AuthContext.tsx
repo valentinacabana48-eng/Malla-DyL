@@ -28,6 +28,8 @@ interface AuthContextValue {
   allowedAreas: string[] | null;
   /** Cargos que ve; null = todos */
   allowedCargos: string[] | null;
+  /** Cargos de los que ve y responde solicitudes; null = todos los que ve */
+  solicitudesCargos: string[] | null;
   /** Sucursales que puede ver esta persona; null = todas */
   allowedSucursales: string[] | null;
   /** true cuando el usuario llegó desde el enlace de "olvidé mi contraseña" */
@@ -71,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [allowedSucursales, setAllowedSucursales] = useState<string[] | null>(null);
   const [allowedCargos, setAllowedCargos] = useState<string[] | null>(null);
   const [allowedAreas, setAllowedAreas] = useState<string[] | null>(null);
+  const [solicitudesCargos, setSolicitudesCargos] = useState<string[] | null>(null);
   const [permisos, setPermisos] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [recoveringPassword, setRecoveringPassword] = useState(false);
@@ -82,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAllowedSucursales(null);
         setAllowedCargos(null);
         setAllowedAreas(null);
+        setSolicitudesCargos(null);
         setPermisos(null);
         return;
       }
@@ -106,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAllowedSucursales(keep(listOrNull(data?.sucursales)));
       setAllowedCargos(keep(listOrNull(data?.cargos)));
       setAllowedAreas(keep(listOrNull(data?.areas)));
+      setSolicitudesCargos(keep(listOrNull(data?.solicitudes_cargos)));
       setPermisos(keep((data?.permisos as string[] | null) ?? null));
       setRole((data?.role as UserRole) ?? 'pendiente');
     },
@@ -228,6 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAsistencia: perms.has('asistencia_marcar') && !perms.has('asistencia_aprobar'),
         allowedAreas,
         allowedCargos,
+        solicitudesCargos,
         recoveringPassword,
         signIn,
         signUp,
