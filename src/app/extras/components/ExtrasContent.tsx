@@ -1,6 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { HandCoins, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
+import { CalendarRange, HandCoins, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase/client';
 import { shiftsForSucursales, useAppContext, type Worker } from '@/context/AppContext';
@@ -15,6 +15,7 @@ import {
   type Ausente,
   type WorkerShiftDetail,
 } from '@/app/malla-de-turnos/components/MallaSummary';
+import HojaPagoRango, { fechaCorta, type GrupoPago, type PersonaPago } from './HojaPagoRango';
 
 // Extras del día: se elige el día y la sucursal, se ve quién tiene turno y se agregan
 // extras (alguien del personal o una persona de afuera) con su horario y el valor a pagar.
@@ -126,6 +127,10 @@ export default function ExtrasContent() {
   const [missingTable, setMissingTable] = useState(false);
   const [form, setForm] = useState<Form | null>(null);
   const [saving, setSaving] = useState(false);
+  /** Hoja de pago de varios días: abierta con su rango de fechas */
+  const [rango, setRango] = useState<{ desde: string; hasta: string } | null>(null);
+  const [extrasRango, setExtrasRango] = useState<Extra[]>([]);
+  const [cargandoRango, setCargandoRango] = useState(false);
 
   // Sucursal: la elegida arriba en la app o la primera que se ve
   useEffect(() => {
@@ -297,16 +302,16 @@ export default function ExtrasContent() {
   ]);
 
   // Extras que se muestran: si se filtró por área, los del personal de esa área y los de afuera
-  const extrasVisibles = useMemo(
-    () =>
-      extras.filter((e) => {
-        // Sin cargo anotado se muestra igual, para que no se pierda
-        if (cargo !== 'Todos' && e.cargo && e.cargo !== cargo) return false;
-        if (area === 'Todas') return true;
-        return areaDeExtra(e) === area || areaDeExtra(e) === '';
-      }),
-    [extras, area, cargo, areaDeExtra]
+  const pasaFiltro = useCallback(
+    (e: Extra) => {
+      // Sin cargo anotado se muestra igual, para que no se pierda
+      if (cargo !== 'Todos' && e.cargo && e.cargo !== cargo) return false;
+      if (area === 'Todas') return true;
+      return areaDeExtra(e) === area || areaDeExtra(e) === '';
+    },
+    [area, cargo, areaDeExtra]
   );
+  const extrasVisibles = useMemo(() => extras.filter(pasaFiltro), [extras, pasaFiltro]);
   const total = extrasVisibles.reduce((s, e) => s + e.monto, 0);
 
   // Extras agrupados por área, cada grupo con su total (en pantalla y en la hoja de pago)
@@ -399,6 +404,82 @@ export default function ExtrasContent() {
   const subtitulo = `${MESES_CAP[m - 1] ?? ''} ${y} · ${sucursal}${area === 'Todas' ? '' : ` · ${area}`}${cargo === 'Todos' ? '' : ` · ${plural(cargo)}`}`;
   // "Sábado 7 de noviembre" para el título de la hoja de pago
   const fechaPago = `${diaTitulo} de ${(MESES_CAP[m - 1] ?? '').toLocaleLowerCase('es')}`;
+
+  // Hoja de pago de varios días: los extras de la sucursal entre las dos fechas
+  const rangoDesde = rango ? (rango.desde <= rango.hasta ? rango.desde : rango.hasta) : '';
+  const rangoHasta = rango ? (rango.desde <= rango.hasta ? rango.hasta : rango.desde) : '';
+  useEffect(() => {
+    if (!rangoDesde || !rangoHasta || !sucursal) return;
+    let vigente = true;
+    setCargandoRango(true);
+    supabase
+      .from('extras')
+      .select('*')
+      .gte('fecha', rangoDesde)
+      .lte('fecha', rangoHasta)
+      .eq('sucursal', sucursal)
+      .order('fecha', { ascending: true })
+      .order('inicio', { ascending: true })
+      .then(({ data, error }) => {
+        if (!vigente) return;
+        if (error) console.error('Extras:', error);
+        setExtrasRango(
+          ((data as Extra[]) ?? []).map((e) => ({ ...e, inicio: hhmm(e.inicio), fin: hhmm(e.fin) }))
+        );
+        setCargandoRango(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [supabase, rangoDesde, rangoHasta, sucursal]);
+
+  // Por área (como la hoja del día) y dentro de cada área, cada persona con sus días
+  const gruposRango = useMemo((): GrupoPago[] => {
+    const map = new Map<string, Map<string, PersonaPago>>();
+    extrasRango.filter(pasaFiltro).forEach((e) => {
+      const a = areaDeExtra(e) || (area === 'Todas' ? 'Sin área' : area);
+      const personas = map.get(a) ?? new Map<string, PersonaPago>();
+      map.set(a, personas);
+      const key = e.worker_id || `n-${e.nombre.trim().toLocaleLowerCase('es')}`;
+      const p = personas.get(key) ?? { key, nombre: e.nombre, cargo: '', dias: [], total: 0 };
+      personas.set(key, p);
+      if (e.cargo && !p.cargo.split(' / ').includes(e.cargo))
+        p.cargo = p.cargo ? `${p.cargo} / ${e.cargo}` : e.cargo;
+      p.dias.push({
+        id: e.id,
+        fecha: e.fecha,
+        inicio: e.inicio,
+        fin: e.fin,
+        colacion: e.colacion ?? 0,
+        monto: e.monto,
+      });
+      p.total += e.monto;
+    });
+    const orden = (a: string) => {
+      const i = areaOptions.indexOf(a);
+      return i === -1 ? 999 : i;
+    };
+    return [...map.entries()]
+      .sort(([a], [b]) => orden(a) - orden(b) || a.localeCompare(b, 'es'))
+      .map(([nombre, personas]) => {
+        const lista = [...personas.values()].sort((x, y) => x.nombre.localeCompare(y.nombre, 'es'));
+        return {
+          area: nombre,
+          titulo: cargo !== 'Todos' ? plural(cargo) : tituloArea(nombre),
+          personas: lista,
+          total: lista.reduce((s, p) => s + p.total, 0),
+        };
+      });
+  }, [extrasRango, pasaFiltro, areaDeExtra, area, areaOptions, cargo]);
+  const totalRango = gruposRango.reduce((s, g) => s + g.total, 0);
+  const diasRango = rangoDesde ? diasEntre(rangoDesde, rangoHasta) : 0;
+
+  const abrirRango = () => setRango({ desde: fecha, hasta: fecha });
+  const imprimirRango = () => {
+    const el = document.getElementById('extras-pago-rango');
+    if (!el) return;
+    printElement(el, { title: `Pago extras ${sucursal} ${rangoDesde} a ${rangoHasta}` });
+  };
 
   const imprimir = () => {
     const el = document.getElementById('extras-print');
@@ -538,15 +619,26 @@ export default function ExtrasContent() {
             Turnos del día, extras con su horario y lo que se paga
           </p>
         </div>
-        <button
-          type="button"
-          onClick={imprimir}
-          disabled={!sucursal || appLoading}
-          className="flex items-center gap-2 bg-secondary text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 transition-all shadow-sm"
-        >
-          <Printer size={16} />
-          Imprimir
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={abrirRango}
+            disabled={!sucursal || missingTable}
+            className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-muted disabled:opacity-60 transition-all shadow-sm"
+          >
+            <CalendarRange size={16} />
+            Pago de varios días
+          </button>
+          <button
+            type="button"
+            onClick={imprimir}
+            disabled={!sucursal || appLoading}
+            className="flex items-center gap-2 bg-secondary text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 transition-all shadow-sm"
+          >
+            <Printer size={16} />
+            Imprimir
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -1043,6 +1135,132 @@ export default function ExtrasContent() {
         </div>
       )}
 
+      {rango && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4">
+          <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <h2 className="font-semibold text-foreground">Hoja de pago de varios días</h2>
+              <button
+                type="button"
+                onClick={() => setRango(null)}
+                aria-label="Cerrar"
+                className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass} htmlFor="ex-desde">
+                    Desde
+                  </label>
+                  <input
+                    id="ex-desde"
+                    type="date"
+                    value={rango.desde}
+                    onChange={(e) =>
+                      e.target.value && setRango({ ...rango, desde: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor="ex-hasta">
+                    Hasta
+                  </label>
+                  <input
+                    id="ex-hasta"
+                    type="date"
+                    value={rango.hasta}
+                    onChange={(e) =>
+                      e.target.value && setRango({ ...rango, hasta: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-2">
+                {diasRango} {diasRango === 1 ? 'día' : 'días'} · {sucursal}
+                {area === 'Todas' ? '' : ` · ${area}`}
+                {cargo === 'Todos' ? '' : ` · ${plural(cargo)}`}
+              </p>
+
+              <div className="rounded-xl border border-border overflow-hidden">
+                {cargandoRango ? (
+                  <p className="px-4 py-4 text-sm text-muted-foreground">Cargando…</p>
+                ) : gruposRango.length === 0 ? (
+                  <p className="px-4 py-4 text-center text-sm text-muted-foreground">
+                    No hay extras en estos días.
+                  </p>
+                ) : (
+                  <>
+                    <ul className="divide-y divide-border">
+                      {gruposRango.flatMap((g) =>
+                        g.personas.map((p) => (
+                          <li
+                            key={`${g.area}-${p.key}`}
+                            className="flex items-start justify-between gap-3 px-4 py-2.5"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground">{p.nombre}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {p.dias.map((x) => fechaCorta(x.fecha)).join(', ')}
+                                {gruposRango.length > 1 ? ` · ${g.area}` : ''}
+                              </p>
+                            </div>
+                            <span className="text-sm font-bold text-foreground tabular-nums whitespace-nowrap">
+                              {pesos(p.total)}
+                            </span>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-muted">
+                      <span className="text-sm font-bold text-foreground">Total a pagar</span>
+                      <span className="text-base font-extrabold text-foreground tabular-nums">
+                        {pesos(totalRango)}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setRango(null)}
+                  className="flex-1 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-muted"
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  onClick={imprimirRango}
+                  disabled={cargandoRango}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-secondary text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
+                >
+                  <Printer size={16} />
+                  Imprimir hoja de pago
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rango && (
+        <div className="hidden">
+          <HojaPagoRango
+            id="extras-pago-rango"
+            titulo={tituloRango(rangoDesde, rangoHasta)}
+            subtitulo={`${sucursal} · ${rangoHasta.slice(0, 4)}`}
+            grupos={gruposRango}
+            total={totalRango}
+          />
+        </div>
+      )}
+
       {/* Lo que se imprime: hoja 1 igual a la del día de la Malla, hoja 2 el pago con firma */}
       <div className="hidden">
         <div id="extras-print" style={{ fontFamily: 'sans-serif', color: '#111' }}>
@@ -1200,4 +1418,25 @@ function plural(cargo: string): string {
   if (!first) return cargo;
   const p = /[aeiouáéíóú]$/i.test(first) ? `${first}s` : `${first}es`;
   return [p, ...rest].join(' ');
+}
+
+/** Cuántos días hay entre dos fechas, contando las dos */
+function diasEntre(desde: string, hasta: string): number {
+  const f = (iso: string) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((f(hasta) - f(desde)) / 86400000) + 1;
+}
+
+/** "jueves 26 al domingo 29 de noviembre" (o un solo día: "jueves 26 de noviembre") */
+function tituloRango(desde: string, hasta: string): string {
+  const [dow1, d1, , mes1, , y1] = fechaLargaAnio(desde).split(' ');
+  const [dow2, d2, , mes2, , y2] = fechaLargaAnio(hasta).split(' ');
+  const cap = (t: string) => `${t.charAt(0).toUpperCase()}${t.slice(1)}`;
+  if (desde === hasta) return `${cap(dow1)} ${d1} de ${mes1}`;
+  if (y1 !== y2)
+    return `${cap(dow1)} ${d1} de ${mes1} de ${y1} al ${dow2} ${d2} de ${mes2} de ${y2}`;
+  if (mes1 !== mes2) return `${cap(dow1)} ${d1} de ${mes1} al ${dow2} ${d2} de ${mes2}`;
+  return `${cap(dow1)} ${d1} al ${dow2} ${d2} de ${mes2}`;
 }
