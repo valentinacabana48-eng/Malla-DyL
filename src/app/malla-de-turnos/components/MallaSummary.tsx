@@ -16,6 +16,7 @@ import {
   useAppContext,
 } from '@/context/AppContext';
 import { printElement } from '@/lib/printElement';
+import { getSupabase } from '@/lib/supabase/client';
 
 interface Props {
   workers: Worker[];
@@ -29,7 +30,28 @@ interface Props {
   // Meses vecinos: para ver la semana completa cuando cruza de mes
   prevMonth?: NeighborMonth;
   nextMonth?: NeighborMonth;
+  /** Filtros de la Malla para sumar los extras del día a la impresión (cargo = el del extra) */
+  extrasFiltro?: { sucursales: string[]; areas: string[]; cargos: string[] };
 }
+
+interface ExtraRow {
+  fecha: string;
+  sucursal: string;
+  worker_id: string | null;
+  nombre: string;
+  area?: string;
+  cargo: string;
+  inicio: string;
+  fin: string;
+  colacion?: number;
+}
+
+const isoDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const hhmmExtra = (t: string) => {
+  const [h = '', m = ''] = (t || '').split(':');
+  return h ? `${h.padStart(2, '0')}:${(m || '00').padStart(2, '0').slice(0, 2)}` : '';
+};
 
 interface NeighborMonth {
   scheduleData: Record<string, ShiftCode[]>;
@@ -236,7 +258,8 @@ function buildWeeklySummary(
   resolveDay: (day: number) => DaySource,
   shifts: Record<string, Shift>,
   startDay: number,
-  endDay: number
+  endDay: number,
+  extrasDe: (day: number) => { start: string; end: string }[] = () => []
 ): {
   day: number;
   hourMap: Record<string, number>;
@@ -273,6 +296,15 @@ function buildWeeklySummary(
         if (slotHour(h) === startH) hourMap[h]++;
       });
       const salida = salidaMins(shift.start, shift.end);
+      if (salida !== null) salidas.push(salida);
+    });
+    // Los extras del día también cuentan en la hora en que entran y en cuántas cierran
+    extrasDe(d).forEach((e) => {
+      const startH = slotHour(e.start);
+      HOUR_SLOTS.forEach((h) => {
+        if (slotHour(h) === startH) hourMap[h]++;
+      });
+      const salida = salidaMins(e.start, e.end);
       if (salida !== null) salidas.push(salida);
     });
 
@@ -680,8 +712,69 @@ export default function MallaSummary({
   selectedCargo = 'Todos',
   prevMonth,
   nextMonth,
+  extrasFiltro,
 }: Props) {
   const [selectedDay, setSelectedDay] = useState<number>(-1);
+
+  // Extras del mes (y unos días antes y después, por las semanas que cruzan de mes)
+  const [extras, setExtras] = useState<ExtraRow[]>([]);
+  const filtroKey = JSON.stringify(extrasFiltro ?? null);
+  useEffect(() => {
+    if (!extrasFiltro || extrasFiltro.sucursales.length === 0) {
+      setExtras([]);
+      return;
+    }
+    const [year, monthIdx] = monthYear(monthLabel);
+    const desde = isoDate(new Date(year, monthIdx, -6));
+    const hasta = isoDate(new Date(year, monthIdx + 1, 7));
+    let cancel = false;
+    getSupabase()
+      .from('extras')
+      .select('fecha,sucursal,worker_id,nombre,area,cargo,inicio,fin,colacion')
+      .gte('fecha', desde)
+      .lte('fecha', hasta)
+      .in('sucursal', extrasFiltro.sucursales)
+      .then(({ data, error }) => {
+        if (cancel) return;
+        // Sin permiso de Extras o sin la tabla: la hoja sale igual, sin extras
+        setExtras(error ? [] : ((data as ExtraRow[]) ?? []));
+      });
+    return () => {
+      cancel = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthLabel, filtroKey]);
+
+  // Extras de un día (día del mes; puede ser < 1 o > días del mes)
+  const extrasDeFecha = (day: number): ExtraRow[] => {
+    if (extras.length === 0) return [];
+    const [year, monthIdx] = monthYear(monthLabel);
+    const fecha = isoDate(new Date(year, monthIdx, day));
+    return extras.filter((e) => e.fecha === fecha);
+  };
+  // Los que salen en la hoja: con el área y el cargo elegidos en la Malla.
+  // Cuenta el cargo con que viene en el extra, no el de su ficha.
+  const extrasDelDia = (day: number): WorkerShiftDetail[] => {
+    if (!extrasFiltro) return [];
+    const { areas, cargos } = extrasFiltro;
+    return extrasDeFecha(day)
+      .filter(
+        (e) =>
+          (areas.length === 0 || !e.area || areas.includes(e.area)) &&
+          (cargos.length === 0 || !e.cargo || cargos.includes(e.cargo))
+      )
+      .map((e) => ({
+        name: e.nombre,
+        sucursal: e.sucursal,
+        area: e.area || (areas.length === 1 ? areas[0] : ''),
+        shiftLabel: '',
+        start: hhmmExtra(e.inicio),
+        end: hhmmExtra(e.fin),
+        colacion: e.colacion ?? 0,
+        extra: true,
+      }))
+      .filter((e) => e.start && e.end);
+  };
   const { getAllNonWorkingTypes } = useAppContext();
   const estadoLabel = useMemo(() => {
     const map = new Map(getAllNonWorkingTypes().map((t) => [t.code, t.label]));
@@ -696,7 +789,10 @@ export default function MallaSummary({
   ): Ausente[] => {
     const [year, monthIdx] = monthYear(monthLabel);
     const domingo = new Date(year, monthIdx, day).getDay() === 0;
+    // Quien vino de extra ese día no se cuenta como que no viene
+    const conExtra = new Set(extrasDeFecha(day).map((e) => e.worker_id));
     return workers
+      .filter((w) => !conExtra.has(w.id))
       .map((w) => ({
         name: w.name,
         estado: estadoAusencia(
@@ -907,6 +1003,13 @@ export default function MallaSummary({
         if (salida !== null) salidas.push(salida);
         if ((shift.colacion || 0) > 0) colacionSet.add(shift.colacion);
       });
+      // Los extras del día también suman en mañana/tarde y en cuántas cierran
+      extrasDelDia(d + 1).forEach((e) => {
+        if (toMins(e.start) <= 600) manana++;
+        else tarde++;
+        const salida = salidaMins(e.start, e.end);
+        if (salida !== null) salidas.push(salida);
+      });
       const cierre = contarCierre(salidas);
       result.push({
         day: d + 1,
@@ -919,7 +1022,8 @@ export default function MallaSummary({
       });
     }
     return result;
-  }, [workers, scheduleData, specialDaysData, shifts, daysInMonth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workers, scheduleData, specialDaysData, shifts, daysInMonth, extras, filtroKey]);
 
   const workerDetails = useMemo((): WorkerShiftDetail[] => {
     if (selectedDay < 0) return [];
@@ -944,6 +1048,7 @@ export default function MallaSummary({
         colacion: (shift as { colacion?: number }).colacion ?? 0,
       });
     });
+    details.push(...extrasDelDia(selectedDay + 1));
     details.sort((a, b) => {
       const toMins = (t: string) => {
         const [h, m] = (t || '00:00').split(':').map(Number);
@@ -953,7 +1058,8 @@ export default function MallaSummary({
       return diff !== 0 ? diff : a.name.localeCompare(b.name);
     });
     return details;
-  }, [workers, scheduleData, specialDaysData, shifts, selectedDay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workers, scheduleData, specialDaysData, shifts, selectedDay, extras, filtroKey]);
 
   const weekWorkerDetails = useMemo(() => {
     const wk = weekOptions[selectedWeekIdx];
@@ -982,6 +1088,7 @@ export default function MallaSummary({
           colacion: (shift as { colacion?: number }).colacion ?? 0,
         });
       });
+      dayWorkers.push(...extrasDelDia(d));
       dayWorkers.sort((a, b) => {
         const toMins = (t: string) => {
           const [h, m] = (t || '00:00').split(':').map(Number);
@@ -1007,12 +1114,14 @@ export default function MallaSummary({
     shifts,
     weekOptions,
     selectedWeekIdx,
+    extras,
+    filtroKey,
   ]);
 
   const weeklySummary = useMemo(() => {
     const wk = weekOptions[selectedWeekIdx];
     if (!wk) return [];
-    return buildWeeklySummary(workers, resolveDay, shifts, wk.startDay, wk.endDay);
+    return buildWeeklySummary(workers, resolveDay, shifts, wk.startDay, wk.endDay, extrasDelDia);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     workers,
@@ -1023,6 +1132,8 @@ export default function MallaSummary({
     shifts,
     weekOptions,
     selectedWeekIdx,
+    extras,
+    filtroKey,
   ]);
 
   // Se imprime solo la hoja (del día o de la semana), armada aparte: así no salen hojas de
