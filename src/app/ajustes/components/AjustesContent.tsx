@@ -2559,7 +2559,9 @@ export default function AjustesContent() {
   // El admin de sucursal ve los turnos compartidos y los de sus sucursales, y edita solo los suyos
   const mySucursales = isGlobalAdmin
     ? sucursales.map((s) => s.name)
-    : (allowedSucursales ?? []).filter((n) => sucursales.some((s) => s.name === n));
+    : allowedSucursales === null
+      ? sucursales.map((s) => s.name)
+      : allowedSucursales.filter((n) => sucursales.some((s) => s.name === n));
   const shiftList = isGlobalAdmin
     ? allShifts
     : allShifts.filter((s) => !s.sucursal || mySucursales.includes(s.sucursal));

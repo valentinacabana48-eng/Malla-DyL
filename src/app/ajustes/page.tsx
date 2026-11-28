@@ -5,7 +5,7 @@ import AjustesContent from './components/AjustesContent';
 export default function AjustesPage() {
   return (
     <AppLayout>
-      <AdminOnly>
+      <AdminOnly orPerm="turnos_sucursal">
         <AjustesContent />
       </AdminOnly>
     </AppLayout>

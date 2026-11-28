@@ -12,14 +12,20 @@ export default function AdminOnly({
   children,
   global = false,
   perm,
+  orPerm,
 }: {
   children: React.ReactNode;
   global?: boolean;
   /** En vez de ser administradora, basta con tener este permiso */
   perm?: Perm;
+  /** Además de las administradoras, entra quien tenga este permiso */
+  orPerm?: Perm;
 }) {
   const { isAdmin, isGlobalAdmin, canManageSucursal, can } = useAuth();
-  if (perm ? can(perm) : global ? isGlobalAdmin : isAdmin && canManageSucursal)
+  if (
+    (perm ? can(perm) : global ? isGlobalAdmin : isAdmin && canManageSucursal) ||
+    (orPerm && can(orPerm))
+  )
     return <>{children}</>;
   if (global && isAdmin) {
     return (

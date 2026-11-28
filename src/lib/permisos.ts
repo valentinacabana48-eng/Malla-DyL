@@ -19,7 +19,8 @@ export type Perm =
   | 'solicitudes_responder'
   | 'vista_previa'
   | 'vista_previa_imprimir'
-  | 'extras';
+  | 'extras'
+  | 'turnos_sucursal';
 
 export type UserRole = 'admin' | 'lector' | 'asistencia' | 'personalizado' | 'pendiente';
 
@@ -73,6 +74,10 @@ export const PERM_GROUPS: { modulo: string; perms: { perm: Perm; label: string }
     ],
   },
   { modulo: 'Extras', perms: [{ perm: 'extras', label: 'Ver, anotar e imprimir' }] },
+  {
+    modulo: 'Turnos',
+    perms: [{ perm: 'turnos_sucursal', label: 'Crear los de su sucursal' }],
+  },
 ];
 
 export const ALL_PERMS: Perm[] = PERM_GROUPS.flatMap((g) => g.perms.map((p) => p.perm));
