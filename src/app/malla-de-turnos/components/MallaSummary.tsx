@@ -206,6 +206,30 @@ type DaySource = {
   dayIdx: number;
 };
 
+// Minutos de la hora de salida (si pasa la medianoche, se suma un día)
+function salidaMins(start: string, end: string): number | null {
+  const m = (t: string) => {
+    const x = /^(\d{1,2}):(\d{2})/.exec(t || '');
+    return x ? parseInt(x[1], 10) * 60 + parseInt(x[2], 10) : null;
+  };
+  const a = m(start);
+  const b = m(end);
+  if (a === null || b === null) return null;
+  return b <= a ? b + 1440 : b;
+}
+
+/** Margen para contar como «cierra»: sale hasta 30 minutos antes del último turno del día */
+const MARGEN_CIERRE = 30;
+
+// Cuántas cierran el día: las que salen a la hora del último turno del día (o hasta 30 min antes)
+function contarCierre(salidas: number[]): { cierran: number; hora: string | null } {
+  if (salidas.length === 0) return { cierran: 0, hora: null };
+  const ultima = Math.max(...salidas);
+  const m = ultima % 1440;
+  const hora = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  return { cierran: salidas.filter((s) => s >= ultima - MARGEN_CIERRE).length, hora };
+}
+
 // Returns per-day, per-hour entry counts for a week range
 function buildWeeklySummary(
   workers: Worker[],
@@ -213,7 +237,13 @@ function buildWeeklySummary(
   shifts: Record<string, Shift>,
   startDay: number,
   endDay: number
-): { day: number; hourMap: Record<string, number>; descanso: number }[] {
+): {
+  day: number;
+  hourMap: Record<string, number>;
+  descanso: number;
+  cierran: number;
+  horaCierre: string | null;
+}[] {
   const slotHour = (time: string) => parseInt(time.split(':')[0], 10);
   const result = [];
   for (let d = startDay; d <= endDay; d++) {
@@ -223,6 +253,7 @@ function buildWeeklySummary(
       hourMap[h] = 0;
     });
     let descanso = 0;
+    const salidas: number[] = [];
 
     workers.forEach((w) => {
       const sched = scheduleData[w.id] || [];
@@ -241,9 +272,12 @@ function buildWeeklySummary(
       HOUR_SLOTS.forEach((h) => {
         if (slotHour(h) === startH) hourMap[h]++;
       });
+      const salida = salidaMins(shift.start, shift.end);
+      if (salida !== null) salidas.push(salida);
     });
 
-    result.push({ day: d, hourMap, descanso });
+    const cierre = contarCierre(salidas);
+    result.push({ day: d, hourMap, descanso, cierran: cierre.cierran, horaCierre: cierre.hora });
   }
   return result;
 }
@@ -830,6 +864,8 @@ export default function MallaSummary({
     manana: number;
     tarde: number;
     descanso: number;
+    cierran: number;
+    horaCierre: string | null;
     colaciones: number[];
   }[] => {
     const toMins = (t: string) => {
@@ -841,6 +877,8 @@ export default function MallaSummary({
       manana: number;
       tarde: number;
       descanso: number;
+      cierran: number;
+      horaCierre: string | null;
       colaciones: number[];
     }[] = [];
     for (let d = 0; d < daysInMonth; d++) {
@@ -848,6 +886,7 @@ export default function MallaSummary({
       let tarde = 0;
       let descanso = 0;
       const colacionSet = new Set<number>();
+      const salidas: number[] = [];
       workers.forEach((w) => {
         const sched = scheduleData[w.id] || [];
         const workerSpecialDays = specialDaysData[w.id] || {};
@@ -864,13 +903,18 @@ export default function MallaSummary({
         const startMins = toMins(shift.start);
         if (startMins <= 600) manana++;
         else tarde++;
+        const salida = salidaMins(shift.start, shift.end);
+        if (salida !== null) salidas.push(salida);
         if ((shift.colacion || 0) > 0) colacionSet.add(shift.colacion);
       });
+      const cierre = contarCierre(salidas);
       result.push({
         day: d + 1,
         manana,
         tarde,
         descanso,
+        cierran: cierre.cierran,
+        horaCierre: cierre.hora,
         colaciones: Array.from(colacionSet).sort((a, b) => a - b),
       });
     }
@@ -1025,6 +1069,14 @@ export default function MallaSummary({
   // Grand total per day (mañana + tarde)
   const getDayGrandTotal = (day: number): number =>
     getBlockDayTotal(day, MANANA_HOURS) + getBlockDayTotal(day, TARDE_HOURS);
+
+  // Cuántas cierran cada día y a qué hora es el cierre
+  const getCierre = (day: number): { cierran: number; hora: string | null } => {
+    const dayData = weeklySummary.find((d) => d.day === day);
+    return dayData
+      ? { cierran: dayData.cierran, hora: dayData.horaCierre }
+      : { cierran: 0, hora: null };
+  };
 
   // Descanso per day
   const getDescanso = (day: number): number => {
@@ -1396,6 +1448,37 @@ export default function MallaSummary({
                     ))}
                   </tr>
 
+                  {/* ── CIERRAN ROW: las que están hasta el final (de tarde o de día completo) ── */}
+                  <tr className="border-b-2 border-violet-300" style={{ background: '#ede9fe' }}>
+                    <td
+                      colSpan={2}
+                      className="text-center px-3 py-2 font-bold text-violet-800 text-[11px] uppercase tracking-wide border-r border-violet-300"
+                    >
+                      🔒 Cierran
+                    </td>
+                    {weekDays.map((day) => {
+                      const { cierran, hora } = getCierre(day);
+                      return (
+                        <td
+                          key={`cie-${day}`}
+                          style={otherMonthCell(day)}
+                          className="text-center px-2 py-1.5 border-r border-violet-200"
+                        >
+                          {cierran > 0 ? (
+                            <>
+                              <div className="font-bold text-violet-900 text-[13px]">{cierran}</div>
+                              {hora && (
+                                <div className="text-[9px] text-violet-500">a las {hora}</div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-violet-200 text-[11px]">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
                   {/* ── DESCANSO ROW ── */}
                   <tr className="border-b border-slate-200" style={{ background: '#f1f5f9' }}>
                     <td
@@ -1598,6 +1681,18 @@ export default function MallaSummary({
                             <div className="text-[9px] text-orange-500">desde 11:00</div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-50 border border-violet-200">
+                          <span className="text-sm">🔒</span>
+                          <div>
+                            <div className="text-[10px] font-semibold text-violet-600 uppercase tracking-wide">
+                              Cierran
+                            </div>
+                            <div className="text-lg font-bold text-violet-700">{d.cierran}</div>
+                            {d.horaCierre && (
+                              <div className="text-[9px] text-violet-500">a las {d.horaCierre}</div>
+                            )}
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
                           <span className="text-sm">🌙</span>
                           <div>
@@ -1638,6 +1733,9 @@ export default function MallaSummary({
                         <th className="text-center px-2 py-2 text-[10px] font-semibold text-orange-600 uppercase tracking-wide">
                           🌇 Tarde
                         </th>
+                        <th className="text-center px-2 py-2 text-[10px] font-semibold text-violet-600 uppercase tracking-wide">
+                          🔒 Cierran
+                        </th>
                         <th className="text-center px-2 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                           🌙 Descanso
                         </th>
@@ -1647,52 +1745,66 @@ export default function MallaSummary({
                       </tr>
                     </thead>
                     <tbody>
-                      {perDayMTD.map(({ day, manana, tarde, descanso, colaciones }, i) => (
-                        <tr
-                          key={`mtd-${day}`}
-                          className={`border-b border-border/30 ${i % 2 === 0 ? '' : 'bg-muted/5'}`}
-                        >
-                          <td className="px-3 py-1.5 font-bold text-foreground text-[11px] border-r border-border/50">
-                            {day}
-                          </td>
-                          <td className="px-2 py-1.5 text-center">
-                            {manana > 0 ? (
-                              <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-amber-100 text-amber-700 font-bold text-[11px]">
-                                {manana}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground/30 text-[10px]">—</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-1.5 text-center">
-                            {tarde > 0 ? (
-                              <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-orange-100 text-orange-700 font-bold text-[11px]">
-                                {tarde}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground/30 text-[10px]">—</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-1.5 text-center">
-                            {descanso > 0 ? (
-                              <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-slate-200 text-slate-600 font-bold text-[11px]">
-                                {descanso}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground/30 text-[10px]">—</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-1.5 text-center">
-                            {colaciones.length > 0 ? (
-                              <span className="inline-flex items-center justify-center h-6 px-1.5 rounded-md bg-purple-100 text-purple-700 font-bold text-[11px]">
-                                {colaciones.map((c) => `${c}m`).join(' / ')}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground/30 text-[10px]">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {perDayMTD.map(
+                        ({ day, manana, tarde, cierran, horaCierre, descanso, colaciones }, i) => (
+                          <tr
+                            key={`mtd-${day}`}
+                            className={`border-b border-border/30 ${i % 2 === 0 ? '' : 'bg-muted/5'}`}
+                          >
+                            <td className="px-3 py-1.5 font-bold text-foreground text-[11px] border-r border-border/50">
+                              {day}
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              {manana > 0 ? (
+                                <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-amber-100 text-amber-700 font-bold text-[11px]">
+                                  {manana}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/30 text-[10px]">—</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              {tarde > 0 ? (
+                                <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-orange-100 text-orange-700 font-bold text-[11px]">
+                                  {tarde}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/30 text-[10px]">—</span>
+                              )}
+                            </td>
+                            <td
+                              className="px-2 py-1.5 text-center"
+                              title={horaCierre ? `Cierre a las ${horaCierre}` : undefined}
+                            >
+                              {cierran > 0 ? (
+                                <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-violet-100 text-violet-700 font-bold text-[11px]">
+                                  {cierran}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/30 text-[10px]">—</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              {descanso > 0 ? (
+                                <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-md bg-slate-200 text-slate-600 font-bold text-[11px]">
+                                  {descanso}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/30 text-[10px]">—</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              {colaciones.length > 0 ? (
+                                <span className="inline-flex items-center justify-center h-6 px-1.5 rounded-md bg-purple-100 text-purple-700 font-bold text-[11px]">
+                                  {colaciones.map((c) => `${c}m`).join(' / ')}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/30 text-[10px]">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      )}
                     </tbody>
                   </table>
                 </div>
