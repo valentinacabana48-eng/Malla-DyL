@@ -93,7 +93,8 @@ export default function SolicitudesContent() {
     registrarLicencia,
   } = useAppContext();
   // Sin la casilla "Responder" se ven las solicitudes, pero no se aprueban ni rechazan
-  const canResponder = useAuth().can('solicitudes_responder');
+  const { can, solicitudesCargos } = useAuth();
+  const canResponder = can('solicitudes_responder');
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [missingTable, setMissingTable] = useState(false);
@@ -248,8 +249,17 @@ export default function SolicitudesContent() {
     return { cargo: w.cargo || 'personas', changed, min };
   };
 
-  const pending = requests.filter((r) => r.status === 'pendiente');
-  const answered = requests
+  // Solo las de los cargos elegidos para esta persona en Ajustes → Usuarios
+  const mine = solicitudesCargos
+    ? requests.filter((r) =>
+        [r.worker_id, r.companera_id].some((id) => {
+          const c = id ? workerById.get(id)?.cargo : undefined;
+          return !!c && solicitudesCargos.includes(c);
+        })
+      )
+    : requests;
+  const pending = mine.filter((r) => r.status === 'pendiente');
+  const answered = mine
     .filter((r) => r.status !== 'pendiente')
     .sort((a, b) => (b.resolved_at ?? b.created_at).localeCompare(a.resolved_at ?? a.created_at));
   const list = tab === 'pendientes' ? pending : answered;

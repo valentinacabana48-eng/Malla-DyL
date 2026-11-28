@@ -2123,6 +2123,8 @@ interface UserRoleRow {
   areas?: string[] | null;
   /** null = todos los cargos */
   cargos?: string[] | null;
+  /** De qué cargos ve y responde solicitudes; null = de todos los que ve */
+  solicitudes_cargos?: string[] | null;
   /** Solo rol personalizado: qué puede hacer */
   permisos?: string[] | null;
   nombre?: string;
@@ -2130,7 +2132,10 @@ interface UserRoleRow {
 }
 
 type UserChanges = Partial<
-  Pick<UserRoleRow, 'role' | 'sucursales' | 'areas' | 'cargos' | 'permisos' | 'nombre'>
+  Pick<
+    UserRoleRow,
+    'role' | 'sucursales' | 'areas' | 'cargos' | 'solicitudes_cargos' | 'permisos' | 'nombre'
+  >
 >;
 
 const emptyToNull = (list: string[] | null | undefined) => (list && list.length > 0 ? list : null);
@@ -2161,6 +2166,7 @@ function UsersPanel() {
         sucursales: emptyToNull(r.sucursales),
         areas: emptyToNull(r.areas),
         cargos: emptyToNull(r.cargos),
+        solicitudes_cargos: emptyToNull(r.solicitudes_cargos),
       }))
     );
     setLoading(false);
@@ -2462,6 +2468,46 @@ function UsersPanel() {
                             </button>
                           ))}
                         </div>
+                        {perms.has('solicitudes') && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className="text-xs text-muted-foreground mr-1 w-[60px]"
+                              title="De qué cargos ve y responde solicitudes"
+                            >
+                              Solicitudes:
+                            </span>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => saveUser(r.user_id, { solicitudes_cargos: null })}
+                              className={chip(!r.solicitudes_cargos)}
+                            >
+                              Todos
+                            </button>
+                            {allCargos
+                              .filter(
+                                (c) =>
+                                  !r.cargos ||
+                                  r.cargos.includes(c) ||
+                                  !!r.solicitudes_cargos?.includes(c)
+                              )
+                              .map((c) => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    saveUser(r.user_id, {
+                                      solicitudes_cargos: toggleIn(r.solicitudes_cargos, c),
+                                    })
+                                  }
+                                  className={chip(!!r.solicitudes_cargos?.includes(c))}
+                                >
+                                  {c}
+                                </button>
+                              ))}
+                          </div>
+                        )}
                       </>
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
